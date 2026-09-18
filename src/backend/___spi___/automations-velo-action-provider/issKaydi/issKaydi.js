@@ -1,36 +1,17 @@
 import wixData from 'wix-data';
+import { getNextIsId } from '../../../isIdCounter';
 
 export const invoke = async ({ payload }) => {
 
-    // 1. Sayaçtan sıradaki numarayı al
-    const result = await wixData.query("sistem")
-        .eq("anahtar", "IS_ID_SAYAC")
-        .find({
-            suppressAuth: true,
-            consistentRead: true
-        });
+    // İş ID'sini atomik olarak al (bkz. isIdCounter.js — hapBackend.web.js
+    // ile aynı, paylaşılan uygulama; artık iki ayrı sayaç mantığı yok)
+    const isId = await getNextIsId();
 
-    const item = result.items[0];
+    // NOT: payload burada hâlâ kullanılmıyor — bu, ayrı bir bilinen
+    // sorun (bkz. denetim raporu, "issKaydi.js payload kullanmıyor").
+    // Kapsam dışı tutuldu, sadece sayaç sorunu burada çözüldü.
 
-    if (!item) {
-        throw new Error("IS_ID_SAYAC kaydı bulunamadı.");
-    }
-
-    // 2. Sayacı artır
-    const yeniNumara = Number(item.sayac || 0) + 1;
-
-    item.sayac = yeniNumara;
-
-    await wixData.update(
-        "sistem",
-        item,
-        { suppressAuth: true }
-    );
-
-    // 3. İş ID oluştur
-    const isId = String(yeniNumara).padStart(6, "0");
-
-    // 4. İş kaydını oluştur
+    // İş kaydını oluştur
   const kayit = await wixData.insert(
     "IsKayitlari",
     {
