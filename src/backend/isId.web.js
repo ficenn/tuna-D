@@ -1,33 +1,14 @@
+// Bu dosya artık kendi sayaç mantığını içermiyor — tek gerçek uygulama
+// isIdCounter.js'de. grep ile repo genelinde hiçbir yerden import
+// edilmediği doğrulandı, ama Wix Editor tarafında (bu repo dışında)
+// referans veren bir şey olabileceği ihtimaline karşı silinmek yerine
+// ince bir sarmalayıcıya çevrildi.
 import { webMethod, Permissions } from 'wix-web-module';
-import wixData from 'wix-data';
+import { getNextIsId as getNextIsIdShared } from './isIdCounter';
 
 export const getNextIsId = webMethod(
     Permissions.Admin,
     async () => {
-
-        const result = await wixData.query("sistem")
-            .eq("anahtar", "IS_ID_SAYAC")
-            .find({
-                suppressAuth: true,
-                consistentRead: true
-            });
-
-        const item = result.items[0];
-
-        if (!item) {
-            throw new Error("IS_ID_SAYAC kaydı bulunamadı.");
-        }
-
-        const yeniNumara = Number(item.sayac || 0) + 1;
-
-        item.sayac = yeniNumara;
-
-        await wixData.update(
-            "sistem",
-            item,
-            { suppressAuth: true }
-        );
-
-        return String(yeniNumara).padStart(6, "0");
+        return getNextIsIdShared();
     }
 );

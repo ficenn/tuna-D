@@ -1,5 +1,6 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
+import { getNextIsId } from './isIdCounter';
 
 export const isKaydiniOlustur = webMethod(
   Permissions.Admin,
@@ -11,36 +12,11 @@ export const isKaydiniOlustur = webMethod(
       throw new Error('İş açıklaması boş.');
     }
 
-    // 1. İş ID sayacını oku
-const sonuc = await wixData
-  .query('sistem')
-  .eq('anahtar', 'IS_ID_SAYAC')
-  .limit(1)
-  .find({ suppressAuth: true });
+    // İş ID'sini atomik olarak al (bkz. isIdCounter.js — artık tek,
+    // paylaşılan uygulama; eski oku/artır/yaz mantığı kaldırıldı)
+    const isId = await getNextIsId();
 
-if (!sonuc.items.length) {
-  throw new Error('IS_ID_SAYAC kaydı bulunamadı.');
-}
-
-const sayacKaydi = sonuc.items[0];
-
-    const mevcutSayac = Number(sayacKaydi.sayac || 0);
-    const yeniSayac = mevcutSayac + 1;
-
-    // 2. Sayacı güncelle
-    await wixData.update(
-      'sistem',
-      {
-        ...sayacKaydi,
-        sayac: yeniSayac
-      },
-      { suppressAuth: true }
-    );
-
-    // 3. İş ID oluştur
-    const isId = String(yeniSayac).padStart(6, '0');
-
-    // 4. İş kaydını oluştur
+    // İş kaydını oluştur
     const kayit = await wixData.insert(
       'IsKayitlari',
       {
