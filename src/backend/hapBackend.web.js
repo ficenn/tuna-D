@@ -1,6 +1,5 @@
-import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
-import { getNextIsId } from './isIdCounter';
+import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
 
 export const isKaydiniOlustur = webMethod(
   Permissions.Admin,
@@ -12,22 +11,14 @@ export const isKaydiniOlustur = webMethod(
       throw new Error('İş açıklaması boş.');
     }
 
-    // İş ID'sini atomik olarak al (bkz. isIdCounter.js — artık tek,
-    // paylaşılan uygulama; eski oku/artır/yaz mantığı kaldırıldı)
-    const isId = await getNextIsId();
-
-    // İş kaydını oluştur
-    const kayit = await wixData.insert(
-      'IsKayitlari',
-      {
-        tarih: new Date(),
-        isId: isId,
-        source: 'Panel',
-        description: temizAciklama,
-        status: 'İlk kayıt'
-      },
-      { suppressAuth: true }
-    );
+    // İş kaydını, çakışma durumunda otomatik yeniden deneyerek oluştur
+    // (bkz. isIdCounter.js)
+    const { kayit, isId } = await isKaydiEkleYenidenDenemeli({
+      tarih: new Date(),
+      source: 'Panel',
+      description: temizAciklama,
+      status: 'İlk kayıt'
+    });
 
     console.log('İş kaydı oluşturuldu:', isId);
 
