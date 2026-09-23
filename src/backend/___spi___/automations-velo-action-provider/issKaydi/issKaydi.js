@@ -1,5 +1,16 @@
 import wixData from 'wix-data';
+import { fetch } from 'wix-fetch';
+import { secrets } from 'wix-secrets-backend.v2';
+import { elevate } from 'wix-auth';
 import { isKaydiEkleYenidenDenemeli } from '../../../isIdCounter';
+
+const elevatedGetSecretValue = elevate(secrets.getSecretValue);
+
+const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
+
+// *** GEÇİCİ — Bolt tarafında henüz bir şey yok, bu URL gerçek bir
+// endpoint'e işaret etmiyor. Bolt tarafı kurulunca burası güncellenmeli. ***
+const BOLT_URL = 'https://TODO-bolt-endpoint-buraya.example.com/hap-is';
 
 export const invoke = async ({ payload }) => {
 
@@ -56,6 +67,42 @@ export const invoke = async ({ payload }) => {
       hata
     );
     throw hata;
+  }
+
+  // 3. Bolt'a "işle" isteği gönder — fire-and-forget. Sadece Bolt'un
+  // isteği KABUL ettiğini (hızlı bir HTTP cevabı) doğruluyoruz, AI
+  // sonucunu beklemiyoruz (Section 9'daki timeout dersi burada da
+  // geçerli — senkron beklemek yerine, sonuç ayrıca /_functions/
+  // boltSonucu üzerinden geri gelecek).
+  //
+  // ÖNEMLİ: Bu adımın başarısız olması İş Kaydı'nı veya Bağlam
+  // kaydını GERİ ALMIYOR — ikisi de zaten oluştu. Bolt'a ulaşılamazsa
+  // sadece logluyoruz; iş kaydı hâlâ geçerli, sadece YZ işlemesi
+  // henüz tetiklenmemiş olur.
+  try {
+    const secret = await elevatedGetSecretValue(SECRET_ADI);
+    const yanit = await fetch(BOLT_URL, {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${secret}`
+      },
+      body: JSON.stringify({ isId, answers })
+    });
+
+    if (!yanit.ok) {
+      console.warn(
+        `issKaydi: Bolt isteği kabul edilmedi (isId=${isId}), status: ${yanit.status}`
+      );
+    } else {
+      console.log(`issKaydi: Bolt'a işleme isteği gönderildi: ${isId}`);
+    }
+  } catch (hata) {
+    console.error(
+      `issKaydi: Bolt'a ulaşılamadı (isId=${isId}) — iş kaydı ve bağlam yine de oluşturuldu:`,
+      hata
+    );
+    // Kasıtlı olarak fırlatmıyoruz — bu adım opsiyonel/best-effort.
   }
 
   return {};
