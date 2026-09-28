@@ -24,9 +24,16 @@ export async function post_boltSonucu(request) {
   // 1. Yetki kontrolü
   let beklenenSecret;
   try {
-    beklenenSecret = await elevatedGetSecretValue(SECRET_ADI);
+    // getSecretValue { value: '...' } nesnesi döndürür, düz metin değil.
+    const sonuc = await elevatedGetSecretValue(SECRET_ADI);
+    beklenenSecret = typeof sonuc === 'string' ? sonuc : sonuc?.value;
   } catch (hata) {
     console.error('boltSonucu: secret okunamadı:', hata);
+    return serverError({ body: { hata: 'Sunucu yapılandırma hatası.' } });
+  }
+  if (!beklenenSecret) {
+    // Boş secret ile "Bearer " başlığı kabul edilmesin.
+    console.error('boltSonucu: secret boş.');
     return serverError({ body: { hata: 'Sunucu yapılandırma hatası.' } });
   }
 

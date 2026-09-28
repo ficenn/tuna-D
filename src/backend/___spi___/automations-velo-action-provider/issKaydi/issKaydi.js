@@ -80,7 +80,10 @@ export const invoke = async ({ payload }) => {
   // sadece logluyoruz; iş kaydı hâlâ geçerli, sadece YZ işlemesi
   // henüz tetiklenmemiş olur.
   try {
-    const secret = await elevatedGetSecretValue(SECRET_ADI);
+    // getSecretValue { value: '...' } nesnesi döndürür, düz metin değil.
+    const secretSonuc = await elevatedGetSecretValue(SECRET_ADI);
+    const secret = typeof secretSonuc === 'string' ? secretSonuc : secretSonuc?.value;
+    if (!secret) throw new Error('BOLT_WEBHOOK_SECRET boş veya okunamadı.');
     const yanit = await fetch(BOLT_URL, {
       method: 'post',
       headers: {
