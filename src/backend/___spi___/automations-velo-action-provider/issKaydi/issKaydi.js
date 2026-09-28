@@ -8,9 +8,9 @@ const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 
 const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
 
-// *** GEÇİCİ — Bolt tarafında henüz bir şey yok, bu URL gerçek bir
-// endpoint'e işaret etmiyor. Bolt tarafı kurulunca burası güncellenmeli. ***
-const BOLT_URL = 'https://TODO-bolt-endpoint-buraya.example.com/hap-is';
+// Bolt/Netlify gatekeeper (hap-intake). Secret'ı kontrol eder, 202 döner,
+// YZ işini arka planda yapar ve sonucu /_functions/boltSonucu'ya gönderir.
+const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
 
 export const invoke = async ({ payload }) => {
 
