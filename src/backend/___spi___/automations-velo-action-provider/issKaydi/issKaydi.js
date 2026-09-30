@@ -12,11 +12,31 @@ const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
 // YZ işini arka planda yapar ve sonucu /_functions/boltSonucu'ya gönderir.
 const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
 
+// KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır
+// ve büyük/küçük harf duyarsız (Türkçe kurallarıyla) karşılaştırılır; formda
+// başlığın sonuna boşluk eklenmesi gibi küçük değişiklikler eşleşmeyi bozmasın.
+function knCevabi(answers, soruBasligi) {
+  const normallestir = (metin) => String(metin).trim().toLocaleLowerCase('tr-TR');
+  const aranan = normallestir(soruBasligi);
+  for (const [anahtar, deger] of Object.entries(answers || {})) {
+    if (normallestir(anahtar) === aranan) {
+      return typeof deger === 'string' ? deger.trim() : String(deger ?? '').trim();
+    }
+  }
+  return '';
+}
+
 export const invoke = async ({ payload }) => {
 
-  const email = payload?.email || '';
-  const dil = payload?.language || '';
   const answers = payload?.answers || {};
+  const email = payload?.email || knCevabi(answers, 'E-posta Adresi');
+  const dil = payload?.language || '';
+
+  // Kişi / işletme kimliği — İş Kaydı'nda doğrudan alan olarak tutulur.
+  // Tam cevaplar yine sadece IsBaglamlari.answers içinde kalır.
+  const isim = knCevabi(answers, 'İsim');
+  const isletmeAdi = knCevabi(answers, 'İşletme veya pratik adı');
+  const konum = knCevabi(answers, 'Konum');
 
   let isId;
 
@@ -28,6 +48,9 @@ export const invoke = async ({ payload }) => {
       tarih: new Date(),
       email,
       dil,
+      isim,
+      isletmeAdi,
+      konum,
       source: 'Webhook',
       status: 'İlk kayıt'
     });
