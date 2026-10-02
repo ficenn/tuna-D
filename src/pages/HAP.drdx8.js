@@ -14,8 +14,8 @@ const FORM = '#isGirisiFormu';
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
-  if (/permission/i.test(m)) {
-    return 'Yetki yok: bu sayfayı site yöneticisi olarak giriş yapmışken açın.';
+  if (/permission|NotAuthorized|unauthori[sz]ed/i.test(m) || (hata && /NotAuthorized/.test(hata.name || ''))) {
+    return 'Yetki yok: bu sayfayı site yöneticisi olarak giriş yaparak açın.';
   }
   return m;
 }
