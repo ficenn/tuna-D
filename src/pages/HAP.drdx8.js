@@ -31,6 +31,11 @@ async function secenekleriGonder() {
 }
 
 $w.onReady(function () {
+  if (typeof $w(FORM).onMessage !== 'function') {
+    console.error(`İş Girişi: sayfada ${FORM} ID'li bir "Embed HTML" öğesi yok. Editor'de HTML öğesinin ID'sini kontrol edin.`);
+    return;
+  }
+
   $w(FORM).onMessage(async (olay) => {
     const mesaj = olay.data || {};
 

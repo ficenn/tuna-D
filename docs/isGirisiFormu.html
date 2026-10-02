@@ -76,10 +76,9 @@
         <label><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
         <label><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
         <label><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
-        <label><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
+        <label class="tam"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
         <label><span class="ad">Vergi no</span><input type="text" id="m_taxNumber" maxlength="300"></label>
         <label><span class="ad">Vergi dairesi</span><input type="text" id="m_taxOffice" maxlength="300"></label>
-        <label class="tam"><span class="ad">Fatura bilgileri</span><input type="text" id="m_invoiceInfo" maxlength="1000"></label>
       </div>
     </fieldset>
 
@@ -116,9 +115,10 @@
 
 <script>
 (function () {
-  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address', 'taxNumber', 'taxOffice', 'invoiceInfo'];
+  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address', 'taxNumber', 'taxOffice'];
   var musteriler = [];
   var bekliyor = false;
+  var secenekGeldi = false;
   var $ = function (id) { return document.getElementById(id); };
 
   function gonder(mesaj) { window.parent.postMessage(mesaj, '*'); }
@@ -227,6 +227,8 @@
     if (e.source !== window.parent) return;
     var d = e.data || {};
     if (d.tip === 'secenekler') {
+      var ilk = !secenekGeldi;
+      secenekGeldi = true;
       var v = d.veri || {};
       musteriler = v.musteriler || [];
       secenekDoldur($('kategori'), v.kategoriler || {});
@@ -235,6 +237,7 @@
       musteriListesiDoldur(d.seciliMusteriId || $('musteriSec').value);
       kategoriDegisti();
       if (!bekliyor) $('kaydet').disabled = false;
+      if (ilk) mesajGoster('', '');
     } else if (d.tip === 'sonuc') {
       bekliyor = false; $('kaydet').disabled = false;
       if (d.basarili) {
@@ -251,10 +254,23 @@
         mesajGoster('hata', d.hata || 'Kaydedilemedi.');
       }
     } else if (d.tip === 'yuklemeHatasi') {
+      secenekGeldi = true;
       mesajGoster('hata', d.hata || 'Form yüklenemedi.');
     }
   });
 
+  // Sayfa kodu hazır olana kadar "hazir" mesajını tekrarla (sayfa kodu
+  // formdan sonra yüklenebilir). 10 sn içinde cevap yoksa sorunu göster.
+  var deneme = 0;
+  mesajGoster('bilgi', 'Form yükleniyor…');
+  var zamanlayici = setInterval(function () {
+    if (secenekGeldi) { clearInterval(zamanlayici); return; }
+    deneme++;
+    gonder({ tip: 'hazir' });
+    if (deneme === 10) {
+      mesajGoster('hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin. Sorun sürerse: Editor\'de bu HTML öğesinin ID\'si "isGirisiFormu" olmalı ve site Publish edilmiş olmalı.');
+    }
+  }, 1000);
   gonder({ tip: 'hazir' });
 })();
 </script>
