@@ -12,6 +12,7 @@
 
 import { ok, badRequest, serverError } from 'wix-http-functions';
 import wixData from 'wix-data';
+import { gecisYap } from './suleyman';
 import { secrets } from 'wix-secrets-backend.v2';
 import { elevate } from 'wix-auth';
 
@@ -96,5 +97,20 @@ export async function post_boltSonucu(request) {
   }
 
   console.log(`boltSonucu: ${isId} için bağlam güncellendi.`);
+
+  // 5. Aşama 1 tamamlandı → Aşama 2 / sırada (Süleyman). Sadece ileri:
+  // iş zaten Aşama 1'in ötesindeyse (ör. YZ'siz tamamlandıysa) dokunulmaz.
+  // Hata olursa 500 döner; Netlify tekrar dener (her iki adım da tekrar
+  // edilmeye güvenlidir).
+  try {
+    const gecis = await gecisYap(isId, 'yz_hazirlik_tamamlandi', { tur: 'yz', kim: 'Memur YZ' });
+    if (!gecis.basarili) {
+      console.warn(`boltSonucu: ${isId} aşama geçişi yapılmadı: ${gecis.mesaj}`);
+    }
+  } catch (hata) {
+    console.error(`boltSonucu: ${isId} aşama geçişi başarısız:`, hata);
+    return serverError({ body: { hata: 'Aşama geçişi başarısız.' } });
+  }
+
   return ok({ body: { basarili: true } });
 }

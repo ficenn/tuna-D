@@ -3,6 +3,7 @@ import { fetch } from 'wix-fetch';
 import { secrets } from 'wix-secrets-backend.v2';
 import { elevate } from 'wix-auth';
 import { isKaydiEkleYenidenDenemeli } from '../../../isIdCounter';
+import { ilkKayitAlanlari } from '../../../suleyman';
 
 const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 
@@ -52,7 +53,10 @@ export const invoke = async ({ payload }) => {
       isletmeAdi,
       konum,
       source: 'Webhook',
-      status: 'İlk kayıt'
+      // Aşama 1 başlar; YZ analizi (hazırlık) çalışırken durum: devam_ediyor.
+      // YZ sonucu gelince Süleyman işi Aşama 2 / sırada'ya taşır
+      // (bkz. http-functions.js → post_boltSonucu).
+      ...ilkKayitAlanlari({ tur: 'sistem', kim: 'KN' })
     });
     isId = sonuc.isId;
     console.log('issKaydi: İş kaydı oluşturuldu:', isId);
