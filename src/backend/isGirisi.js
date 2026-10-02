@@ -54,9 +54,10 @@ export const MUSTERI_ALANLARI = {
   phone: 'Telefon',
   address: 'Adres',
   taxNumber: 'Vergi No',
-  taxOffice: 'Vergi Dairesi',
-  invoiceInfo: 'Fatura Bilgileri'
+  taxOffice: 'Vergi Dairesi'
 };
+// Not: Musteriler'deki invoiceInfo (Fatura Bilgileri) alanı formdan
+// kaldırıldı (gereksiz bulundu); koleksiyonda duruyor, kod ona dokunmuyor.
 
 const UZUNLUK = { kisa: 300, uzun: 5000 };
 
@@ -88,7 +89,7 @@ function terminKontrol(deger) {
 function musteriBilgisi(ham) {
   const sonuc = {};
   for (const alan of Object.keys(MUSTERI_ALANLARI)) {
-    const sinir = alan === 'address' || alan === 'invoiceInfo' ? 1000 : UZUNLUK.kisa;
+    const sinir = alan === 'address' ? 1000 : UZUNLUK.kisa;
     const s = metin(ham?.[alan], sinir, MUSTERI_ALANLARI[alan]);
     if (s) sonuc[alan] = s;
   }
@@ -104,7 +105,7 @@ function musteriBilgisi(ham) {
 // {
 //   kategori: 'A',
 //   musteri: { id: '<Musteriler _id>' }  veya  { id: null }   (yeni müşteri)
-//   musteriBilgileri: { name, contactName, email, phone, address, taxNumber, taxOffice, invoiceInfo },
+//   musteriBilgileri: { name, contactName, email, phone, address, taxNumber, taxOffice },
 //   aciklama, kapsam, notlar,
 //   termin: 'YYYY-MM-DD' | '',
 //   aciliyet: 'normal' | 'acil',
