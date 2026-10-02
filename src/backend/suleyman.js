@@ -97,13 +97,14 @@ export function mevcutDurum(kayit) {
 
 // Yeni İş Kaydı'nın yaşam döngüsü alanları: Aşama 1 başlar.
 // isKaydiEkleYenidenDenemeli'ye verilen kayıt verisine eklenir.
-export function ilkKayitAlanlari(aktor) {
+// `not` isteğe bağlıdır (ör. İş Girişi'nde kaynak ve müşteri değişiklikleri).
+export function ilkKayitAlanlari(aktor, not) {
   const a = aktorKontrol(aktor);
   const yeni = { asama: '1_giris', durum: 'devam_ediyor', masa: null };
   return {
     asama: yeni.asama,
     status: yeni.durum,
-    gecmis: [gecmisKaydi({ islem: 'kayit_olusturuldu', onceki: null, yeni, aktor: a })]
+    gecmis: [gecmisKaydi({ islem: 'kayit_olusturuldu', onceki: null, yeni, aktor: a, not })]
   };
 }
 
