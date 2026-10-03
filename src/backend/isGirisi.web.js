@@ -7,6 +7,7 @@ import {
   KAYNAKLAR,
   ACILIYETLER,
   musterileriListele,
+  musteriKaydet,
   isGirisiKaydet
 } from './isGirisi';
 import { ASAMALAR, DURUMLAR } from './suleyman';
@@ -30,6 +31,11 @@ export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
     aciliyetler: ACILIYETLER,
     musteriler: await musterileriListele()
   };
+});
+
+// "Yeni müşteri" penceresinden müşteri kaydı.
+export const yeniMusteriKaydet = webMethod(Permissions.Admin, async (bilgiler) => {
+  return musteriKaydet(bilgiler);
 });
 
 export const isGirisiniKaydet = webMethod(Permissions.Admin, async (girdi) => {

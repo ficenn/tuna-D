@@ -20,8 +20,9 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--zemin); color: var(--metin);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  form { max-width: 820px; margin: 0 auto; padding: 16px; }
+  form#form { max-width: 820px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
   .alt { color: var(--soluk); margin: 0 0 16px; font-size: 14px; }
   fieldset { border: 1px solid var(--cizgi); border-radius: 8px; padding: 12px 14px 4px; margin: 0 0 14px; }
   legend { font-weight: 600; padding: 0 6px; }
@@ -29,9 +30,9 @@
   .tam { grid-column: 1 / -1; }
   @media (max-width: 560px) { .izgara { grid-template-columns: 1fr; } }
   label { display: block; margin-bottom: 10px; font-size: 14px; color: var(--soluk); }
-  label > span.ad { display: block; margin-bottom: 3px; color: var(--metin); font-weight: 500; }
+  label > span.ad, span.ad { display: block; margin-bottom: 3px; color: var(--metin); font-weight: 500; font-size: 14px; }
   .zorunlu::after { content: " *"; color: var(--hata); }
-  input[type=text], input[type=email], input[type=tel], input[type=date], select, textarea {
+  input[type=text], input[type=email], input[type=tel], input[type=date], input[type=search], select, textarea {
     width: 100%; padding: 8px 10px; border: 1px solid var(--cizgi); border-radius: 6px;
     font: inherit; color: var(--metin); background: #fff; }
   textarea { resize: vertical; min-height: 64px; }
@@ -43,13 +44,35 @@
   button { font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 6px; border: 1px solid var(--vurgu);
            background: var(--vurgu); color: #fff; cursor: pointer; }
   button.ikincil { background: #fff; color: var(--vurgu); }
+  button.kucuk { padding: 4px 10px; font-size: 13px; }
   button:disabled { opacity: .55; cursor: wait; }
-  #mesaj { margin: 14px 0 0; padding: 10px 12px; border-radius: 6px; display: none; white-space: pre-line; }
-  #mesaj.hata { display: block; background: var(--hata-zemin); color: var(--hata); }
-  #mesaj.tamam { display: block; background: var(--tamam-zemin); color: var(--tamam); }
-  #mesaj.bilgi { display: block; background: var(--vurgu-acik); color: var(--vurgu); }
-  #mesaj.uyari { display: block; background: var(--uyari-zemin); color: #6b4e00; }
+  .mesaj { margin: 14px 0 0; padding: 10px 12px; border-radius: 6px; display: none; white-space: pre-line; }
+  .mesaj.hata { display: block; background: var(--hata-zemin); color: var(--hata); }
+  .mesaj.tamam { display: block; background: var(--tamam-zemin); color: var(--tamam); }
+  .mesaj.bilgi { display: block; background: var(--vurgu-acik); color: var(--vurgu); }
+  .mesaj.uyari { display: block; background: var(--uyari-zemin); color: #6b4e00; }
   [hidden] { display: none !important; }
+
+  /* Müşteri arama kutusu */
+  .arama { position: relative; margin-bottom: 10px; }
+  .oneriler { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; margin: 2px 0 0; padding: 4px 0;
+              list-style: none; background: #fff; border: 1px solid var(--cizgi); border-radius: 6px;
+              box-shadow: 0 6px 18px rgba(0,0,0,.08); max-height: 260px; overflow-y: auto; }
+  .oneriler li { padding: 8px 12px; cursor: pointer; }
+  .oneriler li .kucuk-metin { color: var(--soluk); font-size: 13px; }
+  .oneriler li.aktif, .oneriler li:hover { background: var(--vurgu-acik); }
+  .oneriler li.yeni { color: var(--vurgu); font-weight: 600; border-top: 1px solid var(--cizgi); }
+  .oneriler li.bos { color: var(--soluk); cursor: default; background: none; }
+  .secili { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 8px 12px; border: 1px solid var(--vurgu); border-radius: 6px; background: var(--vurgu-acik); margin-bottom: 10px; }
+  .secili .ad-buyuk { font-weight: 600; }
+  .secili .kucuk-metin { color: var(--soluk); font-size: 13px; }
+
+  /* Yeni müşteri penceresi */
+  .perde { position: fixed; inset: 0; background: rgba(20,24,30,.45); display: flex; align-items: flex-start;
+           justify-content: center; padding: 40px 16px; z-index: 10; overflow-y: auto; }
+  .pencere { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; padding: 18px 18px 14px;
+             box-shadow: 0 12px 40px rgba(0,0,0,.25); }
 </style>
 </head>
 <body>
@@ -67,19 +90,17 @@
   <div id="kategoriA">
     <fieldset>
       <legend>Müşteri</legend>
-      <label><span class="ad zorunlu">Müşteri</span>
-        <select id="musteriSec"></select>
-      </label>
-      <p class="ipucu" id="musteriIpucu">Yeni müşteri: bilgilerini aşağıya yazın.</p>
-      <div class="izgara">
-        <label class="tam"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
-        <label><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
-        <label><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
-        <label><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
-        <label class="tam"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
-        <label><span class="ad">Vergi no</span><input type="text" id="m_taxNumber" maxlength="300"></label>
-        <label><span class="ad">Vergi dairesi</span><input type="text" id="m_taxOffice" maxlength="300"></label>
+      <span class="ad zorunlu">İşi sipariş eden müşteri</span>
+      <div class="arama" id="aramaKutusu">
+        <input type="search" id="musteriAra" autocomplete="off" placeholder="Ad, kişi, telefon veya e-posta yazın…"
+               role="combobox" aria-expanded="false" aria-controls="oneriler" aria-autocomplete="list">
+        <ul class="oneriler" id="oneriler" role="listbox" hidden></ul>
       </div>
+      <div class="secili" id="seciliMusteri" hidden>
+        <div><div class="ad-buyuk" id="seciliAd"></div><div class="kucuk-metin" id="seciliDetay"></div></div>
+        <button type="button" class="ikincil kucuk" id="musteriDegistir">Değiştir</button>
+      </div>
+      <p class="ipucu" id="musteriIpucu">Kayıtlı değilse listenin altındaki “Yeni müşteri ekle”yi seçin.</p>
     </fieldset>
 
     <fieldset>
@@ -101,7 +122,7 @@
           <input type="date" id="termin">
         </label>
       </div>
-      <span class="ad" style="font-size:14px;font-weight:500">Aciliyet</span>
+      <span class="ad">Aciliyet</span>
       <div class="radyo" id="aciliyet"></div>
     </fieldset>
   </div>
@@ -110,22 +131,44 @@
     <button type="submit" id="kaydet" disabled>İşi kaydet</button>
     <button type="button" class="ikincil" id="temizle">Temizle</button>
   </div>
-  <div id="mesaj" role="status" aria-live="polite"></div>
+  <div id="mesaj" class="mesaj" role="status" aria-live="polite"></div>
 </form>
+
+<!-- Yeni müşteri penceresi -->
+<div class="perde" id="perde" hidden>
+  <div class="pencere" role="dialog" aria-modal="true" aria-labelledby="pencereBaslik">
+    <form id="musteriFormu" novalidate>
+      <h2 id="pencereBaslik">Yeni müşteri</h2>
+      <div class="izgara">
+        <label class="tam"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
+        <label><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
+        <label><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
+        <label><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
+        <label class="tam"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
+      </div>
+      <div class="butonlar">
+        <button type="submit" id="musteriKaydet">Müşteriyi kaydet</button>
+        <button type="button" class="ikincil" id="musteriVazgec">Vazgeç</button>
+      </div>
+      <div id="musteriMesaj" class="mesaj" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+</div>
 
 <script>
 (function () {
-  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address', 'taxNumber', 'taxOffice'];
+  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address'];
   var musteriler = [];
+  var secili = null;          // seçili müşteri nesnesi
+  var aktifIndex = -1;        // klavye ile vurgulanan öneri
   var bekliyor = false;
+  var musteriBekliyor = false;
   var secenekGeldi = false;
   var $ = function (id) { return document.getElementById(id); };
 
   function gonder(mesaj) { window.parent.postMessage(mesaj, '*'); }
-
-  function mesajGoster(tur, metin) {
-    var m = $('mesaj'); m.className = tur || ''; m.textContent = metin || '';
-  }
+  function mesajGoster(id, tur, metin) { var m = $(id); m.className = 'mesaj ' + (tur || ''); m.textContent = metin || ''; }
+  function kucult(s) { return String(s || '').toLocaleLowerCase('tr-TR').trim(); }
 
   function secenekDoldur(select, sozluk, bosEtiket) {
     var onceki = select.value;
@@ -139,32 +182,6 @@
     if (onceki && sozluk[onceki] !== undefined) select.value = onceki;
   }
 
-  function musteriListesiDoldur(seciliId) {
-    var s = $('musteriSec');
-    s.innerHTML = '';
-    var yeni = document.createElement('option'); yeni.value = ''; yeni.textContent = '— Yeni müşteri —'; s.appendChild(yeni);
-    musteriler.forEach(function (m) {
-      var o = document.createElement('option'); o.value = m.id;
-      o.textContent = m.name + (m.contactName ? ' (' + m.contactName + ')' : '');
-      s.appendChild(o);
-    });
-    s.value = seciliId || '';
-    musteriSecildi();
-  }
-
-  function musteriSecildi() {
-    var id = $('musteriSec').value;
-    var m = musteriler.filter(function (x) { return x.id === id; })[0];
-    MUSTERI_ALANLARI.forEach(function (a) { $('m_' + a).value = m ? (m[a] || '') : ''; });
-    $('musteriIpucu').textContent = m
-      ? 'Mevcut müşteri. Değiştirdiğiniz veya eklediğiniz bilgiler müşteri kaydına işlenir; boş bırakılan alan silinmez.'
-      : 'Yeni müşteri: bilgilerini aşağıya yazın.';
-  }
-
-  function kategoriDegisti() {
-    $('kategoriA').hidden = $('kategori').value !== 'A';
-  }
-
   function aciliyetDoldur(sozluk) {
     var kutu = $('aciliyet');
     var onceki = (kutu.querySelector('input:checked') || {}).value || 'normal';
@@ -176,20 +193,143 @@
     });
   }
 
+  // ---- Müşteri arama ----
+
+  function detayMetni(m) {
+    return [m.contactName, m.phone, m.email].filter(Boolean).join(' · ');
+  }
+
+  function eslesenler(sorgu) {
+    var q = kucult(sorgu);
+    if (!q) return musteriler.slice(0, 8);
+    return musteriler.filter(function (m) {
+      return [m.name, m.contactName, m.phone, m.email].some(function (v) { return kucult(v).indexOf(q) !== -1; });
+    }).slice(0, 8);
+  }
+
+  function onerileriGoster() {
+    var liste = $('oneriler');
+    var sorgu = $('musteriAra').value.trim();
+    var sonuc = eslesenler(sorgu);
+    liste.innerHTML = '';
+    aktifIndex = -1;
+
+    if (!sonuc.length) {
+      var bos = document.createElement('li'); bos.className = 'bos';
+      bos.textContent = musteriler.length ? 'Eşleşen kayıtlı müşteri yok.' : 'Henüz kayıtlı müşteri yok.';
+      liste.appendChild(bos);
+    }
+    sonuc.forEach(function (m) {
+      var li = document.createElement('li'); li.setAttribute('role', 'option');
+      var ad = document.createElement('div'); ad.textContent = m.name;
+      var d = detayMetni(m);
+      li.appendChild(ad);
+      if (d) { var k = document.createElement('div'); k.className = 'kucuk-metin'; k.textContent = d; li.appendChild(k); }
+      li.addEventListener('mousedown', function (e) { e.preventDefault(); musteriSec(m); });
+      liste.appendChild(li);
+    });
+    var yeni = document.createElement('li'); yeni.className = 'yeni'; yeni.setAttribute('role', 'option');
+    yeni.textContent = sorgu ? '+ Yeni müşteri ekle: “' + sorgu + '”' : '+ Yeni müşteri ekle';
+    yeni.addEventListener('mousedown', function (e) { e.preventDefault(); pencereAc(sorgu); });
+    liste.appendChild(yeni);
+
+    liste.hidden = false;
+    $('musteriAra').setAttribute('aria-expanded', 'true');
+  }
+
+  function onerileriKapat() {
+    $('oneriler').hidden = true;
+    $('musteriAra').setAttribute('aria-expanded', 'false');
+  }
+
+  function aktifiGuncelle(yon) {
+    var ogeler = [].slice.call($('oneriler').querySelectorAll('li:not(.bos)'));
+    if (!ogeler.length) return;
+    aktifIndex = (aktifIndex + yon + ogeler.length) % ogeler.length;
+    ogeler.forEach(function (li, i) { li.classList.toggle('aktif', i === aktifIndex); });
+    ogeler[aktifIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  function musteriSec(m) {
+    secili = m;
+    $('seciliAd').textContent = m.name;
+    $('seciliDetay').textContent = detayMetni(m);
+    $('seciliMusteri').hidden = false;
+    $('aramaKutusu').hidden = true;
+    $('musteriIpucu').hidden = true;
+    $('musteriAra').value = '';
+    onerileriKapat();
+  }
+
+  function seciliyiKaldir() {
+    secili = null;
+    $('seciliMusteri').hidden = true;
+    $('aramaKutusu').hidden = false;
+    $('musteriIpucu').hidden = false;
+    $('musteriAra').value = '';
+  }
+
+  $('musteriAra').addEventListener('input', onerileriGoster);
+  $('musteriAra').addEventListener('focus', onerileriGoster);
+  $('musteriAra').addEventListener('blur', function () { setTimeout(onerileriKapat, 120); });
+  $('musteriAra').addEventListener('keydown', function (e) {
+    if ($('oneriler').hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) onerileriGoster();
+    if (e.key === 'ArrowDown') { e.preventDefault(); aktifiGuncelle(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); aktifiGuncelle(-1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      var ogeler = $('oneriler').querySelectorAll('li:not(.bos)');
+      if (aktifIndex >= 0 && ogeler[aktifIndex]) ogeler[aktifIndex].dispatchEvent(new MouseEvent('mousedown'));
+    } else if (e.key === 'Escape') { onerileriKapat(); }
+  });
+  $('musteriDegistir').addEventListener('click', function () { seciliyiKaldir(); $('musteriAra').focus(); });
+
+  // ---- Yeni müşteri penceresi ----
+
+  function pencereAc(ad) {
+    onerileriKapat();
+    MUSTERI_ALANLARI.forEach(function (a) { $('m_' + a).value = ''; });
+    $('m_name').value = ad || '';
+    mesajGoster('musteriMesaj', '', '');
+    $('perde').hidden = false;
+    $('m_name').focus();
+  }
+  function pencereKapat() { if (!musteriBekliyor) $('perde').hidden = true; }
+
+  $('musteriVazgec').addEventListener('click', pencereKapat);
+  $('perde').addEventListener('mousedown', function (e) { if (e.target === $('perde')) pencereKapat(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('perde').hidden) pencereKapat(); });
+
+  $('musteriFormu').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (musteriBekliyor) return;
+    var bilgiler = {};
+    MUSTERI_ALANLARI.forEach(function (a) { bilgiler[a] = $('m_' + a).value.trim(); });
+    if (!bilgiler.name) { mesajGoster('musteriMesaj', 'hata', 'Ad / Unvan zorunlu.'); return; }
+    if (bilgiler.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bilgiler.email)) {
+      mesajGoster('musteriMesaj', 'hata', 'E-posta adresi geçersiz.'); return;
+    }
+    musteriBekliyor = true; $('musteriKaydet').disabled = true;
+    mesajGoster('musteriMesaj', 'bilgi', 'Kaydediliyor…');
+    gonder({ tip: 'musteriEkle', bilgiler: bilgiler });
+  });
+
+  // ---- İş formu ----
+
+  function kategoriDegisti() { $('kategoriA').hidden = $('kategori').value !== 'A'; }
+
   function formuTemizle() {
     ['aciklama', 'kapsam', 'notlar', 'termin'].forEach(function (id) { $(id).value = ''; });
     $('kaynak').value = '';
     var n = document.querySelector('input[name=aciliyet][value=normal]'); if (n) n.checked = true;
-    $('musteriSec').value = ''; musteriSecildi();
+    seciliyiKaldir();
   }
 
   function girdiTopla() {
-    var bilgiler = {};
-    MUSTERI_ALANLARI.forEach(function (a) { bilgiler[a] = $('m_' + a).value.trim(); });
     return {
       kategori: $('kategori').value,
-      musteri: { id: $('musteriSec').value || null },
-      musteriBilgileri: bilgiler,
+      musteri: { id: secili ? secili.id : null },
+      musteriBilgileri: {},
       aciklama: $('aciklama').value.trim(),
       kapsam: $('kapsam').value.trim(),
       notlar: $('notlar').value.trim(),
@@ -199,29 +339,29 @@
     };
   }
 
-  // Hızlı kontrol (asıl kontrol sunucuda yapılır).
   function onKontrol(g) {
     if (!g.kategori) return 'Kategori seçin.';
-    if (!g.musteri.id && !g.musteriBilgileri.name) return 'Müşteri seçin ya da yeni müşterinin adını / unvanını yazın.';
+    if (!g.musteri.id) return 'Müşteri seçin. Kayıtlı değilse “Yeni müşteri ekle” ile kaydedin.';
     if (!g.aciklama) return 'Açıklama zorunlu: iş ne?';
     if (!g.kaynak) return 'İşin nereden geldiğini (kaynak) seçin.';
     return null;
   }
 
   $('kategori').addEventListener('change', kategoriDegisti);
-  $('musteriSec').addEventListener('change', musteriSecildi);
-  $('temizle').addEventListener('click', function () { formuTemizle(); mesajGoster('', ''); });
+  $('temizle').addEventListener('click', function () { formuTemizle(); mesajGoster('mesaj', '', ''); });
 
   $('form').addEventListener('submit', function (e) {
     e.preventDefault();
     if (bekliyor) return;
     var g = girdiTopla();
     var hata = onKontrol(g);
-    if (hata) { mesajGoster('hata', hata); return; }
+    if (hata) { mesajGoster('mesaj', 'hata', hata); return; }
     bekliyor = true; $('kaydet').disabled = true;
-    mesajGoster('bilgi', 'Kaydediliyor…');
+    mesajGoster('mesaj', 'bilgi', 'Kaydediliyor…');
     gonder({ tip: 'kaydet', girdi: g });
   });
+
+  // ---- Sayfa kodundan gelen mesajlar ----
 
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent) return;
@@ -234,41 +374,49 @@
       secenekDoldur($('kategori'), v.kategoriler || {});
       secenekDoldur($('kaynak'), v.kaynaklar || {}, 'Seçin…');
       aciliyetDoldur(v.aciliyetler || {});
-      musteriListesiDoldur(d.seciliMusteriId || $('musteriSec').value);
       kategoriDegisti();
       if (!bekliyor) $('kaydet').disabled = false;
-      if (ilk) mesajGoster('', '');
+      if (ilk) mesajGoster('mesaj', '', '');
+    } else if (d.tip === 'musteriEklendi') {
+      musteriBekliyor = false; $('musteriKaydet').disabled = false;
+      if (d.basarili && d.musteri) {
+        musteriler.push(d.musteri);
+        musteriler.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'tr'); });
+        $('perde').hidden = true;
+        musteriSec(d.musteri);
+      } else {
+        mesajGoster('musteriMesaj', 'hata', d.hata || 'Müşteri kaydedilemedi.');
+      }
     } else if (d.tip === 'sonuc') {
       bekliyor = false; $('kaydet').disabled = false;
       if (d.basarili) {
         var r = d.veri;
-        var metin = 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi +
-          (r.yeniMusteri ? '\nYeni müşteri kaydı açıldı.' : '');
+        var metin = 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi;
         if (r.uyarilar && r.uyarilar.length) {
-          mesajGoster('uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
+          mesajGoster('mesaj', 'uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
         } else {
-          mesajGoster('tamam', metin);
+          mesajGoster('mesaj', 'tamam', metin);
         }
         formuTemizle();
       } else {
-        mesajGoster('hata', d.hata || 'Kaydedilemedi.');
+        mesajGoster('mesaj', 'hata', d.hata || 'Kaydedilemedi.');
       }
     } else if (d.tip === 'yuklemeHatasi') {
       secenekGeldi = true;
-      mesajGoster('hata', d.hata || 'Form yüklenemedi.');
+      mesajGoster('mesaj', 'hata', d.hata || 'Form yüklenemedi.');
     }
   });
 
   // Sayfa kodu hazır olana kadar "hazir" mesajını tekrarla (sayfa kodu
   // formdan sonra yüklenebilir). 10 sn içinde cevap yoksa sorunu göster.
   var deneme = 0;
-  mesajGoster('bilgi', 'Form yükleniyor…');
+  mesajGoster('mesaj', 'bilgi', 'Form yükleniyor…');
   var zamanlayici = setInterval(function () {
     if (secenekGeldi) { clearInterval(zamanlayici); return; }
     deneme++;
     gonder({ tip: 'hazir' });
     if (deneme === 10) {
-      mesajGoster('hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin. Sorun sürerse: Editor\'de bu HTML öğesinin ID\'si "isGirisiFormu" olmalı ve site Publish edilmiş olmalı.');
+      mesajGoster('mesaj', 'hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin. Sorun sürerse: Editor\'de bu HTML öğesinin ID\'si "isGirisiFormu" olmalı ve site Publish edilmiş olmalı.');
     }
   }, 1000);
   gonder({ tip: 'hazir' });
