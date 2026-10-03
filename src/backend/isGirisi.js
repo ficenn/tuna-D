@@ -192,6 +192,18 @@ async function yeniMusteriOlustur(bilgiler) {
   return wixData.insert(MUSTERI_KOLEKSIYONU, { ...bilgiler }, { suppressAuth: true });
 }
 
+// İş Girişi'ndeki "Yeni müşteri" penceresi: müşteriyi hemen kaydeder ve
+// listede kullanılacak biçimde döner. Ad / Unvan zorunlu; aynı adla ikinci
+// kayıt açılmaz.
+export async function musteriKaydet(ham) {
+  const bilgiler = musteriBilgisi(ham);
+  if (!bilgiler.name) throw new Error('Müşterinin adı / unvanı zorunlu.');
+  const m = await yeniMusteriOlustur(bilgiler);
+  const o = { id: m._id };
+  for (const alan of Object.keys(MUSTERI_ALANLARI)) o[alan] = m[alan] || '';
+  return o;
+}
+
 // --- Geçmiş notu ---
 
 function girisNotuOlustur(v, musteriAdi, yeniMusteri, degisiklikler) {

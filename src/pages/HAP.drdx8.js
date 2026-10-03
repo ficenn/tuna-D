@@ -4,18 +4,20 @@
 // (kaynak: docs/isGirisiFormu.html). Form ile bu kod mesajlaşır:
 //   form → sayfa: { tip: 'hazir' }              → seçenekleri gönder
 //   form → sayfa: { tip: 'kaydet', girdi }      → backend'e kaydet
+//   form → sayfa: { tip: 'musteriEkle', bilgiler } → yeni müşteriyi kaydet
 //   sayfa → form: { tip: 'secenekler', veri }
 //   sayfa → form: { tip: 'sonuc', basarili, veri | hata }
+//   sayfa → form: { tip: 'musteriEklendi', basarili, musteri | hata }
 // Veriye yalnızca backend (isGirisi.web.js, yalnızca yöneticiler) erişir.
 
-import { isGirisiSecenekleri, isGirisiniKaydet } from 'backend/isGirisi.web';
+import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet } from 'backend/isGirisi.web';
 
 const FORM = '#isGirisiFormu';
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
   if (/permission|NotAuthorized|unauthori[sz]ed/i.test(m) || (hata && /NotAuthorized/.test(hata.name || ''))) {
-    return 'Yetki yok: bu sayfayı site yöneticisi olarak giriş yaparak açın.';
+    return 'Yetki yok: bu sayfayı site yöneticisi olarak giriş yapmışken açın.';
   }
   return m;
 }
@@ -44,12 +46,21 @@ $w.onReady(function () {
       return;
     }
 
+    if (mesaj.tip === 'musteriEkle') {
+      try {
+        const musteri = await yeniMusteriKaydet(mesaj.bilgiler);
+        $w(FORM).postMessage({ tip: 'musteriEklendi', basarili: true, musteri });
+      } catch (hata) {
+        console.error('Müşteri kaydedilemedi:', hata);
+        $w(FORM).postMessage({ tip: 'musteriEklendi', basarili: false, hata: hataMetni(hata) });
+      }
+      return;
+    }
+
     if (mesaj.tip === 'kaydet') {
       try {
         const sonuc = await isGirisiniKaydet(mesaj.girdi);
         $w(FORM).postMessage({ tip: 'sonuc', basarili: true, veri: sonuc });
-        // Yeni müşteri eklendiyse listede görünsün.
-        await secenekleriGonder();
       } catch (hata) {
         console.error('İş kaydedilemedi:', hata);
         $w(FORM).postMessage({ tip: 'sonuc', basarili: false, hata: hataMetni(hata) });
