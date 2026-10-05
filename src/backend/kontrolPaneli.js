@@ -5,30 +5,36 @@
 //
 // Panelde yalnızca yaşam döngüsü dönemindeki işler görünür (asama alanı
 // olanlar, 000035 ve sonrası). Daha eski test kayıtlarının asama'sı yok;
-// onlar panele girmez ve "takıldı" uyarısı üretmez.
+// onlar panele girmez.
+//
+// Üç kategori aynı listede görünür:
+//   A Ticari (7 aşamalı akış), B Pazarlama ve C Rutin (kısa yol:
+//   Yapılacak → Yapıldı).
 
 import wixData from 'wix-data';
-import { ASAMALAR, DURUMLAR } from './suleyman';
-import { KAYNAKLAR, ACILIYETLER, KATEGORILER } from './isGirisi';
+import { ASAMALAR, DURUMLAR, KISA_YOL_ASAMASI, KISA_YOL_ETIKETLERI } from './suleyman';
+import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER } from './isGirisi';
 
 const IS = 'IsKayitlari';
 const BAGLAM = 'IsBaglamlari';
 const MUSTERI = 'Musteriler';
 
-// Uyarı eşikleri (dakika / gün). Pilotta ayarlanabilir.
+// Eşikler. Pilotta ayarlanabilir.
 export const ESIKLER = {
-  yzBeklemeDakika: 15,      // KN işi Aşama 1'de bu kadar kalırsa: YZ gelmedi
-  terminYakinGun: 3,        // Bitiş tarihine bu kadar gün (veya az) kaldıysa uyar
-  siradaBeklemeGun: 3       // Aşama 2 / sırada bu kadar gündür bekliyorsa uyar
+  yzBeklemeDakika: 15,   // KN işi Aşama 1'de bu kadar kalırsa: YZ gelmedi (Bugün kartına düşer)
+  yaklasiyorGun: 7       // Bitiş tarihine 1..N gün kalan işler "Yaklaşıyor" kartında
 };
 
 const KAPALI_DURUMLAR = ['tamamlandi', 'iptal'];
+
+const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Rutin' };
 
 const ISLEM_ETIKETLERI = {
   kayit_olusturuldu: 'Kayıt oluşturuldu',
   yz_hazirlik_tamamlandi: 'YZ analizi geldi, Aşama 1 tamamlandı',
   hazirlik_yz_olmadan_tamamlandi: 'Aşama 1 YZ analizi olmadan tamamlandı',
-  giris_tamamlandi: 'Giriş tamamlandı'
+  giris_tamamlandi: 'Giriş tamamlandı',
+  takip_tamamlandi: 'Yapıldı olarak işaretlendi'
 };
 
 const ESKI_KAYNAKLAR = { Webhook: 'KN (form)', Panel: 'Panel' };
@@ -42,12 +48,6 @@ function kaynakEtiketi(kod) {
 // İstanbul saatine göre bugünün tarihi: 'YYYY-MM-DD'
 export function bugunTR(simdi = new Date()) {
   return simdi.toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
-}
-
-// 'YYYY-MM-DD' → 'GG.AA.YYYY' (uyarı metinleri için)
-function tarihTR(t) {
-  const [y, m, d] = String(t).split('-');
-  return `${d}.${m}.${y}`;
 }
 
 function gunFarki(tarihMetni, bugun) {
@@ -80,6 +80,15 @@ function baslik(k) {
   return '(açıklama yok)';
 }
 
+function asamaEtiketi(asama) {
+  return asama === KISA_YOL_ASAMASI ? KISA_YOL_ETIKETLERI.asama : ASAMALAR[asama];
+}
+
+function durumEtiketi(asama, durum) {
+  if (asama === KISA_YOL_ASAMASI) return KISA_YOL_ETIKETLERI[durum] || DURUMLAR[durum];
+  return DURUMLAR[durum];
+}
+
 async function musteriAdlari(idler) {
   const benzersiz = [...new Set(idler.filter(Boolean))];
   if (!benzersiz.length) return {};
@@ -94,20 +103,32 @@ async function musteriAdlari(idler) {
 }
 
 function satir(k, musteriler) {
-  const asama = ASAMALAR[k.asama] ? k.asama : '1_giris';
-  const durum = DURUMLAR[k.status] ? k.status : 'devam_ediyor';
+  const kisaYol = k.asama === KISA_YOL_ASAMASI;
+  const asama = kisaYol ? KISA_YOL_ASAMASI : (ASAMALAR[k.asama] ? k.asama : '1_giris');
+  const durum = DURUMLAR[k.status] ? k.status : (kisaYol ? 'sirada' : 'devam_ediyor');
+  const kategoriKod = k.kategori || (k.source === 'Webhook' ? 'KN' : null);
   const musteriAdi = k.musteri ? musteriler[k.musteri] || '(müşteri bulunamadı)' : null;
+
+  let musteri = musteriAdi;
+  if (!musteri && k.source === 'Webhook') musteri = k.isletmeAdi || k.isim || '—';
+  if (!musteri && k.kategori === 'B') musteri = 'Pazarlama masası';
+  if (!musteri && k.kategori === 'C') musteri = 'İşletme';
+
   return {
     isId: k.isId,
     baslik: baslik(k),
-    musteri: musteriAdi || (k.source === 'Webhook' ? (k.isletmeAdi || k.isim || '—') : '—'),
+    musteri: musteri || '—',
     kaynak: kaynakEtiketi(k.source),
-    kategori: k.kategori ? (KATEGORILER[k.kategori] || k.kategori) : null,
+    kategoriKod,
+    kategori: k.kategori ? (KATEGORILER[k.kategori] || k.kategori) : (kategoriKod === 'KN' ? 'Kontrol Noktası' : null),
+    kategoriKisa: KATEGORI_KISA[k.kategori] || (kategoriKod === 'KN' ? 'KN' : '—'),
+    modul: k.modul ? (MODULLER[k.modul] || k.modul) : null,
+    kisaYol,
     asama,
-    asamaEtiketi: ASAMALAR[asama],
-    asamaNo: Number(asama.split('_')[0]),
+    asamaEtiketi: asamaEtiketi(asama),
+    asamaNo: kisaYol ? null : Number(asama.split('_')[0]),
     durum,
-    durumEtiketi: DURUMLAR[durum],
+    durumEtiketi: durumEtiketi(asama, durum),
     aciliyet: k.aciliyet || null,
     aciliyetEtiketi: k.aciliyet ? (ACILIYETLER[k.aciliyet] || k.aciliyet) : null,
     termin: terminMetni(k.termin),
@@ -116,11 +137,15 @@ function satir(k, musteriler) {
   };
 }
 
-// --- Uyarılar ("Buraya Dikkat") ---
-
-export function uyarilariHesapla(isler, simdi = new Date()) {
+// --- Gündem: "Bugün" ve "Yaklaşıyor" kartları ---
+//
+// Bugün: bitiş tarihi geçmiş veya bugün olan açık işler + YZ analizi
+//   gelmeyen (Aşama 1'de takılan) KN işleri.
+// Yaklaşıyor: bitiş tarihine 1..7 gün kalan açık işler.
+export function gundemHesapla(isler, simdi = new Date()) {
   const bugun = bugunTR(simdi);
-  const uyarilar = [];
+  const bugunListe = [];
+  const yaklasiyor = [];
 
   for (const i of isler) {
     if (!i.acik) continue;
@@ -128,40 +153,29 @@ export function uyarilariHesapla(isler, simdi = new Date()) {
     if (i.asama === '1_giris' && i.durum === 'devam_ediyor' && i.olusturma) {
       const dakika = (simdi - new Date(i.olusturma)) / 60000;
       if (dakika >= ESIKLER.yzBeklemeDakika) {
-        uyarilar.push({
-          tur: 'hata', isId: i.isId, sira: 1,
-          baslik: `${i.isId}: YZ analizi gelmedi`,
-          aciklama: `${Math.floor(dakika)} dakikadır Aşama 1'de. Detaydan YZ'siz tamamlayabilirsiniz.`
-        });
+        bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
+          neden: 'YZ analizi gelmedi — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Takıldı', tur: 'hata' });
       }
     }
 
     if (i.termin) {
       const kalan = gunFarki(i.termin, bugun);
       if (kalan < 0) {
-        uyarilar.push({ tur: 'hata', isId: i.isId, sira: 2,
-          baslik: `${i.isId}: bitiş tarihi geçti`, aciklama: `${i.baslik} — bitiş tarihi ${tarihTR(i.termin)} (${-kalan} gün önce).` });
-      } else if (kalan <= ESIKLER.terminYakinGun) {
-        uyarilar.push({ tur: 'uyari', isId: i.isId, sira: 3,
-          baslik: `${i.isId}: ${kalan === 0 ? 'bitiş tarihi bugün' : 'bitiş tarihine ' + kalan + ' gün var'}`, aciklama: `${i.baslik} — bitiş tarihi ${tarihTR(i.termin)}.` });
-      }
-    }
-
-    if (i.aciliyet === 'acil' && i.durum === 'sirada') {
-      uyarilar.push({ tur: 'uyari', isId: i.isId, sira: 4,
-        baslik: `${i.isId}: acil iş sırada bekliyor`, aciklama: `${i.baslik} — ${i.asamaEtiketi}.` });
-    }
-
-    if (i.asama === '2_degerlendirme' && i.durum === 'sirada' && i.olusturma) {
-      const gun = (simdi - new Date(i.olusturma)) / 86400000;
-      if (gun >= ESIKLER.siradaBeklemeGun) {
-        uyarilar.push({ tur: 'bilgi', isId: i.isId, sira: 5,
-          baslik: `${i.isId}: ${Math.floor(gun)} gündür değerlendirme bekliyor`, aciklama: i.baslik });
+        bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 1, termin: i.termin,
+          neden: `Bitiş tarihi ${-kalan} gün önceydi.`, etiket: 'Gecikti', tur: 'hata' });
+      } else if (kalan === 0) {
+        bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 2, termin: i.termin,
+          neden: i.musteri && i.musteri !== '—' ? i.musteri : i.kategoriKisa, etiket: 'Bugün', tur: 'bugun' });
+      } else if (kalan <= ESIKLER.yaklasiyorGun) {
+        yaklasiyor.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, termin: i.termin, kalan,
+          neden: i.musteri && i.musteri !== '—' ? i.musteri : i.kategoriKisa });
       }
     }
   }
 
-  return uyarilar.sort((a, b) => a.sira - b.sira || String(a.isId).localeCompare(String(b.isId)));
+  bugunListe.sort((a, b) => a.sira - b.sira || String(a.termin || '').localeCompare(String(b.termin || '')));
+  yaklasiyor.sort((a, b) => a.kalan - b.kalan || String(a.isId).localeCompare(String(b.isId)));
+  return { bugun: bugunListe, yaklasiyor };
 }
 
 // --- Panel verisi ---
@@ -176,21 +190,13 @@ export async function panelVerisiHazirla(simdi = new Date()) {
 
   const musteriler = await musteriAdlari(sonuc.items.map((k) => k.musteri));
   const isler = sonuc.items.map((k) => satir(k, musteriler));
-
-  const sayilar = { toplam: isler.length, acik: 0 };
-  for (const d of Object.keys(DURUMLAR)) sayilar[d] = 0;
-  for (const i of isler) {
-    sayilar[i.durum] = (sayilar[i.durum] || 0) + 1;
-    if (i.acik) sayilar.acik += 1;
-  }
+  const gundem = gundemHesapla(isler, simdi);
 
   return {
     olusturulma: simdi.toISOString(),
     bugun: bugunTR(simdi),
-    durumlar: DURUMLAR,
-    asamalar: ASAMALAR,
-    sayilar,
-    uyarilar: uyarilariHesapla(isler, simdi),
+    kategoriler: KATEGORI_KISA,
+    gundem,
     isler
   };
 }
@@ -233,11 +239,16 @@ export async function isDetayiHazirla(isId) {
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
     islem: ISLEM_ETIKETLERI[g.islem] || g.islem,
-    onceki: g.onceki ? `${ASAMALAR[g.onceki.asama] || g.onceki.asama} / ${DURUMLAR[g.onceki.durum] || g.onceki.durum}` : null,
-    yeni: g.yeni ? `${ASAMALAR[g.yeni.asama] || g.yeni.asama} / ${DURUMLAR[g.yeni.durum] || g.yeni.durum}` : null,
+    onceki: g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
+    yeni: g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
     not: g.not || null
   }));
+
+  // Şu an mümkün olan insan işlemleri (Süleyman'ın izin verdiği):
+  const islemler = [];
+  if (ozet.asama === '1_giris' && ozet.durum === 'devam_ediyor') islemler.push('yzsizTamamla');
+  if (ozet.asama === KISA_YOL_ASAMASI && ozet.durum === 'sirada') islemler.push('yapildi');
 
   return {
     ...ozet,
@@ -249,7 +260,6 @@ export async function isDetayiHazirla(isId) {
       : null,
     cevaplar,
     gecmis,
-    // Şu an mümkün olan insan işlemleri (Süleyman'ın izin verdiği):
-    islemler: ozet.asama === '1_giris' && ozet.durum === 'devam_ediyor' ? ['yzsizTamamla'] : []
+    islemler
   };
 }

@@ -36,3 +36,18 @@ export const asama1YzOlmadanTamamla = webMethod(
     return sonuc;
   }
 );
+
+// Kısa yol (B Pazarlama, C Rutin): "Yapıldı" — işi kapatır.
+export const takipYapildi = webMethod(
+  Permissions.Admin,
+  async (isId) => {
+    if (!isId) throw new Error('İş ID eksik.');
+    const sonuc = await gecisYap(
+      String(isId),
+      'takip_tamamlandi',
+      { tur: 'insan', kim: await istekYapan() }
+    );
+    if (!sonuc.basarili) throw new Error(sonuc.mesaj);
+    return sonuc;
+  }
+);

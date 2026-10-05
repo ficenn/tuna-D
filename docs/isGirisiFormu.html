@@ -87,8 +87,8 @@
     </label>
   </fieldset>
 
-  <div id="kategoriA">
-    <fieldset>
+  <div id="isAlanlari">
+    <fieldset id="musteriAlani">
       <legend>Müşteri</legend>
       <span class="ad zorunlu">İşi sipariş eden müşteri</span>
       <div class="arama" id="aramaKutusu">
@@ -104,26 +104,31 @@
     </fieldset>
 
     <fieldset>
-      <legend>İş</legend>
+      <legend id="isBaslik">İş</legend>
+      <label id="modulAlani" hidden><span class="ad zorunlu">Modül</span>
+        <select id="modul"></select>
+      </label>
       <label><span class="ad zorunlu">Açıklama</span>
         <textarea id="aciklama" maxlength="5000" placeholder="İş ne? Tek cümleyle başlayın."></textarea>
       </label>
-      <label><span class="ad">Kapsam</span>
+      <label id="kapsamAlani"><span class="ad">Kapsam</span>
         <textarea id="kapsam" maxlength="5000" placeholder="Neler dahil, neler değil?"></textarea>
       </label>
       <label><span class="ad">Notlar</span>
         <textarea id="notlar" maxlength="5000"></textarea>
       </label>
       <div class="izgara">
-        <label><span class="ad zorunlu">Kaynak</span>
+        <label id="kaynakAlani"><span class="ad zorunlu">Kaynak</span>
           <select id="kaynak"></select>
         </label>
-        <label><span class="ad">Bitiş tarihi</span>
+        <label><span class="ad" id="terminEtiket">Bitiş tarihi</span>
           <input type="date" id="termin">
         </label>
       </div>
-      <span class="ad">Aciliyet</span>
-      <div class="radyo" id="aciliyet"></div>
+      <div id="aciliyetAlani">
+        <span class="ad">Aciliyet</span>
+        <div class="radyo" id="aciliyet"></div>
+      </div>
     </fieldset>
   </div>
 
@@ -316,11 +321,30 @@
 
   // ---- İş formu ----
 
-  function kategoriDegisti() { $('kategoriA').hidden = $('kategori').value !== 'A'; }
+  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade hatırlatma.
+  var KATEGORI_METNI = {
+    A: { baslik: 'İş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
+    B: { baslik: 'Pazarlama işi', aciklama: 'Ne üretilecek / yapılacak? ör. LinkedIn içerik serisi', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
+    C: { baslik: 'Rutin iş', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Hatırlatmayı kaydet' }
+  };
+  function kategoriDegisti() {
+    var k = $('kategori').value;
+    var m = KATEGORI_METNI[k] || KATEGORI_METNI.A;
+    $('isAlanlari').hidden = !k;
+    $('musteriAlani').hidden = k !== 'A';
+    $('kaynakAlani').hidden = k !== 'A';
+    $('modulAlani').hidden = k !== 'B';
+    $('kapsamAlani').hidden = k === 'C';
+    $('aciliyetAlani').hidden = k === 'C';
+    $('isBaslik').textContent = m.baslik;
+    $('aciklama').placeholder = m.aciklama;
+    $('terminEtiket').textContent = m.tarih;
+    $('kaydet').textContent = m.buton;
+  }
 
   function formuTemizle() {
     ['aciklama', 'kapsam', 'notlar', 'termin'].forEach(function (id) { $(id).value = ''; });
-    $('kaynak').value = '';
+    $('kaynak').value = ''; $('modul').value = '';
     var n = document.querySelector('input[name=aciliyet][value=normal]'); if (n) n.checked = true;
     seciliyiKaldir();
   }
@@ -328,6 +352,7 @@
   function girdiTopla() {
     return {
       kategori: $('kategori').value,
+      modul: $('modul').value,
       musteri: { id: secili ? secili.id : null },
       musteriBilgileri: {},
       aciklama: $('aciklama').value.trim(),
@@ -341,9 +366,10 @@
 
   function onKontrol(g) {
     if (!g.kategori) return 'Kategori seçin.';
-    if (!g.musteri.id) return 'Müşteri seçin. Kayıtlı değilse “Yeni müşteri ekle” ile kaydedin.';
-    if (!g.aciklama) return 'Açıklama zorunlu: iş ne?';
-    if (!g.kaynak) return 'İşin nereden geldiğini (kaynak) seçin.';
+    if (g.kategori === 'A' && !g.musteri.id) return 'Müşteri seçin. Kayıtlı değilse “Yeni müşteri ekle” ile kaydedin.';
+    if (g.kategori === 'B' && !g.modul) return 'Modülü seçin (İçerik / Görünürlük).';
+    if (!g.aciklama) return g.kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?';
+    if (g.kategori === 'A' && !g.kaynak) return 'İşin nereden geldiğini (kaynak) seçin.';
     return null;
   }
 
@@ -392,6 +418,7 @@
       musteriler = v.musteriler || [];
       secenekDoldur($('kategori'), v.kategoriler || {});
       secenekDoldur($('kaynak'), v.kaynaklar || {}, 'Seçin…');
+      secenekDoldur($('modul'), v.moduller || {}, 'Seçin…');
       aciliyetDoldur(v.aciliyetler || {});
       kategoriDegisti();
       if (!bekliyor) $('kaydet').disabled = false;
@@ -410,7 +437,9 @@
       bekliyor = false; $('kaydet').disabled = false;
       if (d.basarili) {
         var r = d.veri;
-        var metin = 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi;
+        var metin = r.asama === 'takip'
+          ? 'Kaydedildi: ' + r.isId + '\nYapılacaklar listesinde.'
+          : 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi;
         if (r.uyarilar && r.uyarilar.length) {
           mesajGoster('mesaj', 'uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
         } else {

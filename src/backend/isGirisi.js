@@ -13,12 +13,17 @@
 //   4. Süleyman: insanın girdiği işte girişin kendisi hazırlıktır →
 //      Aşama 1 tamamlanır → Aşama 2 / sırada.
 //
-// Şimdilik yalnızca kategori A (Ticari / Ücretli İş) var. Yeni kategori
-// eklemek için KATEGORILER'e ekleyin; yaşam döngüsü kategoriden bağımsızdır.
+// Kategoriler:
+//   A Ticari / Ücretli İş: müşteri + 7 aşamalı yaşam döngüsü (yukarıdaki akış).
+//   B Pazarlama: Pazarlama masasının kendi işi (İçerik / Görünürlük). Müşteri
+//     yok. Kısa yol: Yapılacak → Yapıldı.
+//   C Rutin: işletmenin kendi yapılacaklar hatırlatması. Müşteri yok.
+//     Kısa yol: Yapılacak → Yapıldı. Tekrar etmez.
+// B ve C'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
 
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
-import { ilkKayitAlanlari, gecisYap } from './suleyman';
+import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap } from './suleyman';
 
 const MUSTERI_KOLEKSIYONU = 'Musteriler';
 const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
@@ -26,7 +31,20 @@ const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
 // --- Sabit listeler (MVP: kodda tutulur) ---
 
 export const KATEGORILER = {
-  A: 'A – Ticari / Ücretli İş'
+  A: 'A – Ticari / Ücretli İş',
+  B: 'B – Pazarlama',
+  C: 'C – Rutin'
+};
+
+// Kısa yoldan (Yapılacak → Yapıldı) giden kategoriler.
+export const KISA_YOL_KATEGORILERI = ['B', 'C'];
+
+// B işleri Pazarlama masasının kendi işidir.
+const KATEGORI_MASASI = { B: 'pazarlama' };
+
+export const MODULLER = {
+  icerik: 'İçerik',
+  gorunurluk: 'Görünürlük'
 };
 
 // İşin geldiği kanal. Otomatik kanallar (KN) kendi değerini yazar;
@@ -117,6 +135,8 @@ export function girdiyiDogrula(girdi) {
   const kategori = String(g.kategori || '').trim();
   if (!KATEGORILER[kategori]) throw new Error('Geçerli bir iş kategorisi seçin.');
 
+  if (KISA_YOL_KATEGORILERI.includes(kategori)) return kisaYolGirdisi(kategori, g);
+
   const kaynak = String(g.kaynak || '').trim();
   if (!KAYNAKLAR[kaynak]) throw new Error('İşin nereden geldiğini (kaynak) seçin.');
 
@@ -142,6 +162,33 @@ export function girdiyiDogrula(girdi) {
     termin: terminKontrol(g.termin),
     musteriId,
     musteriBilgileri
+  };
+}
+
+// B ve C: müşteri yok, kaynak her zaman iç ihtiyaç.
+function kisaYolGirdisi(kategori, g) {
+  const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
+  if (!aciklama) throw new Error(kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?');
+
+  let modul = null;
+  if (kategori === 'B') {
+    modul = String(g.modul || '').trim();
+    if (!MODULLER[modul]) throw new Error('Pazarlama işinin modülünü seçin (İçerik / Görünürlük).');
+  }
+
+  const aciliyet = kategori === 'B' ? String(g.aciliyet || 'normal').trim() : 'normal';
+  if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
+
+  return {
+    kategori,
+    kaynak: 'ic_ihtiyac',
+    aciliyet,
+    aciklama,
+    modul,
+    kapsam: kategori === 'B' ? metin(g.kapsam, UZUNLUK.uzun, 'Kapsam') : '',
+    notlar: metin(g.notlar, UZUNLUK.uzun, 'Notlar'),
+    termin: terminKontrol(g.termin),
+    kisaYol: true
   };
 }
 
@@ -218,6 +265,63 @@ function girisNotuOlustur(v, musteriAdi, yeniMusteri, degisiklikler) {
   return parcalar.join(' | ');
 }
 
+// --- Bağlam kaydı (kapsam + giriş notu), tüm kategoriler ---
+
+async function baglamKaydet(isId, v, uyarilar) {
+  try {
+    await wixData.insert(
+      BAGLAM_KOLEKSIYONU,
+      {
+        isId,
+        title: v.aciklama.slice(0, 120),
+        kapsam: v.kapsam || null,
+        girisNotu: v.notlar || null,
+        context: null,
+        summary: null,
+        checklist: []
+      },
+      { suppressAuth: true }
+    );
+  } catch (hata) {
+    console.error(`isGirisi: ${isId} bağlam kaydı oluşturulamadı:`, hata);
+    uyarilar.push('İş kaydı oluştu ama kapsam/not kaydedilemedi.');
+  }
+}
+
+// --- B / C: kısa yol ---
+
+async function kisaYolKaydet(v, aktor) {
+  const uyarilar = [];
+  const masa = KATEGORI_MASASI[v.kategori] || null;
+  const not = [`Kategori: ${KATEGORILER[v.kategori]}`, v.modul ? `Modül: ${MODULLER[v.modul]}` : null]
+    .filter(Boolean).join(' | ');
+
+  const { kayit, isId } = await isKaydiEkleYenidenDenemeli({
+    tarih: new Date(),
+    source: v.kaynak,
+    kategori: v.kategori,
+    modul: v.modul,
+    description: v.aciklama,
+    termin: v.termin,
+    aciliyet: v.aciliyet,
+    atananMasa: masa,
+    ...kisaYolIlkKayitAlanlari(aktor, not, masa)
+  });
+  console.log(`isGirisi: ${v.kategori} işi oluşturuldu: ${isId}`);
+
+  await baglamKaydet(isId, v, uyarilar);
+
+  return {
+    isId,
+    kayitId: kayit._id,
+    musteriId: null,
+    yeniMusteri: false,
+    asama: 'takip',
+    durum: 'sirada',
+    uyarilar
+  };
+}
+
 // --- Ana fonksiyon ---
 //
 // Döner: { isId, kayitId, musteriId, yeniMusteri, asama, durum, uyarilar: [] }
@@ -226,6 +330,7 @@ function girisNotuOlustur(v, musteriAdi, yeniMusteri, degisiklikler) {
 // uyarı olarak döner.
 export async function isGirisiKaydet(girdi, aktor) {
   const v = girdiyiDogrula(girdi);
+  if (v.kisaYol) return kisaYolKaydet(v, aktor);
   const uyarilar = [];
 
   // 1. Müşteri
@@ -266,24 +371,7 @@ export async function isGirisiKaydet(girdi, aktor) {
   console.log(`isGirisi: İş Kaydı oluşturuldu: ${isId} (müşteri ${musteri._id})`);
 
   // 3. İş Bağlamı (kapsam + giriş notu)
-  try {
-    await wixData.insert(
-      BAGLAM_KOLEKSIYONU,
-      {
-        isId,
-        title: v.aciklama.slice(0, 120),
-        kapsam: v.kapsam || null,
-        girisNotu: v.notlar || null,
-        context: null,
-        summary: null,
-        checklist: []
-      },
-      { suppressAuth: true }
-    );
-  } catch (hata) {
-    console.error(`isGirisi: ${isId} bağlam kaydı oluşturulamadı:`, hata);
-    uyarilar.push('İş kaydı oluştu ama kapsam/not kaydedilemedi.');
-  }
+  await baglamKaydet(isId, v, uyarilar);
 
   // 4. Aşama 1 → Aşama 2 / sırada
   let asama = '1_giris';
