@@ -1,10 +1,10 @@
 <!doctype html>
 <!--
-  HAP — Kontrol Paneli (v3) + Yeni İş Kaydı.
+  HAP — Kontrol Paneli (v3).
   Bu dosyanın TAMAMI, HAP sayfasındaki "Embed HTML" öğesine yapıştırılır.
-  Öğenin ID'si: kontrolPaneli · Önerilen yükseklik: 2050 px (masaüstü).
-  İş Girişi formu artık bu panelin içinde (listenin altında); ayrı
-  "isGirisiFormu" kutusuna gerek yok.
+  Öğenin ID'si: kontrolPaneli · Yükseklik: 1130 px.
+  Yeni İş Kaydı formu ayrı kutudadır (isGirisiFormu, docs/isGirisiFormu.html),
+  panelin hemen altında; "+ Yeni İş" ile açılır, "Vazgeç" ile kapanır.
   Veri bu sayfada TUTULMAZ: panel, sayfa koduna (HAP.drdx8.js) mesaj gönderir,
   sayfa kodu da yalnızca yöneticilere açık backend fonksiyonlarını çağırır.
   Güvenlik: kayıtlardan gelen her metin textContent ile yazılır (HTML olarak
@@ -60,9 +60,15 @@
 
   /* Izgaralar */
   .ust-izgara { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .95fr); gap: 14px; margin-bottom: 14px; }
-  .alt-izgara { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 14px; align-items: start; margin-bottom: 14px; }
+  /* Liste ve detay aynı, sabit yükseklikte: liste kısa olsa da kutu boyu değişmez. */
+  :root { --alt-yukseklik: 640px; }
+  .alt-izgara { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+  .liste-kart { height: var(--alt-yukseklik); display: flex; flex-direction: column; }
+  .liste-kart .tablo-alani { flex: 1; min-height: 0; }
+  .liste-kart .sayfalama { margin-top: auto; padding-top: 8px; }
+  .alt-izgara .detay { height: var(--alt-yukseklik); max-height: none; }
   @media (max-width: 980px) { .ust-izgara { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .takvim-kart { grid-column: 1 / -1; } }
-  @media (max-width: 760px) { .ust-izgara, .alt-izgara { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 760px) { .ust-izgara, .alt-izgara { grid-template-columns: minmax(0, 1fr); } .liste-kart, .alt-izgara .detay { height: auto; } .alt-izgara .detay { max-height: 760px; } }
 
   .kart { background: var(--kart); border: 1px solid var(--cizgi); border-radius: 14px; padding: 14px 16px; box-shadow: var(--golge); }
   .kart-bas { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -135,7 +141,11 @@
   td.id { font-weight: 600; white-space: nowrap; color: var(--soluk); font-size: 13px; }
   .is-hucre { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .is-hucre div { min-width: 0; }
-  .is-hucre b { display: block; font-weight: 600; }
+  .is-hucre b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table { table-layout: fixed; }
+  #isSatirlari tr { height: 58px; }
+  th.k-id { width: 66px; } th.k-mk { width: 19%; } th.k-du { width: 18%; } th.k-bt { width: 92px; } th.k-ok { width: 22px; }
+  td.mk div, #isSatirlari td .kucuk { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .etiket { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; margin-top: 2px; margin-right: 4px; }
   .e-acil { background: var(--bugun-z); color: var(--bugun); }
   .e-modul { background: var(--mor-z); color: var(--mor); }
@@ -158,11 +168,13 @@
     tbody tr { display: block; border-bottom: 1px solid var(--cizgi); padding: 8px 0; }
     td { display: block; border: none; padding: 2px 4px; }
     td.mk { white-space: normal; }
+    #isSatirlari tr { height: auto; }
+    table { table-layout: auto; }
     td.ok { display: none; }
   }
 
   /* İş detayı */
-  .detay { max-height: 760px; overflow-y: auto; }
+  .detay { overflow-y: auto; }
   .detay-bos { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; color: var(--soluk); padding: 40px 14px; }
   .detay-ust { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
   .detay-ust .id { font-size: 22px; font-weight: 700; }
@@ -198,47 +210,18 @@
   .mesaj.uyari { display: block; background: var(--yakin-z); color: var(--yakin); }
   .islem-mesaj { margin: 8px 0 0; }
 
-  /* Ortak form alanları (Düzenle + Yeni İş) */
+  /* Düzenle formu */
   .alan { display: block; margin-bottom: 10px; }
   .alan > .ad { display: block; margin-bottom: 3px; font-weight: 500; font-size: 13.5px; }
   .zorunlu::after { content: " *"; color: var(--bugun); }
-  .alan input[type=text], .alan input[type=email], .alan input[type=tel], .alan input[type=date], .alan input[type=search], .alan select, .alan textarea,
-  .m-arama input {
+  .alan input[type=text], .alan input[type=email], .alan input[type=tel], .alan input[type=date], .alan input[type=search], .alan select, .alan textarea {
     width: 100%; padding: 8px 10px; border: 1px solid var(--cizgi); border-radius: 8px; font: inherit; color: var(--metin); background: #fff; }
   .alan textarea { resize: vertical; min-height: 60px; }
-  .alan input:focus, .alan select:focus, .alan textarea:focus, .m-arama input:focus { outline: 2px solid var(--ana); outline-offset: 0; border-color: var(--ana); }
+  .alan input:focus, .alan select:focus, .alan textarea:focus { outline: 2px solid var(--ana); outline-offset: 0; border-color: var(--ana); }
   .ikili { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   @media (max-width: 560px) { .ikili { grid-template-columns: 1fr; } }
-  .radyo { display: flex; gap: 18px; padding: 4px 0 8px; }
-  .radyo label { display: flex; align-items: center; gap: 6px; }
   .butonlar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-  /* Yeni İş Kaydı */
-  .yeni-is-kart { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; }
-  @media (max-width: 860px) { .yeni-is-kart { grid-template-columns: minmax(0, 1fr); } .yeni-is-yan { display: none; } }
-  .yeni-is-yan { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; padding-top: 30px; text-align: center; color: var(--soluk); font-size: 13px; }
-  #isGirisi fieldset { border: 1px solid var(--cizgi); border-radius: 10px; padding: 10px 14px 2px; margin: 0 0 12px; }
-  #isGirisi legend { font-weight: 600; padding: 0 6px; }
-  #isGirisi .ipucu { font-size: 13px; color: var(--soluk); margin: -4px 0 10px; }
-  .m-arama { position: relative; margin-bottom: 10px; }
-  .oneriler { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; margin: 2px 0 0; padding: 4px 0;
-              list-style: none; background: #fff; border: 1px solid var(--cizgi); border-radius: 8px;
-              box-shadow: 0 6px 18px rgba(0,0,0,.08); max-height: 260px; overflow-y: auto; }
-  .oneriler li { padding: 8px 12px; cursor: pointer; }
-  .oneriler li .kucuk { display: block; }
-  .oneriler li.aktif, .oneriler li:hover { background: var(--ana-acik); }
-  .oneriler li.yeni { color: var(--ana); font-weight: 600; border-top: 1px solid var(--cizgi); }
-  .oneriler li.bos { color: var(--soluk); cursor: default; background: none; }
-  .secili-musteri { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            padding: 8px 12px; border: 1px solid var(--ana); border-radius: 8px; background: var(--ana-acik); margin-bottom: 10px; }
-  .secili-musteri b { display: block; }
-  /* Pencere, sabit yükseklikli kutunun tepesinde değil formun hizasında açılır. */
-  body { position: relative; }
-  .perde { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(30,34,38,.35);
-           display: flex; align-items: flex-start; justify-content: center; padding: 0 16px; z-index: 10; }
-  .pencere { background: #fff; border-radius: 14px; width: 100%; max-width: 560px; padding: 18px 18px 14px;
-             box-shadow: 0 12px 40px rgba(0,0,0,.2); }
-  .pencere h2 { font-size: 17px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -298,7 +281,7 @@
   </div>
 
   <div class="alt-izgara">
-    <section class="kart" aria-labelledby="listeBaslik">
+    <section class="kart liste-kart" aria-labelledby="listeBaslik">
       <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2 id="listeBaslik">Şimdi Çalışılacak İşler</h2><div class="kucuk" id="listeAlt">Seçtiğiniz işin detayını sağda görebilirsiniz.</div></div></div>
       <div class="filtreler">
         <button type="button" class="cip secili" data-kapsam="tumu">Tümü</button>
@@ -310,11 +293,11 @@
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
         <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş ID, başlık veya müşteri ara…" aria-label="İşlerde ara"></label>
       </div>
-      <table>
-        <thead><tr><th>İş ID</th><th>İş</th><th>Müşteri / Kaynak</th><th>Durum</th><th>Bitiş tarihi</th><th></th></tr></thead>
+      <div class="tablo-alani"><table>
+        <thead><tr><th class="k-id">İş ID</th><th>İş</th><th class="k-mk">Müşteri / Kaynak</th><th class="k-du">Durum</th><th class="k-bt">Bitiş tarihi</th><th class="k-ok"></th></tr></thead>
         <tbody id="isSatirlari"></tbody>
-      </table>
-      <div class="sayfalama" id="sayfalama" hidden>
+      </table></div>
+      <div class="sayfalama" id="sayfalama">
         <button type="button" class="kucuk-dugme" id="oncekiSayfa">‹ Önceki</button>
         <span class="kucuk" id="sayfaBilgi"></span>
         <button type="button" class="kucuk-dugme" id="sonrakiSayfa">Sonraki ›</button>
@@ -328,106 +311,14 @@
       </div>
     </section>
   </div>
-
-  <!-- Yeni İş Kaydı (eski ayrı "İş Girişi" kutusu) -->
-  <section class="kart" id="yeniIsKart" aria-labelledby="yeniIsBaslik">
-    <div class="yeni-is-kart">
-      <form id="isGirisi" novalidate>
-        <div class="kart-bas"><svg class="ikon"><use href="#s-kalem"/></svg><div><h2 id="yeniIsBaslik">Yeni İş Kaydı</h2><div class="kucuk">Kaydettiğiniz iş listede, Bugün / Yaklaşıyor kartlarında ve takvimde hemen görünür.</div></div></div>
-
-        <label class="alan" style="max-width: 360px"><span class="ad zorunlu">Kategori</span>
-          <select id="kategori" required></select>
-        </label>
-
-        <div id="isAlanlari">
-          <fieldset id="musteriAlani">
-            <legend>Müşteri</legend>
-            <span class="ad zorunlu" style="display:block;margin-bottom:3px;font-weight:500;font-size:13.5px">İşi sipariş eden müşteri</span>
-            <div class="m-arama" id="aramaKutusu">
-              <input type="search" id="musteriAra" autocomplete="off" placeholder="Ad, kişi, telefon veya e-posta yazın…"
-                     role="combobox" aria-expanded="false" aria-controls="oneriler" aria-autocomplete="list">
-              <ul class="oneriler" id="oneriler" role="listbox" hidden></ul>
-            </div>
-            <div class="secili-musteri" id="seciliMusteri" hidden>
-              <div><b id="seciliAd"></b><span class="kucuk" id="seciliDetay"></span></div>
-              <button type="button" class="kucuk-dugme" id="musteriDegistir">Değiştir</button>
-            </div>
-            <p class="ipucu" id="musteriIpucu">Kayıtlı değilse listenin altındaki “Yeni müşteri ekle”yi seçin.</p>
-          </fieldset>
-
-          <fieldset>
-            <legend id="isBaslik">İş</legend>
-            <label class="alan" id="modulAlani" hidden><span class="ad zorunlu">Modül</span>
-              <select id="modul"></select>
-            </label>
-            <label class="alan"><span class="ad zorunlu">Açıklama</span>
-              <textarea id="aciklama" maxlength="5000" placeholder="İş ne? Tek cümleyle başlayın."></textarea>
-            </label>
-            <div class="ikili">
-              <label class="alan" id="kapsamAlani"><span class="ad">Kapsam</span>
-                <textarea id="kapsam" maxlength="5000" placeholder="Neler dahil, neler değil?"></textarea>
-              </label>
-              <label class="alan" style="grid-column: auto / -1"><span class="ad">Notlar</span>
-                <textarea id="notlar" maxlength="5000"></textarea>
-              </label>
-            </div>
-            <div class="ikili">
-              <label class="alan" id="kaynakAlani"><span class="ad zorunlu">Kaynak</span>
-                <select id="kaynak"></select>
-              </label>
-              <label class="alan"><span class="ad" id="terminEtiket">Bitiş tarihi</span>
-                <input type="date" id="termin">
-              </label>
-            </div>
-            <div id="aciliyetAlani">
-              <span class="ad" style="font-weight:500;font-size:13.5px">Aciliyet</span>
-              <div class="radyo" id="aciliyet"></div>
-            </div>
-          </fieldset>
-        </div>
-
-        <div class="butonlar">
-          <button type="submit" class="dugme" id="kaydet" disabled>İşi kaydet</button>
-          <button type="button" class="dugme ikincil" id="vazgec">Vazgeç</button>
-        </div>
-        <div id="mesaj" class="mesaj islem-mesaj" role="status" aria-live="polite"></div>
-      </form>
-      <div class="yeni-is-yan" aria-hidden="true">
-        <svg class="motif" width="110" height="110"><use href="#m-defter"/></svg>
-        <div>Aklınızdakini yazın, gerisini HAP hatırlasın.</div>
-      </div>
-    </div>
-  </section>
-</div>
-
-<!-- Yeni müşteri penceresi -->
-<div class="perde" id="perde" hidden>
-  <div class="pencere" role="dialog" aria-modal="true" aria-labelledby="pencereBaslik">
-    <form id="musteriFormu" novalidate>
-      <h2 id="pencereBaslik">Yeni müşteri</h2>
-      <div class="ikili">
-        <label class="alan" style="grid-column: 1 / -1"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
-        <label class="alan"><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
-        <label class="alan"><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
-        <label class="alan"><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
-        <label class="alan" style="grid-column: 1 / -1"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
-      </div>
-      <div class="butonlar">
-        <button type="submit" class="dugme" id="musteriKaydet">Müşteriyi kaydet</button>
-        <button type="button" class="dugme ikincil" id="musteriVazgec">Vazgeç</button>
-      </div>
-      <div id="musteriMesaj" class="mesaj islem-mesaj" role="status" aria-live="polite"></div>
-    </form>
-  </div>
 </div>
 
 <script>
-// Ortak: formun seçenekleri (kategoriler, müşteriler, ...) — Düzenle de kullanır.
+// Düzenle formunun seçenekleri (müşteriler, modüller, aciliyetler); sayfa kodundan gelir.
 window.HAP = { secenekler: null };
 
-// ======================= Kontrol Paneli =======================
 (function () {
-  var SAYFA_BOYU = 8, GUNDEM_SINIRI = 3;
+  var SAYFA_BOYU = 7, GUNDEM_SINIRI = 3;
   var AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   var GUNLER = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
   var veri = null, acikDetay = null, sonDetay = null, veriGeldi = false;
@@ -593,7 +484,7 @@ window.HAP = { secenekler: null };
     var tr = el('tr'); var td = el('td', 'bos'); td.colSpan = 6;
     var ic = el('div', 'bos-icerik');
     var metin, m;
-    if (!veri.isler.length) { m = 'm-defter'; metin = 'Henüz iş yok. Aşağıdaki “Yeni İş Kaydı” ile ilk işi ekleyin.'; }
+    if (!veri.isler.length) { m = 'm-defter'; metin = 'Henüz iş yok. “+ Yeni İş” ile ilk işi ekleyin.'; }
     else if (filtre.kapsam === 'arsiv' && !filtre.metin) { m = 'm-kutu'; metin = 'Arşiv boş. Yapılan işler burada birikir.'; }
     else if (filtre.metin) { m = 'm-bitki'; metin = 'Aramaya uyan iş yok.'; }
     else { m = 'm-cay'; metin = 'Burada iş yok. Keyfinize bakın.'; }
@@ -605,7 +496,6 @@ window.HAP = { secenekler: null };
     var liste = filtrelenmis();
     var sayfaSayisi = Math.max(1, Math.ceil(liste.length / SAYFA_BOYU));
     if (sayfa > sayfaSayisi) sayfa = sayfaSayisi;
-    $('sayfalama').hidden = sayfaSayisi < 2;
     $('sayfaBilgi').textContent = 'Sayfa ' + sayfa + ' / ' + sayfaSayisi + ' · ' + liste.length + ' iş';
     $('oncekiSayfa').disabled = sayfa <= 1;
     $('sonrakiSayfa').disabled = sayfa >= sayfaSayisi;
@@ -613,6 +503,7 @@ window.HAP = { secenekler: null };
     liste.slice((sayfa - 1) * SAYFA_BOYU, sayfa * SAYFA_BOYU).forEach(function (i) {
       var tr = el('tr'); tr.tabIndex = 0;
       if (i.isId === acikDetay) tr.className = 'secili-satir';
+      tr.title = i.baslik;
       tr.appendChild(el('td', 'id', i.isId));
       var h = el('td'); var ic = el('div', 'is-hucre'); ic.appendChild(harf(i.kategoriKod));
       var m = el('div'); m.appendChild(el('b', null, i.baslik));
@@ -641,10 +532,7 @@ window.HAP = { secenekler: null };
   }
 
   $('yenile').addEventListener('click', function () { this.disabled = true; gonder({ tip: 'panelYenile' }); });
-  $('yeniIs').addEventListener('click', function () {
-    $('yeniIsKart').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(function () { $('kategori').focus({ preventScroll: true }); }, 400);
-  });
+  $('yeniIs').addEventListener('click', function () { gonder({ tip: 'yeniIs' }); });
 
   // ---------- Detay ----------
   function detayAc(isId) {
@@ -815,7 +703,10 @@ window.HAP = { secenekler: null };
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent) return;
     var m = e.data || {};
-    if (m.tip === 'panelVerisi') {
+    if (m.tip === 'secenekler') {
+      window.HAP.secenekler = m.veri || null;   // Düzenle formu için (müşteriler, modüller, ...)
+    } else if (m.tip === 'panelVerisi') {
+      if (!veriGeldi) gonder({ tip: 'panelSecenekleri' });
       veriGeldi = true; veri = m.veri; $('yenile').disabled = false;
       if ($('genelMesaj').className.indexOf('tamam') === -1) mesaj('genelMesaj', '', '');
       hepsiniCiz();
@@ -854,302 +745,6 @@ window.HAP = { secenekler: null };
   gonder({ tip: 'panelHazir' });
 })();
 
-// ======================= Yeni İş Kaydı (İş Girişi) =======================
-(function () {
-  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address'];
-  var musteriler = [];
-  var secili = null;          // seçili müşteri nesnesi
-  var aktifIndex = -1;        // klavye ile vurgulanan öneri
-  var bekliyor = false;
-  var musteriBekliyor = false;
-  var secenekGeldi = false;
-  var $ = function (id) { return document.getElementById(id); };
-
-  function gonder(mesaj) { window.parent.postMessage(mesaj, '*'); }
-  function mesajGoster(id, tur, metin) { var m = $(id); m.className = 'mesaj islem-mesaj ' + (tur || ''); m.textContent = metin || ''; }
-  function kucult(s) { return String(s || '').toLocaleLowerCase('tr-TR').trim(); }
-
-  function secenekDoldur(select, sozluk, bosEtiket) {
-    var onceki = select.value;
-    select.innerHTML = '';
-    if (bosEtiket !== undefined) {
-      var bos = document.createElement('option'); bos.value = ''; bos.textContent = bosEtiket; select.appendChild(bos);
-    }
-    Object.keys(sozluk).forEach(function (k) {
-      var o = document.createElement('option'); o.value = k; o.textContent = sozluk[k]; select.appendChild(o);
-    });
-    if (onceki && sozluk[onceki] !== undefined) select.value = onceki;
-  }
-
-  function aciliyetDoldur(sozluk) {
-    var kutu = $('aciliyet');
-    var onceki = (kutu.querySelector('input:checked') || {}).value || 'normal';
-    kutu.innerHTML = '';
-    Object.keys(sozluk).forEach(function (k) {
-      var l = document.createElement('label');
-      var r = document.createElement('input'); r.type = 'radio'; r.name = 'aciliyet'; r.value = k; r.checked = (k === onceki);
-      l.appendChild(r); l.appendChild(document.createTextNode(sozluk[k])); kutu.appendChild(l);
-    });
-  }
-
-  // ---- Müşteri arama ----
-  function detayMetni(m) { return [m.contactName, m.phone, m.email].filter(Boolean).join(' · '); }
-
-  function eslesenler(sorgu) {
-    var q = kucult(sorgu);
-    if (!q) return musteriler.slice(0, 8);
-    return musteriler.filter(function (m) {
-      return [m.name, m.contactName, m.phone, m.email].some(function (v) { return kucult(v).indexOf(q) !== -1; });
-    }).slice(0, 8);
-  }
-
-  function onerileriGoster() {
-    var liste = $('oneriler');
-    var sorgu = $('musteriAra').value.trim();
-    var sonuc = eslesenler(sorgu);
-    liste.innerHTML = '';
-    aktifIndex = -1;
-    if (!sonuc.length) {
-      var bos = document.createElement('li'); bos.className = 'bos';
-      bos.textContent = musteriler.length ? 'Eşleşen kayıtlı müşteri yok.' : 'Henüz kayıtlı müşteri yok.';
-      liste.appendChild(bos);
-    }
-    sonuc.forEach(function (m) {
-      var li = document.createElement('li'); li.setAttribute('role', 'option');
-      var ad = document.createElement('div'); ad.textContent = m.name;
-      var d = detayMetni(m);
-      li.appendChild(ad);
-      if (d) { var k = document.createElement('span'); k.className = 'kucuk'; k.textContent = d; li.appendChild(k); }
-      li.addEventListener('mousedown', function (e) { e.preventDefault(); musteriSec(m); });
-      liste.appendChild(li);
-    });
-    var yeni = document.createElement('li'); yeni.className = 'yeni'; yeni.setAttribute('role', 'option');
-    yeni.textContent = sorgu ? '+ Yeni müşteri ekle: “' + sorgu + '”' : '+ Yeni müşteri ekle';
-    yeni.addEventListener('mousedown', function (e) { e.preventDefault(); pencereAc(sorgu); });
-    liste.appendChild(yeni);
-    liste.hidden = false;
-    $('musteriAra').setAttribute('aria-expanded', 'true');
-  }
-
-  function onerileriKapat() { $('oneriler').hidden = true; $('musteriAra').setAttribute('aria-expanded', 'false'); }
-
-  function aktifiGuncelle(yon) {
-    var ogeler = [].slice.call($('oneriler').querySelectorAll('li:not(.bos)'));
-    if (!ogeler.length) return;
-    aktifIndex = (aktifIndex + yon + ogeler.length) % ogeler.length;
-    ogeler.forEach(function (li, i) { li.classList.toggle('aktif', i === aktifIndex); });
-    ogeler[aktifIndex].scrollIntoView({ block: 'nearest' });
-  }
-
-  function musteriSec(m) {
-    secili = m;
-    $('seciliAd').textContent = m.name;
-    $('seciliDetay').textContent = detayMetni(m);
-    $('seciliMusteri').hidden = false;
-    $('aramaKutusu').hidden = true;
-    $('musteriIpucu').hidden = true;
-    $('musteriAra').value = '';
-    onerileriKapat();
-  }
-
-  function seciliyiKaldir() {
-    secili = null;
-    $('seciliMusteri').hidden = true;
-    $('aramaKutusu').hidden = false;
-    $('musteriIpucu').hidden = false;
-    $('musteriAra').value = '';
-  }
-
-  $('musteriAra').addEventListener('input', onerileriGoster);
-  $('musteriAra').addEventListener('focus', onerileriGoster);
-  $('musteriAra').addEventListener('blur', function () { setTimeout(onerileriKapat, 120); });
-  $('musteriAra').addEventListener('keydown', function (e) {
-    if ($('oneriler').hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) onerileriGoster();
-    if (e.key === 'ArrowDown') { e.preventDefault(); aktifiGuncelle(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); aktifiGuncelle(-1); }
-    else if (e.key === 'Enter') {
-      e.preventDefault();
-      var ogeler = $('oneriler').querySelectorAll('li:not(.bos)');
-      if (aktifIndex >= 0 && ogeler[aktifIndex]) ogeler[aktifIndex].dispatchEvent(new MouseEvent('mousedown'));
-    } else if (e.key === 'Escape') { onerileriKapat(); }
-  });
-  $('musteriDegistir').addEventListener('click', function () { seciliyiKaldir(); $('musteriAra').focus(); });
-
-  // ---- Yeni müşteri penceresi ----
-  function pencereAc(ad) {
-    onerileriKapat();
-    MUSTERI_ALANLARI.forEach(function (a) { $('m_' + a).value = ''; });
-    $('m_name').value = ad || '';
-    mesajGoster('musteriMesaj', '', '');
-    var y = $('musteriAlani').getBoundingClientRect().top + window.scrollY;
-    $('perde').querySelector('.pencere').style.marginTop = Math.max(16, y - 20) + 'px';
-    $('perde').hidden = false;
-    $('m_name').focus({ preventScroll: true });
-  }
-  function pencereKapat() { if (!musteriBekliyor) $('perde').hidden = true; }
-
-  $('musteriVazgec').addEventListener('click', pencereKapat);
-  $('perde').addEventListener('mousedown', function (e) { if (e.target === $('perde')) pencereKapat(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('perde').hidden) pencereKapat(); });
-
-  $('musteriFormu').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (musteriBekliyor) return;
-    var bilgiler = {};
-    MUSTERI_ALANLARI.forEach(function (a) { bilgiler[a] = $('m_' + a).value.trim(); });
-    if (!bilgiler.name) { mesajGoster('musteriMesaj', 'hata', 'Ad / Unvan zorunlu.'); return; }
-    if (bilgiler.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bilgiler.email)) {
-      mesajGoster('musteriMesaj', 'hata', 'E-posta adresi geçersiz.'); return;
-    }
-    musteriBekliyor = true; $('musteriKaydet').disabled = true;
-    mesajGoster('musteriMesaj', 'bilgi', 'Kaydediliyor…');
-    gonder({ tip: 'musteriEkle', bilgiler: bilgiler });
-  });
-
-  // ---- İş formu ----
-  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade yapılacak.
-  var KATEGORI_METNI = {
-    A: { baslik: 'Ticari iş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
-    B: { baslik: 'Pazarlama işi', aciklama: 'Ne üretilecek / yapılacak? ör. LinkedIn içerik serisi', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
-    C: { baslik: 'Yapılacak', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Yapılacaklara ekle' }
-  };
-  function kategoriDegisti() {
-    var k = $('kategori').value;
-    var m = KATEGORI_METNI[k] || KATEGORI_METNI.A;
-    $('isAlanlari').hidden = !k;
-    $('musteriAlani').hidden = k !== 'A';
-    $('kaynakAlani').hidden = k !== 'A';
-    $('modulAlani').hidden = k !== 'B';
-    $('kapsamAlani').hidden = k === 'C';
-    $('aciliyetAlani').hidden = k === 'C';
-    $('isBaslik').textContent = m.baslik;
-    $('aciklama').placeholder = m.aciklama;
-    $('terminEtiket').textContent = m.tarih;
-    $('kaydet').textContent = m.buton;
-  }
-
-  function formuTemizle() {
-    ['aciklama', 'kapsam', 'notlar', 'termin'].forEach(function (id) { $(id).value = ''; });
-    $('kaynak').value = ''; $('modul').value = '';
-    var n = document.querySelector('input[name=aciliyet][value=normal]'); if (n) n.checked = true;
-    seciliyiKaldir();
-  }
-
-  function girdiTopla() {
-    return {
-      kategori: $('kategori').value,
-      modul: $('modul').value,
-      musteri: { id: secili ? secili.id : null },
-      musteriBilgileri: {},
-      aciklama: $('aciklama').value.trim(),
-      kapsam: $('kapsam').value.trim(),
-      notlar: $('notlar').value.trim(),
-      termin: $('termin').value,
-      aciliyet: (document.querySelector('input[name=aciliyet]:checked') || {}).value || 'normal',
-      kaynak: $('kaynak').value
-    };
-  }
-
-  function onKontrol(g) {
-    if (!g.kategori) return 'Kategori seçin.';
-    if (g.kategori === 'A' && !g.musteri.id) return 'Müşteri seçin. Kayıtlı değilse “Yeni müşteri ekle” ile kaydedin.';
-    if (g.kategori === 'B' && !g.modul) return 'Modülü seçin (İçerik / Görünürlük).';
-    if (!g.aciklama) return g.kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?';
-    if (g.kategori === 'A' && !g.kaynak) return 'İşin nereden geldiğini (kaynak) seçin.';
-    return null;
-  }
-
-  $('kategori').addEventListener('change', kategoriDegisti);
-
-  // Vazgeç: formu temizler ve panelin başına döner. Formda bilgi varsa
-  // yanlışlıkla silinmesin diye ilk tıklamada onay ister.
-  var vazgecOnay = null;
-  function formDoluMu() {
-    if (secili) return true;
-    return ['aciklama', 'kapsam', 'notlar', 'termin', 'musteriAra'].some(function (id) { return $(id).value.trim() !== ''; });
-  }
-  function vazgecSifirla() { clearTimeout(vazgecOnay); vazgecOnay = null; $('vazgec').textContent = 'Vazgeç'; }
-  $('vazgec').addEventListener('click', function () {
-    if (formDoluMu() && !vazgecOnay) {
-      $('vazgec').textContent = 'Girilenler silinsin mi? Tekrar bas';
-      vazgecOnay = setTimeout(vazgecSifirla, 4000);
-      return;
-    }
-    vazgecSifirla();
-    formuTemizle(); mesajGoster('mesaj', '', '');
-    document.querySelector('.sayfa').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    gonder({ tip: 'panelBasinaKaydir' });
-  });
-
-  $('isGirisi').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (bekliyor) return;
-    var g = girdiTopla();
-    var hata = onKontrol(g);
-    if (hata) { mesajGoster('mesaj', 'hata', hata); return; }
-    bekliyor = true; $('kaydet').disabled = true;
-    mesajGoster('mesaj', 'bilgi', 'Kaydediliyor…');
-    gonder({ tip: 'kaydet', girdi: g });
-  });
-
-  // ---- Sayfa kodundan gelen mesajlar ----
-  window.addEventListener('message', function (e) {
-    if (e.source !== window.parent) return;
-    var d = e.data || {};
-    if (d.tip === 'secenekler') {
-      var ilk = !secenekGeldi;
-      secenekGeldi = true;
-      var v = d.veri || {};
-      musteriler = v.musteriler || [];
-      v.musteriler = musteriler;
-      window.HAP.secenekler = v;
-      secenekDoldur($('kategori'), v.kategoriler || {});
-      secenekDoldur($('kaynak'), v.kaynaklar || {}, 'Seçin…');
-      secenekDoldur($('modul'), v.moduller || {}, 'Seçin…');
-      aciliyetDoldur(v.aciliyetler || {});
-      kategoriDegisti();
-      if (!bekliyor) $('kaydet').disabled = false;
-      if (ilk) mesajGoster('mesaj', '', '');
-    } else if (d.tip === 'musteriEklendi') {
-      musteriBekliyor = false; $('musteriKaydet').disabled = false;
-      if (d.basarili && d.musteri) {
-        musteriler.push(d.musteri);
-        musteriler.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'tr'); });
-        $('perde').hidden = true;
-        musteriSec(d.musteri);
-      } else {
-        mesajGoster('musteriMesaj', 'hata', d.hata || 'Müşteri kaydedilemedi.');
-      }
-    } else if (d.tip === 'sonuc') {
-      bekliyor = false; $('kaydet').disabled = false;
-      if (d.basarili) {
-        var r = d.veri;
-        var metin = r.asama === 'takip'
-          ? 'Kaydedildi: ' + r.isId + '. Listede ve takvimde görünüyor.'
-          : 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi;
-        if (r.uyarilar && r.uyarilar.length) mesajGoster('mesaj', 'uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
-        else mesajGoster('mesaj', 'tamam', metin);
-        formuTemizle();
-      } else {
-        mesajGoster('mesaj', 'hata', d.hata || 'Kaydedilemedi.');
-      }
-    } else if (d.tip === 'yuklemeHatasi') {
-      secenekGeldi = true;
-      mesajGoster('mesaj', 'hata', d.hata || 'Form yüklenemedi.');
-    }
-  });
-
-  // Sayfa kodu hazır olana kadar "hazir" mesajını tekrarla.
-  var deneme = 0;
-  mesajGoster('mesaj', 'bilgi', 'Form yükleniyor…');
-  var zamanlayici = setInterval(function () {
-    if (secenekGeldi) { clearInterval(zamanlayici); return; }
-    deneme++;
-    gonder({ tip: 'hazir' });
-    if (deneme === 10) mesajGoster('mesaj', 'hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin.');
-  }, 1000);
-  gonder({ tip: 'hazir' });
-})();
 </script>
 </body>
 </html>
