@@ -7,6 +7,7 @@
 //   form → sayfa: { tip: 'hazir' }                 → seçenekleri gönder
 //   form → sayfa: { tip: 'kaydet', girdi }         → backend'e kaydet
 //   form → sayfa: { tip: 'musteriEkle', bilgiler } → yeni müşteriyi kaydet
+//   form → sayfa: { tip: 'vazgec' }                → formu bırak, panele dön
 //   sayfa → form: { tip: 'secenekler', veri }
 //   sayfa → form: { tip: 'sonuc', basarili, veri | hata }
 //   sayfa → form: { tip: 'musteriEklendi', basarili, musteri | hata }
@@ -64,6 +65,11 @@ function formuBagla(panelVar) {
 
     if (mesaj.tip === 'hazir') {
       await secenekleriGonder();
+      return;
+    }
+
+    if (mesaj.tip === 'vazgec') {
+      if (panelVar) $w(PANEL).scrollTo();
       return;
     }
 
