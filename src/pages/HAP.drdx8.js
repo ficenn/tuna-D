@@ -16,6 +16,7 @@
 //   panel → sayfa: { tip: 'panelHazir' } / { tip: 'panelYenile' } → panel verisini gönder
 //   panel → sayfa: { tip: 'isDetayi', isId }                     → iş detayını gönder
 //   panel → sayfa: { tip: 'yzsizTamamla', isId, gerekce }        → Süleyman: Aşama 1'i YZ'siz tamamla
+//   panel → sayfa: { tip: 'yapildi', isId }                      → Süleyman: Pazarlama/Rutin işi "Yapıldı"
 //   panel → sayfa: { tip: 'yeniIs' }                             → İş Girişi formuna kaydır
 //   panel → sayfa: { tip: 'panelBasinaKaydir' }                  → panelin başına kaydır
 //   sayfa → panel: { tip: 'panelVerisi', veri } / { tip: 'panelHata', hata }
@@ -26,7 +27,7 @@
 
 import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
-import { asama1YzOlmadanTamamla } from 'backend/suleyman.web';
+import { asama1YzOlmadanTamamla, takipYapildi } from 'backend/suleyman.web';
 
 const FORM = '#isGirisiFormu';
 const PANEL = '#kontrolPaneli';
@@ -139,6 +140,21 @@ function paneliBagla(formVar) {
         const metin = sonuc.degisti
           ? `${mesaj.isId}: Aşama 1 YZ'siz tamamlandı, iş Değerlendirme sırasında.`
           : `${mesaj.isId} zaten Değerlendirme sırasındaydı.`;
+        $w(PANEL).postMessage({ tip: 'islemSonuc', basarili: true, mesaj: metin });
+        await panelVerisiGonder();
+      } catch (hata) {
+        console.error('İşlem yapılamadı:', hata);
+        $w(PANEL).postMessage({ tip: 'islemSonuc', basarili: false, hata: hataMetni(hata) });
+      }
+      return;
+    }
+
+    if (mesaj.tip === 'yapildi') {
+      try {
+        const sonuc = await takipYapildi(mesaj.isId);
+        const metin = sonuc.degisti === false
+          ? `${mesaj.isId} zaten yapıldı olarak işaretliydi.`
+          : `${mesaj.isId}: yapıldı olarak işaretlendi.`;
         $w(PANEL).postMessage({ tip: 'islemSonuc', basarili: true, mesaj: metin });
         await panelVerisiGonder();
       } catch (hata) {

@@ -37,6 +37,19 @@ export const DURUMLAR = {
 
 export const AKTOR_TURLERI = ['insan', 'sistem', 'yz'];
 
+// --- Kısa yol (B Pazarlama, C Rutin) ---
+//
+// Bu işler 7 aşamadan geçmez: "Yapılacak" olarak açılır, "Yapıldı" ile
+// kapanır. Aşama alanında ayrı bir değer (takip) taşırlar; 7 aşamalı akışın
+// kuralları (aşama atlanmaz vb.) onlara uygulanmaz.
+export const KISA_YOL_ASAMASI = 'takip';
+export const KISA_YOL_ETIKETLERI = {
+  asama: 'Takip',
+  sirada: 'Yapılacak',
+  tamamlandi: 'Yapıldı',
+  iptal: 'İptal'
+};
+
 // --- Bu aşamada uygulanan geçişler ---
 //
 // Her geçiş: hangi Aşama/Durum'dan çıkılabilir (kaynak), nereye gidilir
@@ -60,6 +73,13 @@ const GECISLER = {
   giris_tamamlandi: {
     kaynak: [['1_giris', 'devam_ediyor']],
     hedef: ['2_degerlendirme', 'sirada'],
+    aktorTurleri: ['insan'],
+    notZorunlu: false
+  },
+  // Kısa yol: Yapılacak → Yapıldı (B Pazarlama, C Rutin).
+  takip_tamamlandi: {
+    kaynak: [['takip', 'sirada']],
+    hedef: ['takip', 'tamamlandi'],
     aktorTurleri: ['insan'],
     notZorunlu: false
   }
@@ -89,6 +109,10 @@ export function gecmisKaydi({ islem, onceki, yeni, aktor, not }) {
 // Aşama 1 / devam ediyor olarak okunur. Kayıtlar taşınmaz, sadece böyle
 // yorumlanır.
 export function mevcutDurum(kayit) {
+  if (kayit.asama === KISA_YOL_ASAMASI) {
+    const durum = DURUMLAR[kayit.status] ? kayit.status : 'sirada';
+    return { asama: KISA_YOL_ASAMASI, durum, masa: kayit.atananMasa || null };
+  }
   const asama = ASAMALAR[kayit.asama] ? kayit.asama : '1_giris';
   let durum = DURUMLAR[kayit.status] ? kayit.status : null;
   if (!durum) durum = asama === '1_giris' ? 'devam_ediyor' : 'sirada';
@@ -101,6 +125,17 @@ export function mevcutDurum(kayit) {
 export function ilkKayitAlanlari(aktor, not) {
   const a = aktorKontrol(aktor);
   const yeni = { asama: '1_giris', durum: 'devam_ediyor', masa: null };
+  return {
+    asama: yeni.asama,
+    status: yeni.durum,
+    gecmis: [gecmisKaydi({ islem: 'kayit_olusturuldu', onceki: null, yeni, aktor: a, not })]
+  };
+}
+
+// Kısa yol işinin ilk alanları: doğrudan "Yapılacak" olarak açılır.
+export function kisaYolIlkKayitAlanlari(aktor, not, masa) {
+  const a = aktorKontrol(aktor);
+  const yeni = { asama: KISA_YOL_ASAMASI, durum: 'sirada', masa: masa || null };
   return {
     asama: yeni.asama,
     status: yeni.durum,
@@ -151,7 +186,7 @@ export async function gecisYap(isId, islem, aktor, not) {
       basarili: false,
       degisti: false,
       sebep: 'izinsiz_gecis',
-      mesaj: `${isId}: '${ASAMALAR[onceki.asama]} / ${DURUMLAR[onceki.durum]}' durumundan '${islem}' yapılamaz.`,
+      mesaj: `${isId}: '${ASAMALAR[onceki.asama] || KISA_YOL_ETIKETLERI.asama} / ${DURUMLAR[onceki.durum]}' durumundan '${islem}' yapılamaz.`,
       asama: onceki.asama,
       durum: onceki.durum
     };
