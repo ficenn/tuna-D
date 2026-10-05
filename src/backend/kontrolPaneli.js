@@ -18,7 +18,7 @@ const MUSTERI = 'Musteriler';
 // Uyarı eşikleri (dakika / gün). Pilotta ayarlanabilir.
 export const ESIKLER = {
   yzBeklemeDakika: 15,      // KN işi Aşama 1'de bu kadar kalırsa: YZ gelmedi
-  terminYakinGun: 3,        // Termine bu kadar gün (veya az) kaldıysa uyar
+  terminYakinGun: 3,        // Bitiş tarihine bu kadar gün (veya az) kaldıysa uyar
   siradaBeklemeGun: 3       // Aşama 2 / sırada bu kadar gündür bekliyorsa uyar
 };
 
@@ -42,6 +42,12 @@ function kaynakEtiketi(kod) {
 // İstanbul saatine göre bugünün tarihi: 'YYYY-MM-DD'
 export function bugunTR(simdi = new Date()) {
   return simdi.toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
+}
+
+// 'YYYY-MM-DD' → 'GG.AA.YYYY' (uyarı metinleri için)
+function tarihTR(t) {
+  const [y, m, d] = String(t).split('-');
+  return `${d}.${m}.${y}`;
 }
 
 function gunFarki(tarihMetni, bugun) {
@@ -134,10 +140,10 @@ export function uyarilariHesapla(isler, simdi = new Date()) {
       const kalan = gunFarki(i.termin, bugun);
       if (kalan < 0) {
         uyarilar.push({ tur: 'hata', isId: i.isId, sira: 2,
-          baslik: `${i.isId}: termin geçti`, aciklama: `${i.baslik} — termin ${i.termin} (${-kalan} gün önce).` });
+          baslik: `${i.isId}: bitiş tarihi geçti`, aciklama: `${i.baslik} — bitiş tarihi ${tarihTR(i.termin)} (${-kalan} gün önce).` });
       } else if (kalan <= ESIKLER.terminYakinGun) {
         uyarilar.push({ tur: 'uyari', isId: i.isId, sira: 3,
-          baslik: `${i.isId}: termin ${kalan === 0 ? 'bugün' : kalan + ' gün sonra'}`, aciklama: `${i.baslik} — termin ${i.termin}.` });
+          baslik: `${i.isId}: ${kalan === 0 ? 'bitiş tarihi bugün' : 'bitiş tarihine ' + kalan + ' gün var'}`, aciklama: `${i.baslik} — bitiş tarihi ${tarihTR(i.termin)}.` });
       }
     }
 

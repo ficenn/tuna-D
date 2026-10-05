@@ -76,11 +76,11 @@ function adAnahtari(ad) {
 function terminKontrol(deger) {
   const s = String(deger ?? '').trim();
   if (!s) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('Termin tarihi geçersiz (YYYY-AA-GG olmalı).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('Bitiş tarihi geçersiz (YYYY-AA-GG olmalı).');
   const [y, m, d] = s.split('-').map(Number);
   const t = new Date(Date.UTC(y, m - 1, d));
   if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) {
-    throw new Error('Termin tarihi geçersiz.');
+    throw new Error('Bitiş tarihi geçersiz.');
   }
   return s; // Wix "Date" alanı: 'YYYY-MM-DD' metni
 }
