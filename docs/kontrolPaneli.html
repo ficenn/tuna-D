@@ -123,6 +123,8 @@
   .mesaj.hata { display: block; background: var(--hata-z); color: var(--hata); }
   .mesaj.tamam { display: block; background: var(--tamam-z); color: var(--tamam); }
   .mesaj.bilgi { display: block; background: var(--bilgi-z); color: var(--bilgi); }
+  .sayfalama { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  button.kucuk-btn { padding: 4px 10px; font-size: 13px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -158,11 +160,17 @@
           <tbody id="isSatirlari"></tbody>
         </table>
       </div>
+      <div class="sayfalama" id="sayfalama" hidden>
+        <button type="button" class="ikincil kucuk-btn" id="oncekiSayfa">‹ Önceki</button>
+        <span class="kucuk" id="sayfaBilgi"></span>
+        <button type="button" class="ikincil kucuk-btn" id="sonrakiSayfa">Sonraki ›</button>
+      </div>
     </section>
 
     <section class="kart">
       <div class="kart-bas"><div><h2>Buraya Dikkat!</h2><p class="alt">Takılan, termini yaklaşan veya bekleyen işler.</p></div></div>
       <ul class="uyarilar" id="uyarilar"></ul>
+      <button type="button" class="metin" id="uyariDaha" hidden></button>
     </section>
     <section class="kart">
       <div class="kart-bas"><div><h2>İş Durumu</h2><p class="alt">Tüm işlerin genel görünümü.</p></div></div>
@@ -186,6 +194,10 @@
   var veri = null;
   var filtre = { kapsam: 'acik', durum: null, metin: '' };
   var acikDetay = null;
+  // Panel kutusunun yüksekliği Wix'te sabit; içerik ona sığsın diye liste
+  // sayfalı, uyarılar kısaltılmış gösterilir.
+  var SAYFA_BOYU = 5, UYARI_SINIRI = 3;
+  var sayfa = 1, tumUyarilar = false;
   var veriGeldi = false;
   var $ = function (id) { return document.getElementById(id); };
 
@@ -229,11 +241,17 @@
   function tabloyuCiz() {
     var govde = $('isSatirlari'); govde.innerHTML = '';
     var liste = filtrelenmis();
+    var sayfaSayisi = Math.max(1, Math.ceil(liste.length / SAYFA_BOYU));
+    if (sayfa > sayfaSayisi) sayfa = sayfaSayisi;
+    $('sayfalama').hidden = sayfaSayisi < 2;
+    $('sayfaBilgi').textContent = 'Sayfa ' + sayfa + ' / ' + sayfaSayisi + ' · ' + liste.length + ' iş';
+    $('oncekiSayfa').disabled = sayfa <= 1;
+    $('sonrakiSayfa').disabled = sayfa >= sayfaSayisi;
     if (!liste.length) {
       var tr = el('tr'); var td = el('td', 'bos', veri && veri.isler.length ? 'Bu filtreye uyan iş yok.' : 'Henüz iş yok.');
       td.colSpan = 5; tr.appendChild(td); govde.appendChild(tr); return;
     }
-    liste.forEach(function (i) {
+    liste.slice((sayfa - 1) * SAYFA_BOYU, sayfa * SAYFA_BOYU).forEach(function (i) {
       var tr = el('tr'); tr.tabIndex = 0;
       tr.appendChild(el('td', 'id', i.isId));
       var b = el('td', 'baslik-h'); b.appendChild(el('div', null, i.baslik));
@@ -270,7 +288,7 @@
       var sec = function () {
         filtre.durum = filtre.durum === k ? null : k;
         if (filtre.durum && (k === 'tamamlandi' || k === 'iptal')) cipSec('tumu');
-        durumuCiz(); tabloyuCiz();
+        sayfa = 1; durumuCiz(); tabloyuCiz();
       };
       li.addEventListener('click', sec);
       li.addEventListener('keydown', function (e) { if (e.key === 'Enter') sec(); });
@@ -280,6 +298,9 @@
 
   function uyarilariCiz() {
     var ul = $('uyarilar'); ul.innerHTML = '';
+    var fazla = veri.uyarilar.length - UYARI_SINIRI;
+    $('uyariDaha').hidden = fazla <= 0;
+    $('uyariDaha').textContent = tumUyarilar ? 'Daha az göster' : '+' + fazla + ' uyarı daha göster';
     if (!veri.uyarilar.length) {
       var li = el('li', 'u-bilgi'); li.style.cursor = 'default';
       li.appendChild(el('span', 'u-ikon', '✓'));
@@ -287,7 +308,7 @@
       ul.appendChild(li); return;
     }
     var ikon = { hata: '!', uyari: '⏱', bilgi: 'i' };
-    veri.uyarilar.forEach(function (u) {
+    (tumUyarilar ? veri.uyarilar : veri.uyarilar.slice(0, UYARI_SINIRI)).forEach(function (u) {
       var li = el('li', 'u-' + u.tur); li.tabIndex = 0;
       li.appendChild(el('span', 'u-ikon', ikon[u.tur] || 'i'));
       var g = el('div'); g.appendChild(el('div', 'u-baslik', u.baslik)); g.appendChild(el('div', 'kucuk', u.aciklama));
@@ -309,9 +330,12 @@
     $('cipAcik').classList.toggle('secili', k === 'acik');
     $('cipTumu').classList.toggle('secili', k === 'tumu');
   }
-  $('cipAcik').addEventListener('click', function () { cipSec('acik'); tabloyuCiz(); });
-  $('cipTumu').addEventListener('click', function () { cipSec('tumu'); tabloyuCiz(); });
-  $('ara').addEventListener('input', function () { filtre.metin = this.value; tabloyuCiz(); });
+  $('cipAcik').addEventListener('click', function () { cipSec('acik'); sayfa = 1; tabloyuCiz(); });
+  $('cipTumu').addEventListener('click', function () { cipSec('tumu'); sayfa = 1; tabloyuCiz(); });
+  $('ara').addEventListener('input', function () { filtre.metin = this.value; sayfa = 1; tabloyuCiz(); });
+  $('oncekiSayfa').addEventListener('click', function () { if (sayfa > 1) { sayfa--; tabloyuCiz(); } });
+  $('sonrakiSayfa').addEventListener('click', function () { sayfa++; tabloyuCiz(); });
+  $('uyariDaha').addEventListener('click', function () { tumUyarilar = !tumUyarilar; uyarilariCiz(); });
   $('yenile').addEventListener('click', function () { this.disabled = true; gonder({ tip: 'panelYenile' }); });
   $('yeniIs').addEventListener('click', function () { gonder({ tip: 'yeniIs' }); });
 
