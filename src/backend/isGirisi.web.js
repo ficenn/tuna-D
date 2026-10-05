@@ -9,7 +9,8 @@ import {
   MODULLER,
   musterileriListele,
   musteriKaydet,
-  isGirisiKaydet
+  isGirisiKaydet,
+  isGuncelle
 } from './isGirisi';
 import { ASAMALAR, DURUMLAR, KISA_YOL_ETIKETLERI } from './suleyman';
 
@@ -48,4 +49,10 @@ export const isGirisiniKaydet = webMethod(Permissions.Admin, async (girdi) => {
     asamaEtiketi: ASAMALAR[sonuc.asama] || KISA_YOL_ETIKETLERI.asama,
     durumEtiketi: sonuc.asama === 'takip' ? KISA_YOL_ETIKETLERI[sonuc.durum] : DURUMLAR[sonuc.durum]
   };
+});
+
+// Kontrol Paneli → İş Detayı → "Düzenle".
+export const isiGuncelle = webMethod(Permissions.Admin, async (isId, girdi) => {
+  const aktor = { tur: 'insan', kim: await istekYapan() };
+  return isGuncelle(isId, girdi, aktor);
 });

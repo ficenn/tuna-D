@@ -37,7 +37,7 @@ export const DURUMLAR = {
 
 export const AKTOR_TURLERI = ['insan', 'sistem', 'yz'];
 
-// --- Kısa yol (B Pazarlama, C Rutin) ---
+// --- Kısa yol (B Pazarlama, C Yapılacaklar) ---
 //
 // Bu işler 7 aşamadan geçmez: "Yapılacak" olarak açılır, "Yapıldı" ile
 // kapanır. Aşama alanında ayrı bir değer (takip) taşırlar; 7 aşamalı akışın
@@ -76,7 +76,7 @@ const GECISLER = {
     aktorTurleri: ['insan'],
     notZorunlu: false
   },
-  // Kısa yol: Yapılacak → Yapıldı (B Pazarlama, C Rutin).
+  // Kısa yol: Yapılacak → Yapıldı (B Pazarlama, C Yapılacaklar).
   takip_tamamlandi: {
     kaynak: [['takip', 'sirada']],
     hedef: ['takip', 'tamamlandi'],
@@ -208,4 +208,42 @@ export async function gecisYap(isId, islem, aktor, not) {
 
   console.log(`Süleyman: ${isId} ${onceki.asama}/${onceki.durum} → ${hedefAsama}/${hedefDurum} (${islem}, ${a.tur})`);
   return { basarili: true, degisti: true, asama: hedefAsama, durum: hedefDurum };
+}
+
+// --- Kayıt düzenleme ---
+//
+// Aşama/Durum'u DEĞİŞTİRMEZ; yalnızca izin verilen bilgi alanlarını
+// (açıklama, bitiş tarihi, ...) günceller ve geçmişe "kayit_guncellendi"
+// olarak ekler. Hangi alanların düzenlenebileceğine çağıran (İş Girişi)
+// karar verir; Süleyman yalnızca yaşam döngüsü alanlarına dokunulmadığını
+// ve işin açık olduğunu kontrol eder.
+const KORUNAN_ALANLAR = ['_id', 'isId', 'asama', 'status', 'gecmis', 'atananMasa', 'kategori', 'source', 'tarih'];
+
+export async function kayitDuzenle(isId, alanlar, aktor, not) {
+  const a = aktorKontrol(aktor);
+  if (a.tur !== 'insan') throw new Error('Süleyman: kaydı yalnızca insan düzenleyebilir.');
+  const yasak = Object.keys(alanlar || {}).filter((k) => KORUNAN_ALANLAR.includes(k));
+  if (yasak.length) throw new Error(`Süleyman: bu alanlar düzenlenemez: ${yasak.join(', ')}`);
+
+  const sonuc = await wixData
+    .query(KOLEKSIYON)
+    .eq('isId', String(isId))
+    .limit(1)
+    .find({ suppressAuth: true });
+  if (!sonuc.items.length) throw new Error(`Süleyman: İş Kaydı bulunamadı: ${isId}`);
+
+  const kayit = sonuc.items[0];
+  const durum = mevcutDurum(kayit);
+  if (durum.durum === 'tamamlandi' || durum.durum === 'iptal') {
+    throw new Error(`${isId} kapanmış bir iş; düzenlenemez.`);
+  }
+
+  const giris = gecmisKaydi({ islem: 'kayit_guncellendi', onceki: durum, yeni: durum, aktor: a, not });
+  await wixData.update(
+    KOLEKSIYON,
+    { ...kayit, ...alanlar, gecmis: [...(Array.isArray(kayit.gecmis) ? kayit.gecmis : []), giris] },
+    { suppressAuth: true }
+  );
+  console.log(`Süleyman: ${isId} düzenlendi (${Object.keys(alanlar || {}).join(', ') || 'yalnızca bağlam'})`);
+  return { basarili: true, degisti: true };
 }
