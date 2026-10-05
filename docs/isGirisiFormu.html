@@ -129,7 +129,7 @@
 
   <div class="butonlar">
     <button type="submit" id="kaydet" disabled>İşi kaydet</button>
-    <button type="button" class="ikincil" id="temizle">Temizle</button>
+    <button type="button" class="ikincil" id="vazgec">Vazgeç</button>
   </div>
   <div id="mesaj" class="mesaj" role="status" aria-live="polite"></div>
 </form>
@@ -348,7 +348,26 @@
   }
 
   $('kategori').addEventListener('change', kategoriDegisti);
-  $('temizle').addEventListener('click', function () { formuTemizle(); mesajGoster('mesaj', '', ''); });
+  // Vazgeç: formu temizler ve Kontrol Paneli'ne döner. Formda bilgi varsa
+  // yanlışlıkla silinmesin diye ilk tıklamada onay ister.
+  var vazgecOnay = null;
+  function formDoluMu() {
+    if (secili) return true;
+    return ['aciklama', 'kapsam', 'notlar', 'termin', 'musteriAra'].some(function (id) { return $(id).value.trim() !== ''; });
+  }
+  function vazgecSifirla() {
+    clearTimeout(vazgecOnay); vazgecOnay = null; $('vazgec').textContent = 'Vazgeç';
+  }
+  $('vazgec').addEventListener('click', function () {
+    if (formDoluMu() && !vazgecOnay) {
+      $('vazgec').textContent = 'Girilenler silinsin mi? Tekrar bas';
+      vazgecOnay = setTimeout(vazgecSifirla, 4000);
+      return;
+    }
+    vazgecSifirla();
+    formuTemizle(); mesajGoster('mesaj', '', '');
+    gonder({ tip: 'vazgec' });
+  });
 
   $('form').addEventListener('submit', function (e) {
     e.preventDefault();
