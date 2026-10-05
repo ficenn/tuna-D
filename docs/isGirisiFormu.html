@@ -1,8 +1,9 @@
 <!doctype html>
 <!--
-  HAP — İş Girişi formu.
-  Bu dosyanın TAMAMI, HAP sayfasındaki "Embed HTML" (HTML iframe) öğesine
-  yapıştırılır. Öğenin ID'si: isGirisiFormu
+  HAP — Yeni İş Kaydı (İş Girişi formu).
+  Bu dosyanın TAMAMI, HAP sayfasındaki ikinci "Embed HTML" öğesine yapıştırılır.
+  Öğenin ID'si: isGirisiFormu · Kontrol Paneli'nin hemen altında · Yükseklik: 800 px.
+  Kapalı başlar; panelde "+ Yeni İş" açar, "Vazgeç" kapatır.
   Veri bu formda TUTULMAZ: form, sayfa koduna (HAP.drdx8.js) mesaj gönderir,
   sayfa kodu da yalnızca yöneticilere açık backend fonksiyonlarını çağırır.
 -->
@@ -10,152 +11,199 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>İş Girişi</title>
+<title>Yeni İş Kaydı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Sakin tema: düşük doygunluk, yumuşak zeminler. */
   :root {
-    --zemin: #ffffff; --metin: #1d1f23; --soluk: #5d636e; --cizgi: #d9dce1;
-    --vurgu: #1f4e79; --vurgu-acik: #e8eef5; --hata: #a4262c; --hata-zemin: #fbeaea;
-    --tamam: #1e6b3a; --tamam-zemin: #e7f4ec; --uyari-zemin: #fff6e0;
+    --zemin: #f5f4ef; --kart: #ffffff; --metin: #2d3036; --soluk: #6c7179; --cizgi: #e6e3dc;
+    --ana: #4d7672; --ana-acik: #e9f0ee; --ana-koyu: #3b5f5b;
+    --bugun-z: #f7efeb; --bugun-c: #ecdcd5; --bugun: #94594c; --bugun-rozet: #b88577;
+    --yakin-z: #f6f2e6; --yakin-c: #e8ddc3; --yakin: #786234; --yakin-rozet: #b59b62;
+    --mavi: #4b6e93; --mavi-z: #e8eef4;
+    --mor: #77659a; --mor-z: #efebf5;
+    --yesil: #4e7b62; --yesil-z: #e7f1eb;
+    --turuncu: #97683d; --turuncu-z: #f5ece2;
+    --gri: #666b74; --gri-z: #eeefef;
+    --golge: 0 1px 2px rgba(40, 44, 52, .05);
+    --font: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--zemin); color: var(--metin);
-         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  form#form { max-width: 820px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  h2 { font-size: 17px; margin: 0 0 12px; }
-  .alt { color: var(--soluk); margin: 0 0 16px; font-size: 14px; }
-  fieldset { border: 1px solid var(--cizgi); border-radius: 8px; padding: 12px 14px 4px; margin: 0 0 14px; }
-  legend { font-weight: 600; padding: 0 6px; }
-  .izgara { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
-  .tam { grid-column: 1 / -1; }
-  @media (max-width: 560px) { .izgara { grid-template-columns: 1fr; } }
-  label { display: block; margin-bottom: 10px; font-size: 14px; color: var(--soluk); }
-  label > span.ad, span.ad { display: block; margin-bottom: 3px; color: var(--metin); font-weight: 500; font-size: 14px; }
-  .zorunlu::after { content: " *"; color: var(--hata); }
-  input[type=text], input[type=email], input[type=tel], input[type=date], input[type=search], select, textarea {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--cizgi); border-radius: 6px;
-    font: inherit; color: var(--metin); background: #fff; }
-  textarea { resize: vertical; min-height: 64px; }
-  input:focus, select:focus, textarea:focus { outline: 2px solid var(--vurgu); outline-offset: 0; border-color: var(--vurgu); }
-  .radyo { display: flex; gap: 18px; padding: 6px 0 10px; color: var(--metin); }
-  .radyo label { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--metin); }
-  .ipucu { font-size: 13px; color: var(--soluk); margin: -4px 0 10px; }
-  .butonlar { display: flex; gap: 10px; align-items: center; }
-  button { font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 6px; border: 1px solid var(--vurgu);
-           background: var(--vurgu); color: #fff; cursor: pointer; }
-  button.ikincil { background: #fff; color: var(--vurgu); }
-  button.kucuk { padding: 4px 10px; font-size: 13px; }
-  button:disabled { opacity: .55; cursor: wait; }
-  .mesaj { margin: 14px 0 0; padding: 10px 12px; border-radius: 6px; display: none; white-space: pre-line; }
-  .mesaj.hata { display: block; background: var(--hata-zemin); color: var(--hata); }
-  .mesaj.tamam { display: block; background: var(--tamam-zemin); color: var(--tamam); }
-  .mesaj.bilgi { display: block; background: var(--vurgu-acik); color: var(--vurgu); }
-  .mesaj.uyari { display: block; background: var(--uyari-zemin); color: #6b4e00; }
+  body { margin: 0; background: var(--zemin); color: var(--metin); font: 14px/1.45 var(--font); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--zemin); color: var(--metin); font: 14px/1.45 var(--font); }
+  .sayfa { max-width: 1240px; margin: 0 auto; padding: 0 16px 16px; }
+  h1, h2 { margin: 0; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ana); outline-offset: 2px; }
   [hidden] { display: none !important; }
+  .motif { color: var(--ana); flex: 0 0 auto; }
+  .kart { background: var(--kart); border: 1px solid var(--cizgi); border-radius: 14px; padding: 14px 16px; box-shadow: var(--golge); }
+  .kart-bas { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .kart-bas h2 { font-size: 17px; font-weight: 700; }
+  .ikon { width: 22px; height: 22px; flex: 0 0 22px; }
+  .kucuk { font-size: 12px; color: var(--soluk); }
+  .dugme { white-space: nowrap; border: 1px solid var(--ana); background: var(--ana); color: #fff; font-weight: 600; padding: 9px 16px; border-radius: 10px; }
+  .dugme:hover { background: var(--ana-koyu); }
+  .dugme.ikincil { background: #fff; color: var(--ana); }
+  .dugme.ikincil:hover { background: var(--ana-acik); }
+  .dugme:disabled { opacity: .55; cursor: wait; }
+  .kucuk-dugme { padding: 4px 11px; font-size: 13px; border-radius: 8px; border: 1px solid var(--cizgi); background: #fff; color: var(--metin); }
+  .mesaj { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; display: none; white-space: pre-line; }
+  .mesaj.hata { display: block; background: var(--bugun-z); color: var(--bugun); }
+  .mesaj.tamam { display: block; background: var(--yesil-z); color: var(--yesil); }
+  .mesaj.bilgi { display: block; background: var(--mavi-z); color: var(--mavi); }
+  .mesaj.uyari { display: block; background: var(--yakin-z); color: var(--yakin); }
+  .islem-mesaj { margin: 8px 0 0; }
+  /* Ortak form alanları (Düzenle + Yeni İş) */
+  .alan { display: block; margin-bottom: 10px; }
+  .alan > .ad { display: block; margin-bottom: 3px; font-weight: 500; font-size: 13.5px; }
+  .zorunlu::after { content: " *"; color: var(--bugun); }
+  .alan input[type=text], .alan input[type=email], .alan input[type=tel], .alan input[type=date], .alan input[type=search], .alan select, .alan textarea,
+  .m-arama input {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--cizgi); border-radius: 8px; font: inherit; color: var(--metin); background: #fff; }
+  .alan textarea { resize: vertical; min-height: 60px; }
+  .alan input:focus, .alan select:focus, .alan textarea:focus, .m-arama input:focus { outline: 2px solid var(--ana); outline-offset: 0; border-color: var(--ana); }
+  .ikili { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 560px) { .ikili { grid-template-columns: 1fr; } }
+  .radyo { display: flex; gap: 18px; padding: 4px 0 8px; }
+  .radyo label { display: flex; align-items: center; gap: 6px; }
+  .butonlar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-  /* Müşteri arama kutusu */
-  .arama { position: relative; margin-bottom: 10px; }
+  /* Yeni İş Kaydı */
+  .yeni-is-kart { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; }
+  @media (max-width: 860px) { .yeni-is-kart { grid-template-columns: minmax(0, 1fr); } .yeni-is-yan { display: none; } }
+  .yeni-is-yan { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; padding-top: 30px; text-align: center; color: var(--soluk); font-size: 13px; }
+  #isGirisi fieldset { border: 1px solid var(--cizgi); border-radius: 10px; padding: 10px 14px 2px; margin: 0 0 12px; }
+  #isGirisi legend { font-weight: 600; padding: 0 6px; }
+  #isGirisi .ipucu { font-size: 13px; color: var(--soluk); margin: -4px 0 10px; }
+  .m-arama { position: relative; margin-bottom: 10px; }
   .oneriler { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; margin: 2px 0 0; padding: 4px 0;
-              list-style: none; background: #fff; border: 1px solid var(--cizgi); border-radius: 6px;
+              list-style: none; background: #fff; border: 1px solid var(--cizgi); border-radius: 8px;
               box-shadow: 0 6px 18px rgba(0,0,0,.08); max-height: 260px; overflow-y: auto; }
   .oneriler li { padding: 8px 12px; cursor: pointer; }
-  .oneriler li .kucuk-metin { color: var(--soluk); font-size: 13px; }
-  .oneriler li.aktif, .oneriler li:hover { background: var(--vurgu-acik); }
-  .oneriler li.yeni { color: var(--vurgu); font-weight: 600; border-top: 1px solid var(--cizgi); }
+  .oneriler li .kucuk { display: block; }
+  .oneriler li.aktif, .oneriler li:hover { background: var(--ana-acik); }
+  .oneriler li.yeni { color: var(--ana); font-weight: 600; border-top: 1px solid var(--cizgi); }
   .oneriler li.bos { color: var(--soluk); cursor: default; background: none; }
-  .secili { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            padding: 8px 12px; border: 1px solid var(--vurgu); border-radius: 6px; background: var(--vurgu-acik); margin-bottom: 10px; }
-  .secili .ad-buyuk { font-weight: 600; }
-  .secili .kucuk-metin { color: var(--soluk); font-size: 13px; }
-
-  /* Yeni müşteri penceresi */
-  .perde { position: fixed; inset: 0; background: rgba(20,24,30,.45); display: flex; align-items: flex-start;
+  .secili-musteri { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 8px 12px; border: 1px solid var(--ana); border-radius: 8px; background: var(--ana-acik); margin-bottom: 10px; }
+  .secili-musteri b { display: block; }
+  .perde { position: fixed; inset: 0; background: rgba(30,34,38,.35); display: flex; align-items: flex-start;
            justify-content: center; padding: 40px 16px; z-index: 10; overflow-y: auto; }
-  .pencere { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; padding: 18px 18px 14px;
-             box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .pencere { background: #fff; border-radius: 14px; width: 100%; max-width: 560px; padding: 18px 18px 14px;
+             box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+  .pencere h2 { font-size: 17px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
-<form id="form" novalidate>
-  <h1>İş Girişi</h1>
-  <p class="alt">İşi HAP'e kaydeder. Değerlendirme ve yönlendirme sonraki aşamalarda yapılır.</p>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="s-gunes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="s-saat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="s-liste" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="4.5" cy="6.5" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="s-belge" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4V20.5H6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 14.5h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="s-kalem" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="s-ara" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15 15 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <!-- Çay bardağı: "Bugün sakin" -->
+  <symbol id="m-cay" viewBox="0 0 64 64"><path d="M24 10c-2 3 2 5 0 8M32 8c-2 3 2 5 0 8M40 10c-2 3 2 5 0 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/><path d="M20 24h24l-2.5 26a4 4 0 0 1-4 3.6H26.5a4 4 0 0 1-4-3.6Z" fill="#f3e6d6" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M21.6 34h20.8" stroke="currentColor" stroke-width="2" opacity=".5"/><path d="M14 57h36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><ellipse cx="32" cy="57" rx="13" ry="2.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <!-- Saksıda bitki: "Boş günler" -->
+  <symbol id="m-bitki" viewBox="0 0 64 64"><path d="M32 40V22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M32 30c-8 0-13-5-14-12 8 0 13 4 14 12ZM32 26c1-8 6-12 14-13-1 8-6 13-14 13Z" fill="#dfeae5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M21 40h22l-3 16H24Z" fill="#efe2d6" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 40h26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <!-- Defter ve kalem: iş detayı / yeni iş -->
+  <symbol id="m-defter" viewBox="0 0 64 64"><rect x="14" y="10" width="30" height="42" rx="3" fill="#f6f3ea" stroke="currentColor" stroke-width="2"/><path d="M14 16h-3M14 24h-3M14 32h-3M14 40h-3M14 48h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 20h16M21 27h16M21 34h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55"/><path d="m46 20 5 5-14 20-6 2 1-6Z" fill="#e7efe9" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <!-- Kutu: arşiv -->
+  <symbol id="m-kutu" viewBox="0 0 64 64"><path d="M12 24h40v26a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3Z" fill="#efe9de" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 16h46v8H9Z" fill="#f7f3ec" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M26 32h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+</svg>
 
-  <fieldset>
-    <legend>İş türü</legend>
-    <label><span class="ad zorunlu">Kategori</span>
-      <select id="kategori" required></select>
-    </label>
-  </fieldset>
+<div class="sayfa">
+  <section class="kart" id="yeniIsKart" aria-labelledby="yeniIsBaslik">
+    <div class="yeni-is-kart">
+      <form id="isGirisi" novalidate>
+        <div class="kart-bas"><svg class="ikon"><use href="#s-kalem"/></svg><div><h2 id="yeniIsBaslik">Yeni İş Kaydı</h2><div class="kucuk">Kaydettiğiniz iş listede, Bugün / Yaklaşıyor kartlarında ve takvimde hemen görünür.</div></div></div>
 
-  <div id="isAlanlari">
-    <fieldset id="musteriAlani">
-      <legend>Müşteri</legend>
-      <span class="ad zorunlu">İşi sipariş eden müşteri</span>
-      <div class="arama" id="aramaKutusu">
-        <input type="search" id="musteriAra" autocomplete="off" placeholder="Ad, kişi, telefon veya e-posta yazın…"
-               role="combobox" aria-expanded="false" aria-controls="oneriler" aria-autocomplete="list">
-        <ul class="oneriler" id="oneriler" role="listbox" hidden></ul>
-      </div>
-      <div class="secili" id="seciliMusteri" hidden>
-        <div><div class="ad-buyuk" id="seciliAd"></div><div class="kucuk-metin" id="seciliDetay"></div></div>
-        <button type="button" class="ikincil kucuk" id="musteriDegistir">Değiştir</button>
-      </div>
-      <p class="ipucu" id="musteriIpucu">Kayıtlı değilse listenin altındaki “Yeni müşteri ekle”yi seçin.</p>
-    </fieldset>
-
-    <fieldset>
-      <legend id="isBaslik">İş</legend>
-      <label id="modulAlani" hidden><span class="ad zorunlu">Modül</span>
-        <select id="modul"></select>
-      </label>
-      <label><span class="ad zorunlu">Açıklama</span>
-        <textarea id="aciklama" maxlength="5000" placeholder="İş ne? Tek cümleyle başlayın."></textarea>
-      </label>
-      <label id="kapsamAlani"><span class="ad">Kapsam</span>
-        <textarea id="kapsam" maxlength="5000" placeholder="Neler dahil, neler değil?"></textarea>
-      </label>
-      <label><span class="ad">Notlar</span>
-        <textarea id="notlar" maxlength="5000"></textarea>
-      </label>
-      <div class="izgara">
-        <label id="kaynakAlani"><span class="ad zorunlu">Kaynak</span>
-          <select id="kaynak"></select>
+        <label class="alan" style="max-width: 360px"><span class="ad zorunlu">Kategori</span>
+          <select id="kategori" required></select>
         </label>
-        <label><span class="ad" id="terminEtiket">Bitiş tarihi</span>
-          <input type="date" id="termin">
-        </label>
-      </div>
-      <div id="aciliyetAlani">
-        <span class="ad">Aciliyet</span>
-        <div class="radyo" id="aciliyet"></div>
-      </div>
-    </fieldset>
-  </div>
 
-  <div class="butonlar">
-    <button type="submit" id="kaydet" disabled>İşi kaydet</button>
-    <button type="button" class="ikincil" id="vazgec">Vazgeç</button>
-  </div>
-  <div id="mesaj" class="mesaj" role="status" aria-live="polite"></div>
-</form>
+        <div id="isAlanlari">
+          <fieldset id="musteriAlani">
+            <legend>Müşteri</legend>
+            <span class="ad zorunlu" style="display:block;margin-bottom:3px;font-weight:500;font-size:13.5px">İşi sipariş eden müşteri</span>
+            <div class="m-arama" id="aramaKutusu">
+              <input type="search" id="musteriAra" autocomplete="off" placeholder="Ad, kişi, telefon veya e-posta yazın…"
+                     role="combobox" aria-expanded="false" aria-controls="oneriler" aria-autocomplete="list">
+              <ul class="oneriler" id="oneriler" role="listbox" hidden></ul>
+            </div>
+            <div class="secili-musteri" id="seciliMusteri" hidden>
+              <div><b id="seciliAd"></b><span class="kucuk" id="seciliDetay"></span></div>
+              <button type="button" class="kucuk-dugme" id="musteriDegistir">Değiştir</button>
+            </div>
+            <p class="ipucu" id="musteriIpucu">Kayıtlı değilse listenin altındaki “Yeni müşteri ekle”yi seçin.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend id="isBaslik">İş</legend>
+            <label class="alan" id="modulAlani" hidden><span class="ad zorunlu">Modül</span>
+              <select id="modul"></select>
+            </label>
+            <label class="alan"><span class="ad zorunlu">Açıklama</span>
+              <textarea id="aciklama" maxlength="5000" placeholder="İş ne? Tek cümleyle başlayın."></textarea>
+            </label>
+            <div class="ikili">
+              <label class="alan" id="kapsamAlani"><span class="ad">Kapsam</span>
+                <textarea id="kapsam" maxlength="5000" placeholder="Neler dahil, neler değil?"></textarea>
+              </label>
+              <label class="alan" style="grid-column: auto / -1"><span class="ad">Notlar</span>
+                <textarea id="notlar" maxlength="5000"></textarea>
+              </label>
+            </div>
+            <div class="ikili">
+              <label class="alan" id="kaynakAlani"><span class="ad zorunlu">Kaynak</span>
+                <select id="kaynak"></select>
+              </label>
+              <label class="alan"><span class="ad" id="terminEtiket">Bitiş tarihi</span>
+                <input type="date" id="termin">
+              </label>
+            </div>
+            <div id="aciliyetAlani">
+              <span class="ad" style="font-weight:500;font-size:13.5px">Aciliyet</span>
+              <div class="radyo" id="aciliyet"></div>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="butonlar">
+          <button type="submit" class="dugme" id="kaydet" disabled>İşi kaydet</button>
+          <button type="button" class="dugme ikincil" id="vazgec">Vazgeç</button>
+        </div>
+        <div id="mesaj" class="mesaj islem-mesaj" role="status" aria-live="polite"></div>
+      </form>
+      <div class="yeni-is-yan" aria-hidden="true">
+        <svg class="motif" width="110" height="110"><use href="#m-defter"/></svg>
+        <div>Aklınızdakini yazın, gerisini HAP hatırlasın.</div>
+      </div>
+    </div>
+  </section>
+</div>
 
 <!-- Yeni müşteri penceresi -->
 <div class="perde" id="perde" hidden>
   <div class="pencere" role="dialog" aria-modal="true" aria-labelledby="pencereBaslik">
     <form id="musteriFormu" novalidate>
       <h2 id="pencereBaslik">Yeni müşteri</h2>
-      <div class="izgara">
-        <label class="tam"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
-        <label><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
-        <label><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
-        <label><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
-        <label class="tam"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
+      <div class="ikili">
+        <label class="alan" style="grid-column: 1 / -1"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
+        <label class="alan"><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
+        <label class="alan"><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
+        <label class="alan"><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
+        <label class="alan" style="grid-column: 1 / -1"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
       </div>
       <div class="butonlar">
-        <button type="submit" id="musteriKaydet">Müşteriyi kaydet</button>
-        <button type="button" class="ikincil" id="musteriVazgec">Vazgeç</button>
+        <button type="submit" class="dugme" id="musteriKaydet">Müşteriyi kaydet</button>
+        <button type="button" class="dugme ikincil" id="musteriVazgec">Vazgeç</button>
       </div>
-      <div id="musteriMesaj" class="mesaj" role="status" aria-live="polite"></div>
+      <div id="musteriMesaj" class="mesaj islem-mesaj" role="status" aria-live="polite"></div>
     </form>
   </div>
 </div>
@@ -172,7 +220,7 @@
   var $ = function (id) { return document.getElementById(id); };
 
   function gonder(mesaj) { window.parent.postMessage(mesaj, '*'); }
-  function mesajGoster(id, tur, metin) { var m = $(id); m.className = 'mesaj ' + (tur || ''); m.textContent = metin || ''; }
+  function mesajGoster(id, tur, metin) { var m = $(id); m.className = 'mesaj islem-mesaj ' + (tur || ''); m.textContent = metin || ''; }
   function kucult(s) { return String(s || '').toLocaleLowerCase('tr-TR').trim(); }
 
   function secenekDoldur(select, sozluk, bosEtiket) {
@@ -199,10 +247,7 @@
   }
 
   // ---- Müşteri arama ----
-
-  function detayMetni(m) {
-    return [m.contactName, m.phone, m.email].filter(Boolean).join(' · ');
-  }
+  function detayMetni(m) { return [m.contactName, m.phone, m.email].filter(Boolean).join(' · '); }
 
   function eslesenler(sorgu) {
     var q = kucult(sorgu);
@@ -218,7 +263,6 @@
     var sonuc = eslesenler(sorgu);
     liste.innerHTML = '';
     aktifIndex = -1;
-
     if (!sonuc.length) {
       var bos = document.createElement('li'); bos.className = 'bos';
       bos.textContent = musteriler.length ? 'Eşleşen kayıtlı müşteri yok.' : 'Henüz kayıtlı müşteri yok.';
@@ -229,7 +273,7 @@
       var ad = document.createElement('div'); ad.textContent = m.name;
       var d = detayMetni(m);
       li.appendChild(ad);
-      if (d) { var k = document.createElement('div'); k.className = 'kucuk-metin'; k.textContent = d; li.appendChild(k); }
+      if (d) { var k = document.createElement('span'); k.className = 'kucuk'; k.textContent = d; li.appendChild(k); }
       li.addEventListener('mousedown', function (e) { e.preventDefault(); musteriSec(m); });
       liste.appendChild(li);
     });
@@ -237,15 +281,11 @@
     yeni.textContent = sorgu ? '+ Yeni müşteri ekle: “' + sorgu + '”' : '+ Yeni müşteri ekle';
     yeni.addEventListener('mousedown', function (e) { e.preventDefault(); pencereAc(sorgu); });
     liste.appendChild(yeni);
-
     liste.hidden = false;
     $('musteriAra').setAttribute('aria-expanded', 'true');
   }
 
-  function onerileriKapat() {
-    $('oneriler').hidden = true;
-    $('musteriAra').setAttribute('aria-expanded', 'false');
-  }
+  function onerileriKapat() { $('oneriler').hidden = true; $('musteriAra').setAttribute('aria-expanded', 'false'); }
 
   function aktifiGuncelle(yon) {
     var ogeler = [].slice.call($('oneriler').querySelectorAll('li:not(.bos)'));
@@ -290,14 +330,13 @@
   $('musteriDegistir').addEventListener('click', function () { seciliyiKaldir(); $('musteriAra').focus(); });
 
   // ---- Yeni müşteri penceresi ----
-
   function pencereAc(ad) {
     onerileriKapat();
     MUSTERI_ALANLARI.forEach(function (a) { $('m_' + a).value = ''; });
     $('m_name').value = ad || '';
     mesajGoster('musteriMesaj', '', '');
     $('perde').hidden = false;
-    $('m_name').focus();
+    $('m_name').focus({ preventScroll: true });
   }
   function pencereKapat() { if (!musteriBekliyor) $('perde').hidden = true; }
 
@@ -320,12 +359,11 @@
   });
 
   // ---- İş formu ----
-
-  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade hatırlatma.
+  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade yapılacak.
   var KATEGORI_METNI = {
-    A: { baslik: 'İş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
+    A: { baslik: 'Ticari iş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
     B: { baslik: 'Pazarlama işi', aciklama: 'Ne üretilecek / yapılacak? ör. LinkedIn içerik serisi', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
-    C: { baslik: 'Rutin iş', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Hatırlatmayı kaydet' }
+    C: { baslik: 'Yapılacak', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Yapılacaklara ekle' }
   };
   function kategoriDegisti() {
     var k = $('kategori').value;
@@ -374,16 +412,15 @@
   }
 
   $('kategori').addEventListener('change', kategoriDegisti);
-  // Vazgeç: formu temizler ve Kontrol Paneli'ne döner. Formda bilgi varsa
+
+  // Vazgeç: formu temizler, kapatır ve panele döner. Formda bilgi varsa
   // yanlışlıkla silinmesin diye ilk tıklamada onay ister.
   var vazgecOnay = null;
   function formDoluMu() {
     if (secili) return true;
     return ['aciklama', 'kapsam', 'notlar', 'termin', 'musteriAra'].some(function (id) { return $(id).value.trim() !== ''; });
   }
-  function vazgecSifirla() {
-    clearTimeout(vazgecOnay); vazgecOnay = null; $('vazgec').textContent = 'Vazgeç';
-  }
+  function vazgecSifirla() { clearTimeout(vazgecOnay); vazgecOnay = null; $('vazgec').textContent = 'Vazgeç'; }
   $('vazgec').addEventListener('click', function () {
     if (formDoluMu() && !vazgecOnay) {
       $('vazgec').textContent = 'Girilenler silinsin mi? Tekrar bas';
@@ -395,7 +432,7 @@
     gonder({ tip: 'vazgec' });
   });
 
-  $('form').addEventListener('submit', function (e) {
+  $('isGirisi').addEventListener('submit', function (e) {
     e.preventDefault();
     if (bekliyor) return;
     var g = girdiTopla();
@@ -407,7 +444,6 @@
   });
 
   // ---- Sayfa kodundan gelen mesajlar ----
-
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent) return;
     var d = e.data || {};
@@ -438,13 +474,10 @@
       if (d.basarili) {
         var r = d.veri;
         var metin = r.asama === 'takip'
-          ? 'Kaydedildi: ' + r.isId + '\nYapılacaklar listesinde.'
+          ? 'Kaydedildi: ' + r.isId + '. Listede ve takvimde görünüyor.'
           : 'İş kaydedildi: ' + r.isId + '\nAşama: ' + r.asamaEtiketi + ' / ' + r.durumEtiketi;
-        if (r.uyarilar && r.uyarilar.length) {
-          mesajGoster('mesaj', 'uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
-        } else {
-          mesajGoster('mesaj', 'tamam', metin);
-        }
+        if (r.uyarilar && r.uyarilar.length) mesajGoster('mesaj', 'uyari', metin + '\n\nDikkat: ' + r.uyarilar.join('\n'));
+        else mesajGoster('mesaj', 'tamam', metin);
         formuTemizle();
       } else {
         mesajGoster('mesaj', 'hata', d.hata || 'Kaydedilemedi.');
@@ -455,17 +488,14 @@
     }
   });
 
-  // Sayfa kodu hazır olana kadar "hazir" mesajını tekrarla (sayfa kodu
-  // formdan sonra yüklenebilir). 10 sn içinde cevap yoksa sorunu göster.
+  // Sayfa kodu hazır olana kadar "hazir" mesajını tekrarla.
   var deneme = 0;
   mesajGoster('mesaj', 'bilgi', 'Form yükleniyor…');
   var zamanlayici = setInterval(function () {
     if (secenekGeldi) { clearInterval(zamanlayici); return; }
     deneme++;
     gonder({ tip: 'hazir' });
-    if (deneme === 10) {
-      mesajGoster('mesaj', 'hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin. Sorun sürerse: Editor\'de bu HTML öğesinin ID\'si "isGirisiFormu" olmalı ve site Publish edilmiş olmalı.');
-    }
+    if (deneme === 10) mesajGoster('mesaj', 'hata', 'Form sayfa koduna bağlanamadı. Sayfayı yenileyin. Sorun sürerse: Editor\'de bu HTML öğesinin ID\'si "isGirisiFormu" olmalı ve site Publish edilmiş olmalı.');
   }, 1000);
   gonder({ tip: 'hazir' });
 })();

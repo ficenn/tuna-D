@@ -1,36 +1,44 @@
-// HAP sayfası — Kontrol Paneli (içinde Yeni İş Kaydı formu ile).
+// HAP sayfası — Kontrol Paneli + Yeni İş Kaydı.
 //
-// Sayfada bir "Embed HTML" öğesi var: #kontrolPaneli (kaynak:
-// docs/kontrolPaneli.html). Panel bu kodla mesajlaşır; veriye yalnızca
-// backend (yalnızca yöneticilere açık) fonksiyonlar erişir.
+// Sayfada iki "Embed HTML" öğesi var; ikisi de bu kodla mesajlaşır. Veriye
+// yalnızca backend (yalnızca yöneticilere açık) fonksiyonlar erişir.
+//   #kontrolPaneli (docs/kontrolPaneli.html)
+//   #isGirisiFormu (docs/isGirisiFormu.html): panelin hemen altında, kapalı
+//     başlar; panelde "+ Yeni İş" açar, formda "Vazgeç" kapatır.
 //
+// Kontrol Paneli:
 //   panel → sayfa: { tip: 'panelHazir' } / { tip: 'panelYenile' } → panel verisini gönder
 //   panel → sayfa: { tip: 'isDetayi', isId }                     → iş detayını gönder
 //   panel → sayfa: { tip: 'yzsizTamamla', isId, gerekce }        → Süleyman: Aşama 1'i YZ'siz tamamla
 //   panel → sayfa: { tip: 'yapildi', isId }                      → Süleyman: Pazarlama/Yapılacak işi "Yapıldı"
 //   panel → sayfa: { tip: 'isiGuncelle', isId, girdi }           → İş Detayı → Düzenle
+//   panel → sayfa: { tip: 'panelSecenekleri' }                   → Düzenle için seçenekleri gönder
+//   panel → sayfa: { tip: 'yeniIs' }                             → formu aç ve oraya kaydır
 //   panel → sayfa: { tip: 'panelBasinaKaydir' }                  → panelin başına kaydır
-//   Yeni İş Kaydı formu (panelin içinde):
-//   panel → sayfa: { tip: 'hazir' }                 → form seçeneklerini gönder
-//   panel → sayfa: { tip: 'kaydet', girdi }         → işi kaydet
-//   panel → sayfa: { tip: 'musteriEkle', bilgiler } → yeni müşteriyi kaydet
-//
 //   sayfa → panel: { tip: 'panelVerisi', veri } / { tip: 'panelHata', hata }
 //   sayfa → panel: { tip: 'isDetayiSonuc', isId, basarili, veri | hata }
 //   sayfa → panel: { tip: 'islemSonuc', basarili, mesaj | hata }
-//   sayfa → panel: { tip: 'secenekler', veri } / { tip: 'yuklemeHatasi', hata }
-//   sayfa → panel: { tip: 'sonuc', basarili, veri | hata }
-//   sayfa → panel: { tip: 'musteriEklendi', basarili, musteri | hata }
+//   sayfa → panel: { tip: 'secenekler', veri }
 //
-// Eski ayrı form kutusu (#isGirisiFormu) sayfada kaldıysa: gizlenir.
-// Silinmesi önerilir.
+// Yeni İş Kaydı formu:
+//   form → sayfa: { tip: 'hazir' }                 → seçenekleri gönder
+//   form → sayfa: { tip: 'kaydet', girdi }         → işi kaydet (sonra panel yenilenir)
+//   form → sayfa: { tip: 'musteriEkle', bilgiler } → yeni müşteriyi kaydet
+//   form → sayfa: { tip: 'vazgec' }                → formu kapat, panele dön
+//   sayfa → form: { tip: 'secenekler', veri } / { tip: 'yuklemeHatasi', hata }
+//   sayfa → form: { tip: 'sonuc', basarili, veri | hata }
+//   sayfa → form: { tip: 'musteriEklendi', basarili, musteri | hata }
+//
+// Öğelerden biri sayfada yoksa diğeri yine çalışır.
 
 import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
 import { asama1YzOlmadanTamamla, takipYapildi } from 'backend/suleyman.web';
 
 const PANEL = '#kontrolPaneli';
-const ESKI_FORM = '#isGirisiFormu';
+const FORM = '#isGirisiFormu';
+let panelVar = false;
+let formVar = false;
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
@@ -49,7 +57,11 @@ function varMi(secici) {
 }
 
 function panele(mesaj) {
-  $w(PANEL).postMessage(mesaj);
+  if (panelVar) $w(PANEL).postMessage(mesaj);
+}
+
+function forma(mesaj) {
+  if (formVar) $w(FORM).postMessage(mesaj);
 }
 
 async function panelVerisiGonder() {
@@ -113,51 +125,82 @@ const ISLEYICILER = {
 
   panelBasinaKaydir: () => $w(PANEL).scrollTo(),
 
-  // --- Yeni İş Kaydı formu ---
-  async hazir() {
+  // Düzenle formu müşteri/modül listelerini buradan alır.
+  async panelSecenekleri() {
     try {
       panele({ tip: 'secenekler', veri: await isGirisiSecenekleri() });
     } catch (hata) {
-      console.error('İş Girişi seçenekleri yüklenemedi:', hata);
-      panele({ tip: 'yuklemeHatasi', hata: hataMetni(hata) });
+      console.error('Panel seçenekleri yüklenemedi:', hata);
     }
+  },
+
+  async yeniIs() {
+    if (!formVar) return;
+    await $w(FORM).expand();
+    $w(FORM).scrollTo();
+  }
+};
+
+const FORM_ISLEYICILERI = {
+  async hazir() {
+    try {
+      forma({ tip: 'secenekler', veri: await isGirisiSecenekleri() });
+    } catch (hata) {
+      console.error('İş Girişi seçenekleri yüklenemedi:', hata);
+      forma({ tip: 'yuklemeHatasi', hata: hataMetni(hata) });
+    }
+  },
+
+  async vazgec() {
+    if (!panelVar) return;
+    await $w(FORM).collapse();
+    $w(PANEL).scrollTo();
   },
 
   async musteriEkle(m) {
     try {
       const musteri = await yeniMusteriKaydet(m.bilgiler);
-      panele({ tip: 'musteriEklendi', basarili: true, musteri });
+      forma({ tip: 'musteriEklendi', basarili: true, musteri });
+      await ISLEYICILER.panelSecenekleri(); // Düzenle'deki müşteri listesi de güncellensin
     } catch (hata) {
       console.error('Müşteri kaydedilemedi:', hata);
-      panele({ tip: 'musteriEklendi', basarili: false, hata: hataMetni(hata) });
+      forma({ tip: 'musteriEklendi', basarili: false, hata: hataMetni(hata) });
     }
   },
 
   async kaydet(m) {
     try {
       const sonuc = await isGirisiniKaydet(m.girdi);
-      panele({ tip: 'sonuc', basarili: true, veri: sonuc });
-      await panelVerisiGonder(); // yeni iş panelde hemen görünsün
+      forma({ tip: 'sonuc', basarili: true, veri: sonuc });
+      if (panelVar) await panelVerisiGonder(); // yeni iş panelde hemen görünsün
     } catch (hata) {
       console.error('İş kaydedilemedi:', hata);
-      panele({ tip: 'sonuc', basarili: false, hata: hataMetni(hata) });
+      forma({ tip: 'sonuc', basarili: false, hata: hataMetni(hata) });
     }
   }
 };
 
 $w.onReady(function () {
-  if (varMi(ESKI_FORM)) {
-    // Form artık panelin içinde; eski kutu görünmesin.
-    $w(ESKI_FORM).collapse();
-    console.warn(`HAP: ${ESKI_FORM} artık kullanılmıyor; Editor'den silebilirsiniz.`);
+  panelVar = varMi(PANEL);
+  formVar = varMi(FORM);
+  if (!panelVar) console.error(`Kontrol Paneli: sayfada ${PANEL} ID'li bir "Embed HTML" öğesi yok.`);
+  if (!formVar) console.error(`Yeni İş Kaydı: sayfada ${FORM} ID'li bir "Embed HTML" öğesi yok.`);
+
+  // Panel varsa form kapalı başlar. (Panel yoksa form açık kalır, yoksa ona ulaşılamazdı.)
+  if (panelVar && formVar) $w(FORM).collapse();
+
+  if (panelVar) {
+    $w(PANEL).onMessage(async (olay) => {
+      const mesaj = olay.data || {};
+      const isleyici = ISLEYICILER[mesaj.tip];
+      if (isleyici) await isleyici(mesaj);
+    });
   }
-  if (!varMi(PANEL)) {
-    console.error(`Kontrol Paneli: sayfada ${PANEL} ID'li bir "Embed HTML" öğesi yok.`);
-    return;
+  if (formVar) {
+    $w(FORM).onMessage(async (olay) => {
+      const mesaj = olay.data || {};
+      const isleyici = FORM_ISLEYICILERI[mesaj.tip];
+      if (isleyici) await isleyici(mesaj);
+    });
   }
-  $w(PANEL).onMessage(async (olay) => {
-    const mesaj = olay.data || {};
-    const isleyici = ISLEYICILER[mesaj.tip];
-    if (isleyici) await isleyici(mesaj);
-  });
 });
