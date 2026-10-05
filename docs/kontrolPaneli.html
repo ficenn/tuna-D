@@ -156,7 +156,7 @@
       </div>
       <div class="tablo-kutu">
         <table>
-          <thead><tr><th>İş ID</th><th>İş</th><th>Müşteri / Kaynak</th><th>Durum / Aşama</th><th>Termin</th></tr></thead>
+          <thead><tr><th>İş ID</th><th>İş</th><th>Müşteri / Kaynak</th><th>Durum / Aşama</th><th>Bitiş tarihi</th></tr></thead>
           <tbody id="isSatirlari"></tbody>
         </table>
       </div>
@@ -168,7 +168,7 @@
     </section>
 
     <section class="kart">
-      <div class="kart-bas"><div><h2>Buraya Dikkat!</h2><p class="alt">Takılan, termini yaklaşan veya bekleyen işler.</p></div></div>
+      <div class="kart-bas"><div><h2>Buraya Dikkat!</h2><p class="alt">Takılan, bitiş tarihi yaklaşan veya bekleyen işler.</p></div></div>
       <ul class="uyarilar" id="uyarilar"></ul>
       <button type="button" class="metin" id="uyariDaha" hidden></button>
     </section>
@@ -373,7 +373,7 @@
     bilgi(iz, 'Kaynak', d.kaynak);
     bilgi(iz, 'Kategori', d.kategori);
     bilgi(iz, 'Aciliyet', d.aciliyetEtiketi);
-    bilgi(iz, 'Termin', d.termin ? terminTR(d.termin) : null);
+    bilgi(iz, 'Bitiş tarihi', d.termin ? terminTR(d.termin) : null);
     bilgi(iz, 'Oluşturma', d.olusturma ? saatTR(d.olusturma) : null);
     ic.appendChild(iz);
 
