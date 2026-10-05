@@ -69,7 +69,10 @@ function formuBagla(panelVar) {
     }
 
     if (mesaj.tip === 'vazgec') {
-      if (panelVar) $w(PANEL).scrollTo();
+      if (panelVar) {
+        await $w(FORM).collapse();
+        $w(PANEL).scrollTo();
+      }
       return;
     }
 
@@ -146,6 +149,7 @@ function paneliBagla(formVar) {
     }
 
     if (mesaj.tip === 'yeniIs' && formVar) {
+      await $w(FORM).expand();
       $w(FORM).scrollTo();
       return;
     }
@@ -162,6 +166,10 @@ $w.onReady(function () {
 
   if (!formVar) console.error(`İş Girişi: sayfada ${FORM} ID'li bir "Embed HTML" öğesi yok.`);
   if (!panelVar) console.warn(`Kontrol Paneli: sayfada ${PANEL} ID'li bir "Embed HTML" öğesi yok.`);
+
+  // Panel varsa form kapalı başlar; "+ Yeni İş" açar, "Vazgeç" kapatır.
+  // (Panel yoksa form açık kalır, yoksa ona ulaşılamazdı.)
+  if (formVar && panelVar) $w(FORM).collapse();
 
   if (formVar) formuBagla(panelVar);
   if (panelVar) paneliBagla(formVar);
