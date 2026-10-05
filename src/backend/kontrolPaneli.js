@@ -8,7 +8,7 @@
 // onlar panele girmez.
 //
 // Üç kategori aynı listede görünür:
-//   A Ticari (7 aşamalı akış), B Pazarlama ve C Rutin (kısa yol:
+//   A Ticari (7 aşamalı akış), B Pazarlama ve C Yapılacaklar (kısa yol:
 //   Yapılacak → Yapıldı).
 
 import wixData from 'wix-data';
@@ -18,6 +18,7 @@ import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER } from './isGirisi';
 const IS = 'IsKayitlari';
 const BAGLAM = 'IsBaglamlari';
 const MUSTERI = 'Musteriler';
+const MASA = 'Masalar';
 
 // Eşikler. Pilotta ayarlanabilir.
 export const ESIKLER = {
@@ -27,14 +28,15 @@ export const ESIKLER = {
 
 const KAPALI_DURUMLAR = ['tamamlandi', 'iptal'];
 
-const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Rutin' };
+const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Yapılacaklar' };
 
 const ISLEM_ETIKETLERI = {
   kayit_olusturuldu: 'Kayıt oluşturuldu',
   yz_hazirlik_tamamlandi: 'YZ analizi geldi, Aşama 1 tamamlandı',
   hazirlik_yz_olmadan_tamamlandi: 'Aşama 1 YZ analizi olmadan tamamlandı',
   giris_tamamlandi: 'Giriş tamamlandı',
-  takip_tamamlandi: 'Yapıldı olarak işaretlendi'
+  takip_tamamlandi: 'Yapıldı olarak işaretlendi',
+  kayit_guncellendi: 'Kayıt düzenlendi'
 };
 
 const ESKI_KAYNAKLAR = { Webhook: 'KN (form)', Panel: 'Panel' };
@@ -154,7 +156,7 @@ export function gundemHesapla(isler, simdi = new Date()) {
       const dakika = (simdi - new Date(i.olusturma)) / 60000;
       if (dakika >= ESIKLER.yzBeklemeDakika) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
-          neden: 'YZ analizi gelmedi — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Takıldı', tur: 'hata' });
+          neden: 'YZ analizi gelmedi — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Bekliyor', tur: 'hata' });
       }
     }
 
@@ -162,7 +164,7 @@ export function gundemHesapla(isler, simdi = new Date()) {
       const kalan = gunFarki(i.termin, bugun);
       if (kalan < 0) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 1, termin: i.termin,
-          neden: `Bitiş tarihi ${-kalan} gün önceydi.`, etiket: 'Gecikti', tur: 'hata' });
+          neden: `Bitiş tarihi ${-kalan} gün önceydi.`, etiket: 'Süresi geçti', tur: 'hata' });
       } else if (kalan === 0) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 2, termin: i.termin,
           neden: i.musteri && i.musteri !== '—' ? i.musteri : i.kategoriKisa, etiket: 'Bugün', tur: 'bugun' });
@@ -239,8 +241,8 @@ export async function isDetayiHazirla(isId) {
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
     islem: ISLEM_ETIKETLERI[g.islem] || g.islem,
-    onceki: g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
-    yeni: g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
+    onceki: g.islem === 'kayit_guncellendi' ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
+    yeni: g.islem === 'kayit_guncellendi' ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
     not: g.not || null
   }));
@@ -249,6 +251,36 @@ export async function isDetayiHazirla(isId) {
   const islemler = [];
   if (ozet.asama === '1_giris' && ozet.durum === 'devam_ediyor') islemler.push('yzsizTamamla');
   if (ozet.asama === KISA_YOL_ASAMASI && ozet.durum === 'sirada') islemler.push('yapildi');
+
+  // Düzenle: açık A/B/C işleri (KN başvuruları hariç). Formu doldurmak için
+  // ham değerler de gönderilir.
+  let duzenleme = null;
+  if (ozet.acik && KATEGORILER[k.kategori]) {
+    islemler.push('duzenle');
+    duzenleme = {
+      kategori: k.kategori,
+      aciklama: k.description || '',
+      termin: ozet.termin || '',
+      aciliyet: k.aciliyet || 'normal',
+      modul: k.modul || '',
+      musteriId: k.musteri || '',
+      kapsam: b?.kapsam || '',
+      notlar: b?.girisNotu || ''
+    };
+  }
+
+  // Masa: işin atandığı masa (masa sayfaları gelince bağlantı olacak).
+  let masa = null;
+  if (k.atananMasa) {
+    let ad = null;
+    try {
+      const m = await wixData.get(MASA, k.atananMasa, { suppressAuth: true });
+      ad = m && m.masaAdi;
+    } catch (hata) {
+      console.warn('Kontrol Paneli: masa okunamadı:', k.atananMasa, hata);
+    }
+    masa = { kod: k.atananMasa, ad: ad || k.atananMasa };
+  }
 
   return {
     ...ozet,
@@ -260,6 +292,8 @@ export async function isDetayiHazirla(isId) {
       : null,
     cevaplar,
     gecmis,
-    islemler
+    islemler,
+    duzenleme,
+    masa
   };
 }

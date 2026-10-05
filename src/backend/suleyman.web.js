@@ -37,7 +37,7 @@ export const asama1YzOlmadanTamamla = webMethod(
   }
 );
 
-// Kısa yol (B Pazarlama, C Rutin): "Yapıldı" — işi kapatır.
+// Kısa yol (B Pazarlama, C Yapılacaklar): "Yapıldı" — işi kapatır.
 export const takipYapildi = webMethod(
   Permissions.Admin,
   async (isId) => {

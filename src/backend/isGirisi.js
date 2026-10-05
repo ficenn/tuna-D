@@ -17,13 +17,13 @@
 //   A Ticari / Ücretli İş: müşteri + 7 aşamalı yaşam döngüsü (yukarıdaki akış).
 //   B Pazarlama: Pazarlama masasının kendi işi (İçerik / Görünürlük). Müşteri
 //     yok. Kısa yol: Yapılacak → Yapıldı.
-//   C Rutin: işletmenin kendi yapılacaklar hatırlatması. Müşteri yok.
+//   C Yapılacaklar: işletmenin kendi hatırlatmaları. Müşteri yok.
 //     Kısa yol: Yapılacak → Yapıldı. Tekrar etmez.
 // B ve C'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
 
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
-import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap } from './suleyman';
+import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap, kayitDuzenle } from './suleyman';
 
 const MUSTERI_KOLEKSIYONU = 'Musteriler';
 const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
@@ -33,7 +33,7 @@ const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
 export const KATEGORILER = {
   A: 'A – Ticari / Ücretli İş',
   B: 'B – Pazarlama',
-  C: 'C – Rutin'
+  C: 'C – Yapılacaklar'
 };
 
 // Kısa yoldan (Yapılacak → Yapıldı) giden kategoriler.
@@ -398,4 +398,115 @@ export async function isGirisiKaydet(girdi, aktor) {
     durum,
     uyarilar
   };
+}
+
+// --- Düzenleme (Kontrol Paneli → İş Detayı → Düzenle) ---
+//
+// Açık bir A/B/C işinin girişte yazılan bilgileri düzeltilebilir:
+//   A: müşteri, açıklama, kapsam, not, bitiş tarihi, aciliyet
+//   B: modül, açıklama, kapsam, not, bitiş tarihi, aciliyet
+//   C: açıklama, not, tarih
+// Kategori, kaynak, İş ID ve aşama/durum değişmez. Her düzenleme geçmişe
+// ne değiştiği yazılarak eklenir (Süleyman). KN başvuruları düzenlenmez.
+const DUZENLEME_ETIKETLERI = {
+  description: 'Açıklama', termin: 'Bitiş tarihi', aciliyet: 'Aciliyet', modul: 'Modül',
+  musteri: 'Müşteri', kapsam: 'Kapsam', girisNotu: 'Not'
+};
+
+function kisalt(s) {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim();
+  if (!t) return '—';
+  return t.length > 60 ? t.slice(0, 57) + '…' : t;
+}
+
+export async function isGuncelle(isId, girdi, aktor) {
+  const id = String(isId || '').trim();
+  if (!id) throw new Error('İş ID eksik.');
+  const g = girdi || {};
+
+  const kayitSonuc = await wixData.query('IsKayitlari').eq('isId', id).limit(1).find({ suppressAuth: true });
+  if (!kayitSonuc.items.length) throw new Error(`İş bulunamadı: ${id}`);
+  const k = kayitSonuc.items[0];
+  const kategori = k.kategori;
+  if (!KATEGORILER[kategori]) throw new Error('Bu iş buradan düzenlenemez.');
+
+  const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
+  if (!aciklama) throw new Error('Açıklama boş bırakılamaz.');
+
+  const yeniKayit = { description: aciklama, termin: terminKontrol(g.termin) };
+  if (kategori === 'A' || kategori === 'B') {
+    const aciliyet = String(g.aciliyet || 'normal').trim();
+    if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
+    yeniKayit.aciliyet = aciliyet;
+  }
+  if (kategori === 'B') {
+    const modul = String(g.modul || '').trim();
+    if (!MODULLER[modul]) throw new Error('Modülü seçin (İçerik / Görünürlük).');
+    yeniKayit.modul = modul;
+  }
+  const musteriAdlari = {};
+  if (kategori === 'A') {
+    const musteriId = String(g.musteriId || '').trim();
+    if (!musteriId) throw new Error('Müşteri seçin.');
+    if (musteriId !== k.musteri) {
+      const yeni = await wixData.get(MUSTERI_KOLEKSIYONU, musteriId, { suppressAuth: true });
+      if (!yeni) throw new Error('Seçilen müşteri bulunamadı.');
+      musteriAdlari[musteriId] = yeni.name;
+      if (k.musteri) {
+        const eski = await wixData.get(MUSTERI_KOLEKSIYONU, k.musteri, { suppressAuth: true });
+        if (eski) musteriAdlari[k.musteri] = eski.name;
+      }
+    }
+    yeniKayit.musteri = musteriId;
+  }
+
+  const baglamSonuc = await wixData.query(BAGLAM_KOLEKSIYONU).eq('isId', id).limit(1).find({ suppressAuth: true });
+  const b = baglamSonuc.items[0] || null;
+  const yeniBaglam = { girisNotu: metin(g.notlar, UZUNLUK.uzun, 'Not') || null };
+  if (kategori !== 'C') yeniBaglam.kapsam = metin(g.kapsam, UZUNLUK.uzun, 'Kapsam') || null;
+
+  // Değişenleri bul
+  const kayitDegisen = {};
+  const notlar = [];
+  for (const [alan, deger] of Object.entries(yeniKayit)) {
+    const onceki = k[alan] ?? null;
+    const oncekiMetin = alan === 'termin' && onceki && typeof onceki !== 'string'
+      ? new Date(onceki).toISOString().slice(0, 10) : onceki;
+    if ((oncekiMetin || null) !== (deger || null)) {
+      kayitDegisen[alan] = deger;
+      let o = oncekiMetin, y = deger;
+      if (alan === 'aciliyet') { o = ACILIYETLER[o] || o; y = ACILIYETLER[y]; }
+      if (alan === 'modul') { o = MODULLER[o] || o; y = MODULLER[y]; }
+      if (alan === 'musteri') { o = musteriAdlari[o] || o; y = musteriAdlari[y] || y; }
+      notlar.push(`${DUZENLEME_ETIKETLERI[alan]}: "${kisalt(o)}" → "${kisalt(y)}"`);
+    }
+  }
+  const baglamDegisen = {};
+  for (const [alan, deger] of Object.entries(yeniBaglam)) {
+    if (((b && b[alan]) || null) !== (deger || null)) {
+      baglamDegisen[alan] = deger;
+      notlar.push(`${DUZENLEME_ETIKETLERI[alan]}: "${kisalt(b && b[alan])}" → "${kisalt(deger)}"`);
+    }
+  }
+
+  if (!notlar.length) return { degisti: false, uyarilar: [] };
+
+  await kayitDuzenle(id, kayitDegisen, aktor, notlar.join(' | '));
+
+  const uyarilar = [];
+  if (Object.keys(baglamDegisen).length) {
+    try {
+      if (b) {
+        await wixData.update(BAGLAM_KOLEKSIYONU, { ...b, ...baglamDegisen }, { suppressAuth: true });
+      } else {
+        await wixData.insert(BAGLAM_KOLEKSIYONU,
+          { isId: id, title: aciklama.slice(0, 120), kapsam: null, girisNotu: null, ...baglamDegisen, context: null, summary: null, checklist: [] },
+          { suppressAuth: true });
+      }
+    } catch (hata) {
+      console.error(`isGirisi: ${id} kapsam/not güncellenemedi:`, hata);
+      uyarilar.push('Kapsam/not kaydedilemedi; diğer değişiklikler kaydedildi.');
+    }
+  }
+  return { degisti: true, uyarilar };
 }
