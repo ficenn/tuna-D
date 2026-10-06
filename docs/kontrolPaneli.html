@@ -68,12 +68,14 @@
   .liste-kart .sayfalama { margin-top: auto; padding-top: 8px; }
   .alt-izgara .detay { height: var(--alt-yukseklik); max-height: none; }
   /* Detay: başlık sabit, içerik kendi içinde kayar. Kaydırma çubuğu gizli;
-     aşağıda daha fazlası varsa altta yumuşak bir solma görünür. */
+     aşağıda daha fazlası varsa altta yumuşak bir solma ve "Devamı için
+     aşağı kaydırın" notu görünür (sona gelince kaybolur). */
   .detay { display: flex; flex-direction: column; overflow: hidden; position: relative; }
-  #detayIcerik { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; }
+  #detayIcerik { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
   #detayIcerik::-webkit-scrollbar { display: none; }
-  .detay::after { content: ""; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 46px; border-radius: 0 0 14px 14px;
-    background: linear-gradient(rgba(255,255,255,0), #fff 85%); pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .detay::after { content: "Devamı için aşağı kaydırın ↓"; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 52px; border-radius: 0 0 14px 14px;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; font-size: 12px; color: var(--soluk);
+    background: linear-gradient(rgba(255,255,255,0), #fff 60%); pointer-events: none; opacity: 0; transition: opacity .15s; }
   .detay.devami-var::after { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .detay::after { transition: none; } }
   @media (max-width: 980px) { .ust-izgara { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .takvim-kart { grid-column: 1 / -1; } }
@@ -313,7 +315,7 @@
     </section>
 
     <section class="kart detay" id="detay" aria-labelledby="detayBaslik">
-      <div class="kart-bas"><svg class="ikon"><use href="#s-belge"/></svg><h2 id="detayBaslik">İş Detayı</h2></div>
+      <div class="kart-bas"><svg class="ikon"><use href="#s-belge"/></svg><div><h2 id="detayBaslik">İş Detayı</h2><div class="kucuk" id="detayIpucu" hidden>Sayfayı kaydırmak için imleci bu kutunun dışına alın.</div></div></div>
       <div id="detayIcerik">
         <div class="detay-bos"><svg class="motif" width="72" height="72"><use href="#m-defter"/></svg><div>Seçtiğiniz işin detayı burada açılır.</div></div>
       </div>
@@ -547,7 +549,7 @@ window.HAP = { secenekler: null };
     acikDetay = isId;
     var ic = $('detayIcerik'); ic.innerHTML = '';
     ic.appendChild(el('p', 'kucuk', isId + ' yükleniyor…'));
-    $('detay').classList.remove('devami-var');
+    $('detay').classList.remove('devami-var'); $('detayIpucu').hidden = true;
     if (veri) tabloyuCiz();
     gonder({ tip: 'isDetayi', isId: isId });
     if (window.matchMedia('(max-width: 760px)').matches) $('detay').scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -615,6 +617,7 @@ window.HAP = { secenekler: null };
   function solmaGuncelle() {
     var ic = $('detayIcerik');
     $('detay').classList.toggle('devami-var', ic.scrollHeight - ic.scrollTop - ic.clientHeight > 4);
+    $('detayIpucu').hidden = ic.scrollHeight <= ic.clientHeight + 4;   // yalnızca kutu kendi içinde kayıyorsa
   }
   $('detayIcerik').addEventListener('scroll', solmaGuncelle);
   $('detayIcerik').addEventListener('toggle', function () { setTimeout(solmaGuncelle, 0); }, true);
