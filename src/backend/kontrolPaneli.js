@@ -279,6 +279,8 @@ export async function isDetayiHazirla(isId) {
   const islemler = [];
   if (ozet.asama === GIRIS_DURAGI && ozet.durum === 'devam_ediyor') islemler.push('yzsizTamamla');
   if (ozet.asama === KISA_YOL_ASAMASI && ozet.durum === 'sirada') islemler.push('yapildi');
+  // Ar-Ge işi kapanırken çözüm Pazarlama'ya not olarak gönderilebilir.
+  if (islemler.includes('yapildi') && k.kategori === 'D') islemler.push('cozumNotu');
 
   // Ticari işin durağı: düğmeler ve etiketleri (rota.js'ten).
   let durak = null;

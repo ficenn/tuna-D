@@ -65,10 +65,14 @@ export const SONUCLAR = {
 export const TAKIP_DURAGI = 'aday_takibi';
 export const TAKIP_PLANI_GUN = [3, 10, 17];
 
-// Kurulumdan sonra açılan bağlı işler (yeni kayıt, kendi kategorisinde):
-// test notları Ar-Ge'ye (D, Ürün masası), yeni özellik / çözülen sorun
-// notları Pazarlama'ya (B, İçerik modülü) gider.
+// Bağlı işler (yeni kayıt, kendi kategorisinde, ana işe bağlı):
+//   Kurulum kapanışı → arge: sorunlar / eksikler Ar-Ge'ye (D, Ürün masası)
+//   Kurulum kapanışı → referans: olumlu geri bildirim Pazarlama'ya (B, İçerik)
+//   Ar-Ge işi "Yapıldı" → cozum: çözüm / iyileştirme Pazarlama'ya (B, İçerik)
+// Ham sorunlar pazarlamaya gitmez; pazarlama çözülmüş olanı anlatır.
+// (Karar: 2026-10-23)
 export const BAGLI_ISLER = {
-  arge: { kategori: 'D', modul: 'urun_gelistirme', baslik: 'Ar-Ge notu' },
-  pazarlama: { kategori: 'B', modul: 'icerik', baslik: 'Pazarlama notu' }
+  arge: { kategori: 'D', modul: 'urun_gelistirme', baslik: 'Ar-Ge notu', ad: 'Ar-Ge' },
+  referans: { kategori: 'B', modul: 'icerik', baslik: 'Olumlu geri bildirim', ad: 'Pazarlama (geri bildirim)' },
+  cozum: { kategori: 'B', modul: 'icerik', baslik: 'Çözüm / iyileştirme', ad: 'Pazarlama (çözüm)' }
 };

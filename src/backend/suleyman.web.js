@@ -5,12 +5,34 @@
 //   durakIslemiYap          Ticari (A) işin durağındaki karar ve işlemler
 //                           (Başla, Beklet, Devam, İptal, Takip yapıldı,
 //                           evet / hayır çıkışları). Kurulum "İyi çalışıyor"
-//                           ile kapanırken yazılan notlar bağlı iş açar.
+//                           ile kapanırken yazılan notlar bağlı iş açar
+//                           (sorunlar → Ar-Ge, olumlu geri bildirim → Pazarlama).
+//   takipYapildi            Ar-Ge (D) işinde isteğe bağlı "çözüm" notu
+//                           Pazarlama'ya bağlı iş açar.
 
 import { Permissions, webMethod } from 'wix-web-module';
 import { currentMember } from 'wix-members-backend';
-import { gecisYap, durakIslemi } from './suleyman';
+import wixData from 'wix-data';
+import { gecisYap, durakIslemi, asamaEtiketi } from './suleyman';
 import { bagliIsAc } from './isGirisi';
+import { BAGLI_ISLER } from './rota';
+
+// Bağlı işleri açar; açılamayanlar uyarı olur (ana işlem geri alınmaz).
+async function bagliIsleriAc(liste, anaIsId, aktor) {
+  const bagliIsler = [];
+  const uyarilar = [];
+  for (const [tur, metin] of liste) {
+    if (!String(metin || '').trim()) continue;
+    try {
+      const yeni = await bagliIsAc(tur, metin, String(anaIsId), aktor);
+      if (yeni) bagliIsler.push({ tur, ad: BAGLI_ISLER[tur].ad, isId: yeni.isId });
+    } catch (hata) {
+      console.error(`${anaIsId} için ${tur} bağlı işi açılamadı:`, hata);
+      uyarilar.push(`${BAGLI_ISLER[tur].ad} notu iş olarak açılamadı; elle girin.`);
+    }
+  }
+  return { bagliIsler, uyarilar };
+}
 
 // İşlemi yapan yöneticiyi geçmişe yazmak için. Üye bilgisi alınamazsa
 // "yonetici" yazılır; işlem yine de yapılır.
@@ -42,22 +64,26 @@ export const asama1YzOlmadanTamamla = webMethod(
 );
 
 // Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge): "Yapıldı" — işi kapatır.
+// D işinde isteğe bağlı cozumNotu: çözüm / iyileştirme Pazarlama'ya gider.
 export const takipYapildi = webMethod(
   Permissions.Admin,
-  async (isId) => {
+  async (isId, secenek) => {
     if (!isId) throw new Error('İş ID eksik.');
-    const sonuc = await gecisYap(
-      String(isId),
-      'takip_tamamlandi',
-      { tur: 'insan', kim: await istekYapan() }
-    );
+    const aktor = { tur: 'insan', kim: await istekYapan() };
+    const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor);
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
-    return sonuc;
+    let ek = { bagliIsler: [], uyarilar: [] };
+    const cozum = secenek && secenek.cozumNotu;
+    if (sonuc.degisti && String(cozum || '').trim()) {
+      const k = await wixData.query('IsKayitlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
+      if (k.items[0] && k.items[0].kategori === 'D') ek = await bagliIsleriAc([['cozum', cozum]], isId, aktor);
+    }
+    return { ...sonuc, ...ek };
   }
 );
 
 // Ticari (A) iş: durak işlemi.
-// secenek: { not, tarih (takip için), argeNotu, pazarlamaNotu (Kurulum kapanışı) }
+// secenek: { not, tarih (takip için), argeNotu, referansNotu (Kurulum kapanışı) }
 // Döner: Süleyman'ın sonucu + bagliIsler: [{ tur, isId }] + uyarilar: []
 export const durakIslemiYap = webMethod(
   Permissions.Admin,
@@ -70,20 +96,9 @@ export const durakIslemiYap = webMethod(
 
     // Ana iş kapandı; bağlı işler açılamazsa ana iş yine kapalı kalır,
     // kullanıcıya uyarı döner (notu elle Ar-Ge / Pazarlama işi olarak girer).
-    const bagliIsler = [];
-    const uyarilar = [];
-    if (sonuc.bagliIsAcilabilir) {
-      for (const [tur, metin] of [['arge', s.argeNotu], ['pazarlama', s.pazarlamaNotu]]) {
-        if (!String(metin || '').trim()) continue;
-        try {
-          const yeni = await bagliIsAc(tur, metin, String(isId), aktor);
-          if (yeni) bagliIsler.push({ tur, isId: yeni.isId });
-        } catch (hata) {
-          console.error(`durakIslemiYap: ${isId} için ${tur} bağlı işi açılamadı:`, hata);
-          uyarilar.push(`${tur === 'arge' ? 'Ar-Ge' : 'Pazarlama'} notu iş olarak açılamadı; elle girin.`);
-        }
-      }
-    }
-    return { ...sonuc, bagliIsler, uyarilar };
+    const ek = sonuc.bagliIsAcilabilir
+      ? await bagliIsleriAc([['arge', s.argeNotu], ['referans', s.referansNotu]], isId, aktor)
+      : { bagliIsler: [], uyarilar: [] };
+    return { ...sonuc, durakAdi: asamaEtiketi(sonuc.asama), ...ek };
   }
 );
