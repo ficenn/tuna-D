@@ -10,7 +10,7 @@
 //   panel → sayfa: { tip: 'panelHazir' } / { tip: 'panelYenile' } → panel verisini gönder
 //   panel → sayfa: { tip: 'isDetayi', isId }                     → iş detayını gönder
 //   panel → sayfa: { tip: 'yzsizTamamla', isId, gerekce }        → Süleyman: Giriş'i YZ'siz tamamla
-//   panel → sayfa: { tip: 'yapildi', isId }                      → Süleyman: kısa yol işi (B/C/D) "Yapıldı"
+//   panel → sayfa: { tip: 'yapildi', isId, cozumNotu }           → Süleyman: kısa yol işi (B/C/D) "Yapıldı"
 //   panel → sayfa: { tip: 'durakIslemi', isId, islem, secenek }  → Süleyman: Ticari işin durak işlemi
 //   panel → sayfa: { tip: 'isiGuncelle', isId, girdi }           → İş Detayı → Düzenle
 //   panel → sayfa: { tip: 'panelSecenekleri' }                   → Düzenle için seçenekleri gönder
@@ -110,10 +110,14 @@ const ISLEYICILER = {
   ),
 
   yapildi: (m) => islem(
-    () => takipYapildi(m.isId),
-    (s) => (s.degisti === false
-      ? `${m.isId} zaten yapıldı olarak işaretliydi.`
-      : `${m.isId}: yapıldı, arşive geçti.`)
+    () => takipYapildi(m.isId, { cozumNotu: m.cozumNotu || '' }),
+    (s) => {
+      if (s.degisti === false) return `${m.isId} zaten yapıldı olarak işaretliydi.`;
+      const parcalar = [`${m.isId}: yapıldı, arşive geçti.`];
+      (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.ad} işi açıldı: ${b.isId}.`));
+      (s.uyarilar || []).forEach((u) => parcalar.push(u));
+      return parcalar.join(' ');
+    }
   ),
 
   durakIslemi: (m) => islem(
@@ -121,7 +125,8 @@ const ISLEYICILER = {
     (s) => {
       const parcalar = [`${m.isId}: ${s.etiket || DURAK_MESAJLARI[m.islem] || 'kaydedildi'}.`];
       if (s.sonuc) parcalar.push('İş kapandı, arşive geçti.');
-      (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.tur === 'arge' ? 'Ar-Ge' : 'Pazarlama'} işi açıldı: ${b.isId}.`));
+      else if ((m.islem === 'evet' || m.islem === 'hayir') && s.durakAdi) parcalar.push(`İş şimdi: ${s.durakAdi}.`);
+      (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.ad} işi açıldı: ${b.isId}.`));
       (s.uyarilar || []).forEach((u) => parcalar.push(u));
       return parcalar.join(' ');
     }

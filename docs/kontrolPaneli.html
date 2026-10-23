@@ -350,6 +350,7 @@ window.HAP = { secenekler: null };
   var AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   var GUNLER = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
   var veri = null, acikDetay = null, sonDetay = null, veriGeldi = false;
+  var sonIslem = null;   // { isId, metin }: başarılı işlemden sonra detayda bir kez gösterilir
   // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'arsiv' (yapılmış / kapanmış işler)
   var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '' };
   var sayfa = 1, takvimAy = null;
@@ -658,6 +659,7 @@ window.HAP = { secenekler: null };
       if (!dk.sonuc && d.durum !== 'iptal') return;
       var kk = el('div', 'islem-kutu kapali');
       kk.appendChild(el('b', null, dk.sonuc ? 'Sonuç: ' + dk.sonucEtiketi : 'İptal edildi'));
+      if (sonIslem && sonIslem.isId === d.isId) { kk.appendChild(el('div', 'kucuk', sonIslem.metin)); sonIslem = null; }
       ic.appendChild(kk); return;
     }
     if (!dk.islemler.length) return;
@@ -673,6 +675,10 @@ window.HAP = { secenekler: null };
       if (t.sonraki) sat += ' Sonraki takip: ' + tarihTR(t.sonraki) + (t.sonraki < t.bugun ? ' (gecikti)' : t.sonraki === t.bugun ? ' (bugün)' : '') + '.';
       else if (t.sayi >= t.plan) sat += ' Planlanan ' + t.plan + ' takip bitti; devam edip etmemek sizin kararınız.';
       k.appendChild(el('p', 'durak-bilgi', sat));
+    }
+    if (sonIslem && sonIslem.isId === d.isId) {
+      var si = el('div', 'mesaj tamam'); si.style.margin = '6px 0 0'; si.textContent = sonIslem.metin;
+      k.appendChild(si); sonIslem = null;
     }
     if (dk.duzeltmeTuru) k.appendChild(el('p', 'durak-bilgi', 'Düzeltme turu: ' + dk.duzeltmeTuru));
     if (d.durum === 'beklemede') k.appendChild(el('p', 'durak-bilgi', 'İş beklemede. Gerekçe İş Geçmişi\'nde.'));
@@ -694,10 +700,13 @@ window.HAP = { secenekler: null };
     if (dk.cikislar.evet && dk.cikislar.evet.bagliIsler) {
       var nt = el('details', 'notlar');
       nt.appendChild(el('summary', null, 'Ar-Ge\'ye ve Pazarlama\'ya not (isteğe bağlı)'));
-      arge = el('textarea'); arge.id = 'argeNotu'; arge.maxLength = 5000; arge.placeholder = 'Ar-Ge: test sonuçları, ürün için notlar…';
-      paz = el('textarea'); paz.id = 'pazarlamaNotu'; paz.maxLength = 5000; paz.placeholder = 'Pazarlama: yeni özellikler, çözülen sorunlar (içerik için)…';
-      nt.appendChild(arge); nt.appendChild(paz);
-      nt.appendChild(el('div', 'kucuk', 'Yazılan her not ayrı bir iş olarak açılır ve bu işe bağlanır.'));
+      nt.appendChild(el('div', 'kucuk', 'Ar-Ge: sorunlar, eksikler, istekler'));
+      arge = el('textarea'); arge.id = 'argeNotu'; arge.maxLength = 5000; arge.placeholder = 'ör. Takvim telefonda yavaş açılıyor; toplu hatırlatma istendi…';
+      nt.appendChild(arge);
+      nt.appendChild(el('div', 'kucuk', 'Pazarlama: olumlu geri bildirim / referans'));
+      paz = el('textarea'); paz.id = 'referansNotu'; paz.maxLength = 5000; paz.placeholder = 'ör. “Hatırlatmalar sayesinde iptaller azaldı.”';
+      nt.appendChild(paz);
+      nt.appendChild(el('div', 'kucuk', 'Referans olarak kullanmadan önce müşterinin iznini alın. Yazılan her not ayrı bir iş olarak açılır ve bu işe bağlanır. Sorunlar pazarlamaya gitmez; Ar-Ge çözünce çözüm oradan pazarlamaya iletilir.'));
       k.appendChild(nt);
     }
 
@@ -705,14 +714,24 @@ window.HAP = { secenekler: null };
     var alt = el('div', 'durak-alt');
     var dm = el('div', 'mesaj islem-mesaj'); dm.id = 'durakMesaj'; dm.setAttribute('role', 'status');
 
+    var tarihUyarildi = false;
+    // Seçilen takip tarihi yalnızca "Takip yapıldı" ile kaydedilir; başka bir
+    // düğmede sessizce kaybolmasın diye bir kez uyarılır.
+    function tarihUyarisi(islem) {
+      if (!tarih || !tarih.value || islem === 'takipYapildi' || tarihUyarildi) return false;
+      tarihUyarildi = true;
+      mesaj('durakMesaj', 'uyari', 'Seçtiğiniz takip tarihi yalnızca “Takip yapıldı” ile kaydedilir; bu işlemde kullanılmaz. Yine de devam etmek için düğmeye tekrar basın.');
+      return true;
+    }
     function gonderIslem(islem, btn) {
+      if (tarihUyarisi(islem)) return;
       var not = ta.value.trim();
       if (NOT_ZORUNLU[islem] && !not) { mesaj('durakMesaj', 'hata', NOT_ZORUNLU[islem]); ta.focus(); return; }
       var cikis = (islem === 'evet' || islem === 'hayir') ? dk.cikislar[islem] : null;
       if (cikis && cikis.notZorunlu && !not) { mesaj('durakMesaj', 'hata', 'Not zorunlu: ' + (cikis.notIpucu || cikis.etiket)); ta.focus(); return; }
       var secenek = { not: not };
       if (islem === 'takipYapildi' && tarih) secenek.tarih = tarih.value;
-      if (islem === 'evet' && arge) { secenek.argeNotu = arge.value.trim(); secenek.pazarlamaNotu = paz.value.trim(); }
+      if (islem === 'evet' && arge) { secenek.argeNotu = arge.value.trim(); secenek.referansNotu = paz.value.trim(); }
       [].forEach.call(k.querySelectorAll('button'), function (b) { b.disabled = true; });
       mesaj('durakMesaj', 'bilgi', 'İşleniyor…');
       gonder({ tip: 'durakIslemi', isId: d.isId, islem: islem, secenek: secenek });
@@ -722,6 +741,7 @@ window.HAP = { secenekler: null };
       var bekle = null;
       btn.addEventListener('click', function () {
         if (!bekle) {
+          tarihUyarisi(islem);
           btn.textContent = 'Emin misiniz? Tekrar basın';
           if (ipucu) ta.placeholder = ipucu;
           bekle = setTimeout(function () { bekle = null; btn.textContent = metin; }, 5000);
@@ -772,10 +792,17 @@ window.HAP = { secenekler: null };
     ic.appendChild(el('div', 'detay-baslik', d.baslik));
 
     if (d.islemler.indexOf('yapildi') !== -1) {
+      var cozumTa = null;
+      if (d.islemler.indexOf('cozumNotu') !== -1) {
+        var cz = el('div', 'islem-kutu durak');
+        cz.appendChild(el('div', 'kucuk', 'Pazarlama\'ya not: çözüm / iyileştirme (isteğe bağlı). Yazarsanız “Yapıldı” ile birlikte Pazarlama\'da bağlı bir iş açılır.'));
+        cozumTa = el('textarea'); cozumTa.id = 'cozumNotu'; cozumTa.maxLength = 5000; cozumTa.placeholder = 'ör. Takvim artık telefonda iki kat hızlı açılıyor.';
+        cz.appendChild(cozumTa); ic.appendChild(cz);
+      }
       var y = el('div', 'islem-kutu yapildi');
       y.appendChild(el('span', null, 'Bitti mi? İşaretleyin, arşive geçsin.'));
       var yb = el('button', 'dugme', '✓ Yapıldı'); yb.type = 'button'; yb.id = 'yapildiBtn';
-      yb.addEventListener('click', function () { yb.disabled = true; gonder({ tip: 'yapildi', isId: d.isId }); });
+      yb.addEventListener('click', function () { yb.disabled = true; gonder({ tip: 'yapildi', isId: d.isId, cozumNotu: cozumTa ? cozumTa.value.trim() : '' }); });
       y.appendChild(yb); ic.appendChild(y);
       var ym = el('div', 'mesaj'); ym.id = 'islemMesaj'; ym.setAttribute('role', 'status'); ic.appendChild(ym);
     }
@@ -901,7 +928,7 @@ window.HAP = { secenekler: null };
         mesaj('genelMesaj', 'tamam', m.mesaj || 'İşlem tamamlandı.');
         clearTimeout(window._mesajZamani);
         window._mesajZamani = setTimeout(function () { if ($('genelMesaj').className.indexOf('tamam') !== -1) mesaj('genelMesaj', '', ''); }, 6000);
-        if (acikDetay) gonder({ tip: 'isDetayi', isId: acikDetay });
+        if (acikDetay) { sonIslem = { isId: acikDetay, metin: m.mesaj || 'İşlem tamamlandı.' }; gonder({ tip: 'isDetayi', isId: acikDetay }); }
       } else if ($('duzenleMesaj') && $('duzenleMesaj').className.indexOf('bilgi') !== -1) {
         mesaj('duzenleMesaj', 'hata', m.hata || 'Kaydedilemedi.');
       } else if ($('durakMesaj') && $('durakMesaj').className.indexOf('bilgi') !== -1) {
