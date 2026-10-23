@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  HAP — Kontrol Paneli (v3).
+  HAP — Kontrol Paneli (v4: Ticari işlerde duraklar, D – Ar-Ge).
   Bu dosyanın TAMAMI, HAP sayfasındaki "Embed HTML" öğesine yapıştırılır.
   Öğenin ID'si: kontrolPaneli · Yükseklik: 1130 px.
   Yeni İş Kaydı formu ayrı kutudadır (isGirisiFormu, docs/isGirisiFormu.html),
@@ -112,6 +112,7 @@
   .harf.k-A { background: var(--mavi-z); color: var(--mavi); }
   .harf.k-B { background: var(--mor-z); color: var(--mor); }
   .harf.k-C { background: var(--yesil-z); color: var(--yesil); }
+  .harf.k-D { background: var(--mavi-z); color: var(--ana-koyu); }
   .harf.k-KN { background: var(--turuncu-z); color: var(--turuncu); font-size: 11px; }
   .harf.k-x { background: var(--gri-z); color: var(--gri); }
 
@@ -195,6 +196,22 @@
   .islem-kutu { border-radius: 10px; padding: 10px 12px; margin: 6px 0 10px; }
   .islem-kutu.yz { background: var(--turuncu-z); }
   .islem-kutu.yapildi { background: var(--yesil-z); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .islem-kutu.durak { background: var(--ana-acik); }
+  .islem-kutu.kapali { background: var(--gri-z); }
+  .durak-bas { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .durak-bas b { font-size: 15px; color: var(--ana-koyu); }
+  .durak-bilgi { margin: 4px 0 0; font-size: 13px; }
+  .islem-kutu input[type=date] { padding: 6px 8px; border: 1px solid var(--cizgi); border-radius: 8px; font: inherit; background: #fff; }
+  .durak-tarih { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; font-size: 13px; }
+  .durak-alt { display: flex; gap: 4px 12px; flex-wrap: wrap; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,.06); }
+  .durak-alt .metin-dugme { font-size: 13px; }
+  .durak-alt .metin-dugme.tehlike { color: var(--bugun); }
+  details.notlar { margin: 0 0 8px; }
+  details.notlar summary { cursor: pointer; font-size: 13px; color: var(--ana-koyu); font-weight: 600; }
+  ul.bagli { list-style: none; margin: 0; padding: 0; }
+  ul.bagli li { padding: 6px 0; cursor: pointer; }
+  ul.bagli li + li { border-top: 1px solid var(--cizgi); }
+  ul.bagli li:hover b { text-decoration: underline; }
   .islem-kutu textarea { width: 100%; min-height: 54px; margin: 6px 0 8px; font: inherit; padding: 7px 9px; border: 1px solid var(--cizgi); border-radius: 8px; }
   .metin-kutu { white-space: pre-wrap; background: var(--zemin); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
   details.bolum { border: 1px solid var(--cizgi); border-radius: 10px; margin-top: 8px; }
@@ -298,6 +315,7 @@
         <button type="button" class="cip" data-kapsam="A">Ticari</button>
         <button type="button" class="cip" data-kapsam="B">Pazarlama</button>
         <button type="button" class="cip" data-kapsam="C">Yapılacaklar</button>
+        <button type="button" class="cip" data-kapsam="D">Ar-Ge</button>
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
@@ -332,7 +350,7 @@ window.HAP = { secenekler: null };
   var AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   var GUNLER = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
   var veri = null, acikDetay = null, sonDetay = null, veriGeldi = false;
-  // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'arsiv' (yapılmış / kapanmış işler)
+  // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'arsiv' (yapılmış / kapanmış işler)
   var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '' };
   var sayfa = 1, takvimAy = null;
   var $ = function (id) { return document.getElementById(id); };
@@ -362,10 +380,21 @@ window.HAP = { secenekler: null };
     return d.toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
   }
   function harf(kod) {
-    var k = kod === 'A' || kod === 'B' || kod === 'C' || kod === 'KN' ? kod : 'x';
+    var k = kod === 'A' || kod === 'B' || kod === 'C' || kod === 'D' || kod === 'KN' ? kod : 'x';
     return el('span', 'harf k-' + k, k === 'x' ? '•' : kod);
   }
-  function rozet(i) { return el('span', 'rozet r-' + i.durum, i.durumEtiketi); }
+  // Olumsuz sonuçla kapanan ticari iş "Kapandı" (gri) görünür; "Tamamlandı" yalnızca iş sonuçlandıysa.
+  function rozet(i) {
+    if (i.sonuc && i.sonuc !== 'sonuclandi') return el('span', 'rozet r-iptal', 'Kapandı');
+    return el('span', 'rozet r-' + i.durum, i.durumEtiketi);
+  }
+  // İşin yeri: kısa yolda kategori; ticari işte "2. Aday Takibi", Giriş, ya da sonuç.
+  function yerMetni(i) {
+    if (i.kisaYol) return i.kategoriKisa;
+    if (i.sonuc) return i.sonucEtiketi || i.asamaEtiketi;
+    if (!i.asamaNo) return i.asamaEtiketi;
+    return i.asamaNo + '. ' + i.asamaEtiketi;
+  }
 
   // ---------- Üst satır ----------
   function ustuCiz() {
@@ -467,7 +496,7 @@ window.HAP = { secenekler: null };
     filtre.kapsam = k;
     if (!ozeliKoru && (filtre.gun || filtre.idler)) { filtre.gun = null; filtre.idler = null; $('ozelFiltre').hidden = true; if (veri) takvimCiz(); }
     [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (x) { x.classList.toggle('secili', x.getAttribute('data-kapsam') === k); });
-    $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Yapılan İşler' : 'Şimdi Çalışılacak İşler';
+    $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Kapanan İşler' : 'Şimdi Çalışılacak İşler';
   }
   [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (b) {
     b.addEventListener('click', function () { kapsamSec(b.getAttribute('data-kapsam')); sayfa = 1; tabloyuCiz(); });
@@ -481,7 +510,8 @@ window.HAP = { secenekler: null };
     var arsiv = filtre.kapsam === 'arsiv';
     return veri.isler.filter(function (i) {
       if (arsiv ? i.acik : !i.acik) return false;
-      if (filtre.kapsam === 'A' || filtre.kapsam === 'B' || filtre.kapsam === 'C') { if (i.kategoriKod !== filtre.kapsam) return false; }
+      if (filtre.kapsam === 'A') { if (i.kategoriKod !== 'A' && i.kategoriKod !== 'KN') return false; }
+      else if (['B', 'C', 'D'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
       if (filtre.gun && i.termin !== filtre.gun) return false;
       if (filtre.idler && filtre.idler.indexOf(i.isId) === -1) return false;
       if (q && [i.isId, i.baslik, i.musteri, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
@@ -522,7 +552,7 @@ window.HAP = { secenekler: null };
       ic.appendChild(m); h.appendChild(ic); tr.appendChild(h);
       var mk = el('td', 'mk'); mk.appendChild(el('div', null, i.musteri)); mk.appendChild(el('div', 'kucuk', i.kaynak)); tr.appendChild(mk);
       var d = el('td'); d.appendChild(rozet(i));
-      d.appendChild(el('div', 'kucuk', i.kisaYol ? i.kategoriKisa : i.asamaNo + '. ' + i.asamaEtiketi)); tr.appendChild(d);
+      d.appendChild(el('div', 'kucuk', yerMetni(i))); tr.appendChild(d);
       tr.appendChild(el('td', i.termin && i.acik && i.termin < veri.bugun ? 'gecti' : null, tarihTR(i.termin)));
       tr.appendChild(el('td', 'ok', '›'));
       tr.addEventListener('click', function () { detayAc(i.isId); });
@@ -613,6 +643,113 @@ window.HAP = { secenekler: null };
     });
   }
 
+  // ---------- Durak kutusu (Ticari iş) ----------
+  // Durağın kararları (evet / hayır), takip ve durum işlemleri. Kararı ve
+  // iptali geri almak mümkün olmadığı için bu düğmeler iki tıklama ister.
+  var DURAK_DUGME = {
+    basla: '▶ Başla', beklet: 'Beklet', devamEt: '▶ Devam ettir', iptal: 'İptal et',
+    takipYapildi: '✓ Takip yapıldı'
+  };
+  var NOT_ZORUNLU = { beklet: 'Neden bekliyor? Not zorunlu.', iptal: 'Neden iptal? Not zorunlu. (Satış olmadıysa iptal değil, “hayır” kararını kullanın.)' };
+
+  function durakCiz(ic, d) {
+    var dk = d.durak, var_ = function (x) { return dk.islemler.indexOf(x) !== -1; };
+    if (dk.sonuc || !d.acik) {
+      if (!dk.sonuc && d.durum !== 'iptal') return;
+      var kk = el('div', 'islem-kutu kapali');
+      kk.appendChild(el('b', null, dk.sonuc ? 'Sonuç: ' + dk.sonucEtiketi : 'İptal edildi'));
+      ic.appendChild(kk); return;
+    }
+    if (!dk.islemler.length) return;
+    var k = el('div', 'islem-kutu durak');
+    var bas = el('div', 'durak-bas');
+    bas.appendChild(el('b', null, dk.no + '/' + dk.toplam + ' · ' + dk.ad));
+    if (d.masa) bas.appendChild(el('span', 'kucuk', d.masa.ad + ' masası'));
+    k.appendChild(bas);
+    if (dk.takip) {
+      var t = dk.takip, sat;
+      if (t.sayi === 0) sat = 'Henüz takip yapılmadı.';
+      else sat = t.sayi + '. takip yapıldı.';
+      if (t.sonraki) sat += ' Sonraki takip: ' + tarihTR(t.sonraki) + (t.sonraki < t.bugun ? ' (gecikti)' : t.sonraki === t.bugun ? ' (bugün)' : '') + '.';
+      else if (t.sayi >= t.plan) sat += ' Planlanan ' + t.plan + ' takip bitti; devam edip etmemek sizin kararınız.';
+      k.appendChild(el('p', 'durak-bilgi', sat));
+    }
+    if (dk.duzeltmeTuru) k.appendChild(el('p', 'durak-bilgi', 'Düzeltme turu: ' + dk.duzeltmeTuru));
+    if (d.durum === 'beklemede') k.appendChild(el('p', 'durak-bilgi', 'İş beklemede. Gerekçe İş Geçmişi\'nde.'));
+
+    var ta = el('textarea'); ta.id = 'durakNot'; ta.maxLength = 2000; ta.placeholder = 'Not (isteğe bağlı; Beklet ve İptal için zorunlu)';
+    k.appendChild(ta);
+
+    var tarih = null;
+    if (var_('takipYapildi')) {
+      var tl = el('label', 'durak-tarih');
+      tl.appendChild(el('span', null, 'Sonraki takip:'));
+      tarih = el('input'); tarih.type = 'date'; tarih.id = 'takipTarih'; if (dk.takip) tarih.min = dk.takip.bugun;
+      tl.appendChild(tarih);
+      tl.appendChild(el('span', 'kucuk', 'Boş bırakırsanız HAP ayarlar (3., 10., 17. gün).'));
+      k.appendChild(tl);
+    }
+
+    var arge = null, paz = null;
+    if (dk.cikislar.evet && dk.cikislar.evet.bagliIsler) {
+      var nt = el('details', 'notlar');
+      nt.appendChild(el('summary', null, 'Ar-Ge\'ye ve Pazarlama\'ya not (isteğe bağlı)'));
+      arge = el('textarea'); arge.id = 'argeNotu'; arge.maxLength = 5000; arge.placeholder = 'Ar-Ge: test sonuçları, ürün için notlar…';
+      paz = el('textarea'); paz.id = 'pazarlamaNotu'; paz.maxLength = 5000; paz.placeholder = 'Pazarlama: yeni özellikler, çözülen sorunlar (içerik için)…';
+      nt.appendChild(arge); nt.appendChild(paz);
+      nt.appendChild(el('div', 'kucuk', 'Yazılan her not ayrı bir iş olarak açılır ve bu işe bağlanır.'));
+      k.appendChild(nt);
+    }
+
+    var butonlar = el('div', 'butonlar'); k.appendChild(butonlar);
+    var alt = el('div', 'durak-alt');
+    var dm = el('div', 'mesaj islem-mesaj'); dm.id = 'durakMesaj'; dm.setAttribute('role', 'status');
+
+    function gonderIslem(islem, btn) {
+      var not = ta.value.trim();
+      if (NOT_ZORUNLU[islem] && !not) { mesaj('durakMesaj', 'hata', NOT_ZORUNLU[islem]); ta.focus(); return; }
+      var cikis = (islem === 'evet' || islem === 'hayir') ? dk.cikislar[islem] : null;
+      if (cikis && cikis.notZorunlu && !not) { mesaj('durakMesaj', 'hata', 'Not zorunlu: ' + (cikis.notIpucu || cikis.etiket)); ta.focus(); return; }
+      var secenek = { not: not };
+      if (islem === 'takipYapildi' && tarih) secenek.tarih = tarih.value;
+      if (islem === 'evet' && arge) { secenek.argeNotu = arge.value.trim(); secenek.pazarlamaNotu = paz.value.trim(); }
+      [].forEach.call(k.querySelectorAll('button'), function (b) { b.disabled = true; });
+      mesaj('durakMesaj', 'bilgi', 'İşleniyor…');
+      gonder({ tip: 'durakIslemi', isId: d.isId, islem: islem, secenek: secenek });
+    }
+    // İki tıklamalı onay: ilk tıklamada düğme "Emin misiniz?" olur.
+    function onayli(btn, islem, metin, ipucu) {
+      var bekle = null;
+      btn.addEventListener('click', function () {
+        if (!bekle) {
+          btn.textContent = 'Emin misiniz? Tekrar basın';
+          if (ipucu) ta.placeholder = ipucu;
+          bekle = setTimeout(function () { bekle = null; btn.textContent = metin; }, 5000);
+          return;
+        }
+        clearTimeout(bekle); bekle = null; btn.textContent = metin;
+        gonderIslem(islem, btn);
+      });
+    }
+    function dugme(ust, sinif, metin, islem, onay, ipucu) {
+      var b = el('button', sinif, metin); b.type = 'button'; b.className += ' durak-btn'; b.setAttribute('data-islem', islem);
+      if (onay) onayli(b, islem, metin, ipucu);
+      else b.addEventListener('click', function () { gonderIslem(islem, b); });
+      ust.appendChild(b); return b;
+    }
+
+    if (var_('takipYapildi')) dugme(butonlar, 'dugme ikincil', DURAK_DUGME.takipYapildi, 'takipYapildi', false);
+    if (var_('evet')) dugme(butonlar, 'dugme', '✓ ' + dk.cikislar.evet.etiket, 'evet', true, dk.cikislar.evet.notIpucu);
+    if (var_('hayir')) dugme(butonlar, 'dugme ikincil', '✕ ' + dk.cikislar.hayir.etiket, 'hayir', true, dk.cikislar.hayir.notIpucu);
+    if (!butonlar.children.length) butonlar.remove();
+
+    ['basla', 'devamEt', 'beklet'].forEach(function (x) { if (var_(x)) dugme(alt, 'metin-dugme', DURAK_DUGME[x], x, false); });
+    if (var_('iptal')) dugme(alt, 'metin-dugme tehlike', DURAK_DUGME.iptal, 'iptal', true, NOT_ZORUNLU.iptal);
+    k.appendChild(alt);
+    k.appendChild(dm);
+    ic.appendChild(k);
+  }
+
   // Detayda aşağıda gizli içerik varsa alttaki solmayı göster.
   function solmaGuncelle() {
     var ic = $('detayIcerik');
@@ -644,10 +781,10 @@ window.HAP = { secenekler: null };
     }
     if (d.islemler.indexOf('yzsizTamamla') !== -1) {
       var k = el('div', 'islem-kutu yz');
-      k.appendChild(el('div', null, 'YZ analizi bekleniyor. Gelmediyse Aşama 1\'i YZ\'siz tamamlayıp işi Değerlendirme sırasına alabilirsiniz.'));
+      k.appendChild(el('div', null, 'YZ analizi bekleniyor. Gelmediyse Giriş\'i YZ\'siz tamamlayıp işi Durum Fotoğrafı sırasına alabilirsiniz.'));
       var ta = el('textarea'); ta.id = 'gerekce'; ta.maxLength = 1000; ta.placeholder = 'Gerekçe (zorunlu): ör. YZ analizi 1 saattir gelmedi.';
       k.appendChild(ta);
-      var btn = el('button', 'dugme', 'Aşama 1\'i YZ\'siz tamamla'); btn.type = 'button'; btn.id = 'yzsizBtn';
+      var btn = el('button', 'dugme', 'Giriş\'i YZ\'siz tamamla'); btn.type = 'button'; btn.id = 'yzsizBtn';
       btn.addEventListener('click', function () {
         var g = ta.value.trim();
         if (!g) { mesaj('islemMesaj', 'hata', 'Gerekçe zorunlu.'); return; }
@@ -658,6 +795,7 @@ window.HAP = { secenekler: null };
       var im = el('div', 'mesaj'); im.id = 'islemMesaj'; im.setAttribute('role', 'status'); k.appendChild(im);
       ic.appendChild(k);
     }
+    if (d.durak) durakCiz(ic, d);
 
     var iz = el('div', 'bilgi-izgara');
     if (d.musteriBilgisi) {
@@ -669,12 +807,13 @@ window.HAP = { secenekler: null };
       bilgi(iz, 'Kategori', d.kategori);
     }
     bilgi(iz, d.kategoriKod === 'C' ? 'Tarih' : 'Bitiş tarihi', d.termin ? tarihTR(d.termin) : null);
-    bilgi(iz, 'Aşama', d.kisaYol ? (d.acik ? 'Yapılacaklar listesi' : 'Arşiv') : d.asamaNo + '. ' + d.asamaEtiketi);
+    bilgi(iz, d.kisaYol ? 'Liste' : 'Durak', d.kisaYol ? (d.acik ? 'Yapılacaklar listesi' : 'Arşiv') : yerMetni(d));
     if (d.musteriBilgisi) bilgi(iz, 'Kategori', d.kategori);
     // Masa: masa sayfaları eklenince burası bağlantı olacak.
     if (d.masa) bilgi(iz, 'Masa', [d.masa.ad, d.modul].filter(Boolean).join(' · '), 'Masa sayfası yakında');
     else if (d.modul) bilgi(iz, 'Modül', d.modul);
     if (d.kategoriKod !== 'C') bilgi(iz, 'Aciliyet', d.aciliyetEtiketi);
+    if (d.sonrakiTakip) bilgi(iz, 'Sonraki takip', tarihTR(d.sonrakiTakip));
     bilgi(iz, 'Kaynak', d.kaynak);
     bilgi(iz, 'Oluşturma', d.olusturma ? saatTR(d.olusturma) : null);
     if (d.musteriBilgisi && d.musteriBilgisi.adres) bilgi(iz, d.musteriBilgisi.knBasvurusu ? 'Konum' : 'Adres', d.musteriBilgisi.adres);
@@ -684,6 +823,20 @@ window.HAP = { secenekler: null };
     if (d.girisNotu) { ic.appendChild(el('div', 'kucuk', 'Not')); ic.appendChild(el('div', 'metin-kutu', d.girisNotu)); }
 
     if (d.islemler.indexOf('duzenle') !== -1 && d.duzenleme) duzenleCiz(ic, d);
+
+    if (d.bagliIsler && d.bagliIsler.length) {
+      var bb = bolum(ic, 'Bağlı İşler (' + d.bagliIsler.length + ')', true);
+      var bul = el('ul', 'bagli');
+      d.bagliIsler.forEach(function (b) {
+        var li = el('li'); li.tabIndex = 0;
+        li.appendChild(el('b', null, b.isId + ' · ')); li.appendChild(document.createTextNode(b.baslik));
+        li.appendChild(el('div', 'kucuk', b.kategoriKisa));
+        li.addEventListener('click', function () { detayAc(b.isId); });
+        li.addEventListener('keydown', function (e) { if (e.key === 'Enter') detayAc(b.isId); });
+        bul.appendChild(li);
+      });
+      bb.appendChild(bul);
+    }
 
     if (d.yz || d.cevaplar.length) {
       var yb2 = bolum(ic, '✦ YZ Analizi', false);
@@ -743,6 +896,7 @@ window.HAP = { secenekler: null };
       else { var ic = $('detayIcerik'); ic.innerHTML = ''; ic.appendChild(el('div', 'mesaj hata', m.hata || 'İş açılamadı.')); }
     } else if (m.tip === 'islemSonuc') {
       ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
+      [].forEach.call(document.querySelectorAll('.durak-btn'), function (b) { b.disabled = false; });
       if (m.basarili) {
         mesaj('genelMesaj', 'tamam', m.mesaj || 'İşlem tamamlandı.');
         clearTimeout(window._mesajZamani);
@@ -750,6 +904,8 @@ window.HAP = { secenekler: null };
         if (acikDetay) gonder({ tip: 'isDetayi', isId: acikDetay });
       } else if ($('duzenleMesaj') && $('duzenleMesaj').className.indexOf('bilgi') !== -1) {
         mesaj('duzenleMesaj', 'hata', m.hata || 'Kaydedilemedi.');
+      } else if ($('durakMesaj') && $('durakMesaj').className.indexOf('bilgi') !== -1) {
+        mesaj('durakMesaj', 'hata', m.hata || 'İşlem yapılamadı.');
       } else if ($('islemMesaj')) {
         mesaj('islemMesaj', 'hata', m.hata || 'İşlem yapılamadı.');
       } else {

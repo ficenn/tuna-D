@@ -6,13 +6,13 @@ import {
   KATEGORILER,
   KAYNAKLAR,
   ACILIYETLER,
-  MODULLER,
+  PAZARLAMA_MODULLERI,
   musterileriListele,
   musteriKaydet,
   isGirisiKaydet,
   isGuncelle
 } from './isGirisi';
-import { ASAMALAR, DURUMLAR, KISA_YOL_ETIKETLERI } from './suleyman';
+import { asamaEtiketi, durumEtiketi } from './suleyman';
 
 // İşi giren kişi (geçmişe yazılır). Editor Önizleme'de üye bilgisi
 // gelmez; o durumda "yonetici" yazılır.
@@ -31,7 +31,7 @@ export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
     kategoriler: KATEGORILER,
     kaynaklar: KAYNAKLAR,
     aciliyetler: ACILIYETLER,
-    moduller: MODULLER,
+    moduller: PAZARLAMA_MODULLERI, // formda yalnızca B'nin modülleri seçilir
     musteriler: await musterileriListele()
   };
 });
@@ -46,8 +46,8 @@ export const isGirisiniKaydet = webMethod(Permissions.Admin, async (girdi) => {
   const sonuc = await isGirisiKaydet(girdi, aktor);
   return {
     ...sonuc,
-    asamaEtiketi: ASAMALAR[sonuc.asama] || KISA_YOL_ETIKETLERI.asama,
-    durumEtiketi: sonuc.asama === 'takip' ? KISA_YOL_ETIKETLERI[sonuc.durum] : DURUMLAR[sonuc.durum]
+    asamaEtiketi: asamaEtiketi(sonuc.asama),
+    durumEtiketi: durumEtiketi(sonuc.asama, sonuc.durum)
   };
 });
 

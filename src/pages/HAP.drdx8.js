@@ -9,8 +9,9 @@
 // Kontrol Paneli:
 //   panel → sayfa: { tip: 'panelHazir' } / { tip: 'panelYenile' } → panel verisini gönder
 //   panel → sayfa: { tip: 'isDetayi', isId }                     → iş detayını gönder
-//   panel → sayfa: { tip: 'yzsizTamamla', isId, gerekce }        → Süleyman: Aşama 1'i YZ'siz tamamla
-//   panel → sayfa: { tip: 'yapildi', isId }                      → Süleyman: Pazarlama/Yapılacak işi "Yapıldı"
+//   panel → sayfa: { tip: 'yzsizTamamla', isId, gerekce }        → Süleyman: Giriş'i YZ'siz tamamla
+//   panel → sayfa: { tip: 'yapildi', isId }                      → Süleyman: kısa yol işi (B/C/D) "Yapıldı"
+//   panel → sayfa: { tip: 'durakIslemi', isId, islem, secenek }  → Süleyman: Ticari işin durak işlemi
 //   panel → sayfa: { tip: 'isiGuncelle', isId, girdi }           → İş Detayı → Düzenle
 //   panel → sayfa: { tip: 'panelSecenekleri' }                   → Düzenle için seçenekleri gönder
 //   panel → sayfa: { tip: 'yeniIs' }                             → formu aç ve oraya kaydır
@@ -33,9 +34,10 @@
 
 import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
-import { asama1YzOlmadanTamamla, takipYapildi } from 'backend/suleyman.web';
+import { asama1YzOlmadanTamamla, takipYapildi, durakIslemiYap } from 'backend/suleyman.web';
 
 const PANEL = '#kontrolPaneli';
+const DURAK_MESAJLARI = { basla: 'çalışmaya başlandı', beklet: 'beklemeye alındı', devamEt: 'beklemeden çıktı', iptal: 'iptal edildi' };
 const FORM = '#isGirisiFormu';
 let panelVar = false;
 let formVar = false;
@@ -103,8 +105,8 @@ const ISLEYICILER = {
   yzsizTamamla: (m) => islem(
     () => asama1YzOlmadanTamamla(m.isId, m.gerekce),
     (s) => (s.degisti
-      ? `${m.isId}: Aşama 1 YZ'siz tamamlandı, iş Değerlendirme sırasında.`
-      : `${m.isId} zaten Değerlendirme sırasındaydı.`)
+      ? `${m.isId}: Giriş YZ'siz tamamlandı, iş Durum Fotoğrafı sırasında.`
+      : `${m.isId} zaten Durum Fotoğrafı sırasındaydı.`)
   ),
 
   yapildi: (m) => islem(
@@ -112,6 +114,17 @@ const ISLEYICILER = {
     (s) => (s.degisti === false
       ? `${m.isId} zaten yapıldı olarak işaretliydi.`
       : `${m.isId}: yapıldı, arşive geçti.`)
+  ),
+
+  durakIslemi: (m) => islem(
+    () => durakIslemiYap(m.isId, m.islem, m.secenek || {}),
+    (s) => {
+      const parcalar = [`${m.isId}: ${s.etiket || DURAK_MESAJLARI[m.islem] || 'kaydedildi'}.`];
+      if (s.sonuc) parcalar.push('İş kapandı, arşive geçti.');
+      (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.tur === 'arge' ? 'Ar-Ge' : 'Pazarlama'} işi açıldı: ${b.isId}.`));
+      (s.uyarilar || []).forEach((u) => parcalar.push(u));
+      return parcalar.join(' ');
+    }
   ),
 
   isiGuncelle: (m) => islem(

@@ -53,8 +53,8 @@ export const invoke = async ({ payload }) => {
       isletmeAdi,
       konum,
       source: 'Webhook',
-      // Aşama 1 başlar; YZ analizi (hazırlık) çalışırken durum: devam_ediyor.
-      // YZ sonucu gelince Süleyman işi Aşama 2 / sırada'ya taşır
+      // Giriş başlar; YZ analizi (hazırlık) çalışırken durum: devam_ediyor.
+      // YZ sonucu gelince Süleyman işi ilk durağa (Durum Fotoğrafı) / sırada'ya taşır
       // (bkz. http-functions.js → post_boltSonucu).
       ...ilkKayitAlanlari({ tur: 'sistem', kim: 'KN' })
     });

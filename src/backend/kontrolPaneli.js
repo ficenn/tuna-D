@@ -7,12 +7,16 @@
 // olanlar, 000035 ve sonrası). Daha eski test kayıtlarının asama'sı yok;
 // onlar panele girmez.
 //
-// Üç kategori aynı listede görünür:
-//   A Ticari (7 aşamalı akış), B Pazarlama ve C Yapılacaklar (kısa yol:
-//   Yapılacak → Yapıldı).
+// Kategoriler aynı listede görünür:
+//   A Ticari (duraklı yolculuk, rota.js), B Pazarlama, C Yapılacaklar ve
+//   D Ar-Ge (kısa yol: Yapılacak → Yapıldı).
 
 import wixData from 'wix-data';
-import { ASAMALAR, DURUMLAR, KISA_YOL_ASAMASI, KISA_YOL_ETIKETLERI } from './suleyman';
+import {
+  DURUMLAR, KISA_YOL_ASAMASI, mevcutDurum, asamaEtiketi, durumEtiketi, sonucEtiketi,
+  izinliDurakIslemleri, gunTR
+} from './suleyman';
+import { DURAKLAR, CIKISLAR, GIRIS_DURAGI, SONUC_DURAGI, TAKIP_DURAGI, TAKIP_PLANI_GUN } from './rota';
 import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER } from './isGirisi';
 
 const IS = 'IsKayitlari';
@@ -22,22 +26,31 @@ const MASA = 'Masalar';
 
 // Eşikler. Pilotta ayarlanabilir.
 export const ESIKLER = {
-  yzBeklemeDakika: 15,   // KN işi Aşama 1'de bu kadar kalırsa: YZ gelmedi (Bugün kartına düşer)
+  yzBeklemeDakika: 15,   // KN işi Giriş'te bu kadar kalırsa: YZ gelmedi (Bugün kartına düşer)
   yaklasiyorGun: 7       // Bitiş tarihine 1..N gün kalan işler "Yaklaşıyor" kartında
 };
 
 const KAPALI_DURUMLAR = ['tamamlandi', 'iptal'];
 
-const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Yapılacaklar' };
+const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Yapılacaklar', D: 'Ar-Ge' };
 
 const ISLEM_ETIKETLERI = {
   kayit_olusturuldu: 'Kayıt oluşturuldu',
-  yz_hazirlik_tamamlandi: 'YZ analizi geldi, Aşama 1 tamamlandı',
-  hazirlik_yz_olmadan_tamamlandi: 'Aşama 1 YZ analizi olmadan tamamlandı',
+  yz_hazirlik_tamamlandi: 'YZ analizi geldi, Giriş tamamlandı',
+  hazirlik_yz_olmadan_tamamlandi: 'Giriş YZ analizi olmadan tamamlandı',
   giris_tamamlandi: 'Giriş tamamlandı',
   takip_tamamlandi: 'Yapıldı olarak işaretlendi',
-  kayit_guncellendi: 'Kayıt düzenlendi'
+  kayit_guncellendi: 'Kayıt düzenlendi',
+  durak_basladi: 'Çalışmaya başlandı',
+  durak_bekletildi: 'Beklemeye alındı',
+  durak_devam: 'Beklemeden çıktı',
+  is_iptal: 'İptal edildi',
+  takip_yapildi: 'Takip yapıldı',
+  durak_cikisi: 'Durak kararı'
 };
+
+// Masalar koleksiyonunda satırı henüz olmayan masalar için ad.
+const MASA_YEDEK_ADLARI = { pazarlama: 'Pazarlama', satis: 'Satış', hizmet: 'Hizmet', urun: 'Ürün' };
 
 const ESKI_KAYNAKLAR = { Webhook: 'KN (form)', Panel: 'Panel' };
 
@@ -82,15 +95,6 @@ function baslik(k) {
   return '(açıklama yok)';
 }
 
-function asamaEtiketi(asama) {
-  return asama === KISA_YOL_ASAMASI ? KISA_YOL_ETIKETLERI.asama : ASAMALAR[asama];
-}
-
-function durumEtiketi(asama, durum) {
-  if (asama === KISA_YOL_ASAMASI) return KISA_YOL_ETIKETLERI[durum] || DURUMLAR[durum];
-  return DURUMLAR[durum];
-}
-
 async function musteriAdlari(idler) {
   const benzersiz = [...new Set(idler.filter(Boolean))];
   if (!benzersiz.length) return {};
@@ -105,9 +109,11 @@ async function musteriAdlari(idler) {
 }
 
 function satir(k, musteriler) {
-  const kisaYol = k.asama === KISA_YOL_ASAMASI;
-  const asama = kisaYol ? KISA_YOL_ASAMASI : (ASAMALAR[k.asama] ? k.asama : '1_giris');
-  const durum = DURUMLAR[k.status] ? k.status : (kisaYol ? 'sirada' : 'devam_ediyor');
+  const yer = mevcutDurum(k);
+  const kisaYol = yer.asama === KISA_YOL_ASAMASI;
+  const asama = yer.asama;
+  const durum = yer.durum;
+  const sonuc = asama === SONUC_DURAGI ? k.sonuc || null : null;
   const kategoriKod = k.kategori || (k.source === 'Webhook' ? 'KN' : null);
   const musteriAdi = k.musteri ? musteriler[k.musteri] || '(müşteri bulunamadı)' : null;
 
@@ -115,6 +121,7 @@ function satir(k, musteriler) {
   if (!musteri && k.source === 'Webhook') musteri = k.isletmeAdi || k.isim || '—';
   if (!musteri && k.kategori === 'B') musteri = 'Pazarlama masası';
   if (!musteri && k.kategori === 'C') musteri = 'İşletme';
+  if (!musteri && k.kategori === 'D') musteri = 'Ürün masası';
 
   return {
     isId: k.isId,
@@ -127,10 +134,15 @@ function satir(k, musteriler) {
     modul: k.modul ? (MODULLER[k.modul] || k.modul) : null,
     kisaYol,
     asama,
-    asamaEtiketi: asamaEtiketi(asama),
-    asamaNo: kisaYol ? null : Number(asama.split('_')[0]),
+    asamaEtiketi: sonuc ? sonucEtiketi(sonuc) : asamaEtiketi(asama),
+    asamaNo: kisaYol ? null : DURAKLAR[asama].sira,
     durum,
     durumEtiketi: durumEtiketi(asama, durum),
+    sonuc,
+    sonucEtiketi: sonucEtiketi(sonuc),
+    sonrakiTakip: asama === TAKIP_DURAGI ? terminMetni(k.sonrakiTakip) : null,
+    takipSayisi: asama === TAKIP_DURAGI ? Number(k.takipSayisi) || 0 : null,
+    bagliIs: k.bagliIs || null,
     aciliyet: k.aciliyet || null,
     aciliyetEtiketi: k.aciliyet ? (ACILIYETLER[k.aciliyet] || k.aciliyet) : null,
     termin: terminMetni(k.termin),
@@ -142,8 +154,9 @@ function satir(k, musteriler) {
 // --- Gündem: "Bugün" ve "Yaklaşıyor" kartları ---
 //
 // Bugün: bitiş tarihi geçmiş veya bugün olan açık işler + YZ analizi
-//   gelmeyen (Aşama 1'de takılan) KN işleri.
-// Yaklaşıyor: bitiş tarihine 1..7 gün kalan açık işler.
+//   gelmeyen (Giriş'te takılan) KN işleri + takip günü gelmiş / geçmiş
+//   adaylar.
+// Yaklaşıyor: bitiş tarihine ya da takip gününe 1..7 gün kalan açık işler.
 export function gundemHesapla(isler, simdi = new Date()) {
   const bugun = bugunTR(simdi);
   const bugunListe = [];
@@ -152,11 +165,26 @@ export function gundemHesapla(isler, simdi = new Date()) {
   for (const i of isler) {
     if (!i.acik) continue;
 
-    if (i.asama === '1_giris' && i.durum === 'devam_ediyor' && i.olusturma) {
+    if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.olusturma) {
       const dakika = (simdi - new Date(i.olusturma)) / 60000;
       if (dakika >= ESIKLER.yzBeklemeDakika) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
           neden: 'YZ analizi gelmedi — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Bekliyor', tur: 'hata' });
+      }
+    }
+
+    if (i.sonrakiTakip && i.durum !== 'beklemede') {
+      const kalan = gunFarki(i.sonrakiTakip, bugun);
+      const sira = `${(i.takipSayisi || 0) + 1}. takip`;
+      if (kalan < 0) {
+        bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 1, termin: i.sonrakiTakip,
+          neden: `${sira} ${-kalan} gün gecikti · ${i.musteri}`, etiket: 'Takip gecikti', tur: 'hata' });
+      } else if (kalan === 0) {
+        bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 2, termin: i.sonrakiTakip,
+          neden: `${sira} · ${i.musteri}`, etiket: 'Takip günü', tur: 'bugun' });
+      } else if (kalan <= ESIKLER.yaklasiyorGun) {
+        yaklasiyor.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, termin: i.sonrakiTakip, kalan,
+          neden: `${sira} · ${i.musteri}` });
       }
     }
 
@@ -240,7 +268,7 @@ export async function isDetayiHazirla(isId) {
 
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
-    islem: ISLEM_ETIKETLERI[g.islem] || g.islem,
+    islem: g.etiket || ISLEM_ETIKETLERI[g.islem] || g.islem,
     onceki: g.islem === 'kayit_guncellendi' ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
     yeni: g.islem === 'kayit_guncellendi' ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
@@ -249,8 +277,44 @@ export async function isDetayiHazirla(isId) {
 
   // Şu an mümkün olan insan işlemleri (Süleyman'ın izin verdiği):
   const islemler = [];
-  if (ozet.asama === '1_giris' && ozet.durum === 'devam_ediyor') islemler.push('yzsizTamamla');
+  if (ozet.asama === GIRIS_DURAGI && ozet.durum === 'devam_ediyor') islemler.push('yzsizTamamla');
   if (ozet.asama === KISA_YOL_ASAMASI && ozet.durum === 'sirada') islemler.push('yapildi');
+
+  // Ticari işin durağı: düğmeler ve etiketleri (rota.js'ten).
+  let durak = null;
+  if (!ozet.kisaYol && DURAKLAR[ozet.asama]) {
+    const cikislar = {};
+    for (const [yon, c] of Object.entries(CIKISLAR[ozet.asama] || {})) {
+      cikislar[yon] = { etiket: c.etiket, notIpucu: c.notIpucu || '', notZorunlu: Boolean(c.notZorunlu), bagliIsler: Boolean(c.bagliIsler) };
+    }
+    durak = {
+      kod: ozet.asama,
+      ad: DURAKLAR[ozet.asama].ad,
+      no: DURAKLAR[ozet.asama].sira,
+      toplam: Object.values(DURAKLAR).filter((x) => x.sira > 0 && x.sira < DURAKLAR[SONUC_DURAGI].sira).length,
+      islemler: izinliDurakIslemleri(mevcutDurum(k)),
+      cikislar,
+      sonuc: ozet.sonuc,
+      sonucEtiketi: ozet.sonucEtiketi,
+      takip: ozet.asama === TAKIP_DURAGI
+        ? { sayi: ozet.takipSayisi || 0, plan: TAKIP_PLANI_GUN.length, sonraki: ozet.sonrakiTakip, bugun: gunTR() }
+        : null,
+      duzeltmeTuru: ozet.asama === 'kurulum' ? Number(k.duzeltmeTuru) || 0 : null
+    };
+  }
+
+  // Bağlı işler: bu işten açılanlar ve (varsa) bu işin bağlı olduğu ana iş.
+  const bagliIsler = [];
+  try {
+    const altlar = await wixData.query(IS).eq('bagliIs', id).limit(50).find({ suppressAuth: true });
+    for (const a of altlar.items) bagliIsler.push({ isId: a.isId, baslik: baslik(a), kategoriKisa: KATEGORI_KISA[a.kategori] || '—', yon: 'alt' });
+    if (k.bagliIs) {
+      const ana = await wixData.query(IS).eq('isId', String(k.bagliIs)).limit(1).find({ suppressAuth: true });
+      if (ana.items.length) bagliIsler.push({ isId: ana.items[0].isId, baslik: baslik(ana.items[0]), kategoriKisa: 'Ana iş', yon: 'ana' });
+    }
+  } catch (hata) {
+    console.warn('Kontrol Paneli: bağlı işler okunamadı:', id, hata);
+  }
 
   // Düzenle: açık A/B/C işleri (KN başvuruları hariç). Formu doldurmak için
   // ham değerler de gönderilir.
@@ -279,7 +343,7 @@ export async function isDetayiHazirla(isId) {
     } catch (hata) {
       console.warn('Kontrol Paneli: masa okunamadı:', k.atananMasa, hata);
     }
-    masa = { kod: k.atananMasa, ad: ad || k.atananMasa };
+    masa = { kod: k.atananMasa, ad: ad || MASA_YEDEK_ADLARI[k.atananMasa] || k.atananMasa };
   }
 
   return {
@@ -294,6 +358,8 @@ export async function isDetayiHazirla(isId) {
     gecmis,
     islemler,
     duzenleme,
-    masa
+    masa,
+    durak,
+    bagliIsler
   };
 }
