@@ -2,28 +2,31 @@
 //
 // Görevi: kaynağı ne olursa olsun (telefon, WhatsApp, yüz yüze, ...) bir işi
 // yeterli bağlamla İş Kaydı olarak sisteme almak. İşi DEĞERLENDİRMEZ ve
-// YÖNLENDİRMEZ; o iş Aşama 2'den sonra başlar.
+// YÖNLENDİRMEZ; o iş rotanın ilk durağında (Süleyman, rota.js) başlar.
 //
 // Tek akışta yapılanlar:
 //   1. Müşteri: mevcut müşteri seçilir (yeni bilgi varsa güncellenir) veya
 //      yeni müşteri kaydı açılır. Ayrı bir "müşteri oluştur" adımı yok.
 //   2. İş Kaydı (IsKayitlari): kategori, açıklama, müşteri bağlantısı,
-//      termin, aciliyet, kaynak + Aşama 1 / devam_ediyor + geçmiş.
+//      termin, aciliyet, kaynak + Giriş / devam_ediyor + geçmiş.
 //   3. İş Bağlamı (IsBaglamlari): kapsam ve giriş notu (aynı isId).
 //   4. Süleyman: insanın girdiği işte girişin kendisi hazırlıktır →
-//      Aşama 1 tamamlanır → Aşama 2 / sırada.
+//      Giriş tamamlanır → ilk durak (Durum Fotoğrafı) / sırada.
 //
 // Kategoriler:
-//   A Ticari / Ücretli İş: müşteri + 7 aşamalı yaşam döngüsü (yukarıdaki akış).
+//   A Ticari / Ücretli İş: müşteri + duraklı iş yolculuğu (yukarıdaki akış).
 //   B Pazarlama: Pazarlama masasının kendi işi (İçerik / Görünürlük). Müşteri
 //     yok. Kısa yol: Yapılacak → Yapıldı.
 //   C Yapılacaklar: işletmenin kendi hatırlatmaları. Müşteri yok.
 //     Kısa yol: Yapılacak → Yapıldı. Tekrar etmez.
-// B ve C'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
+//   D Ar-Ge: Ürün masasının işi (Ürün Geliştirme modülü). Müşteri yok.
+//     Kısa yol. Çoğunlukla kurulum sonrası test notlarından açılır (bağlı iş).
+// B, C ve D'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
 
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
 import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap, kayitDuzenle } from './suleyman';
+import { BAGLI_ISLER } from './rota';
 
 const MUSTERI_KOLEKSIYONU = 'Musteriler';
 const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
@@ -33,19 +36,26 @@ const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
 export const KATEGORILER = {
   A: 'A – Ticari / Ücretli İş',
   B: 'B – Pazarlama',
-  C: 'C – Yapılacaklar'
+  C: 'C – Yapılacaklar',
+  D: 'D – Ar-Ge'
 };
 
 // Kısa yoldan (Yapılacak → Yapıldı) giden kategoriler.
-export const KISA_YOL_KATEGORILERI = ['B', 'C'];
+export const KISA_YOL_KATEGORILERI = ['B', 'C', 'D'];
 
-// B işleri Pazarlama masasının kendi işidir.
-const KATEGORI_MASASI = { B: 'pazarlama' };
+// B işleri Pazarlama masasının, D işleri Ürün masasının kendi işidir.
+const KATEGORI_MASASI = { B: 'pazarlama', D: 'urun' };
 
+// Tüm modüllerin etiketleri (gösterim için).
 export const MODULLER = {
   icerik: 'İçerik',
-  gorunurluk: 'Görünürlük'
+  gorunurluk: 'Görünürlük',
+  urun_gelistirme: 'Ürün Geliştirme'
 };
+// Formda seçilebilen modüller: yalnızca B (Pazarlama). D'nin tek modülü
+// vardır (Ürün Geliştirme) ve kendiliğinden atanır.
+export const PAZARLAMA_MODULLERI = { icerik: MODULLER.icerik, gorunurluk: MODULLER.gorunurluk };
+const D_MODULU = 'urun_gelistirme';
 
 // İşin geldiği kanal. Otomatik kanallar (KN) kendi değerini yazar;
 // eski "Webhook" / "Panel" değerleri olduğu gibi bırakılır.
@@ -165,7 +175,7 @@ export function girdiyiDogrula(girdi) {
   };
 }
 
-// B ve C: müşteri yok, kaynak her zaman iç ihtiyaç.
+// B, C ve D: müşteri yok, kaynak her zaman iç ihtiyaç.
 function kisaYolGirdisi(kategori, g) {
   const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
   if (!aciklama) throw new Error(kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?');
@@ -173,10 +183,12 @@ function kisaYolGirdisi(kategori, g) {
   let modul = null;
   if (kategori === 'B') {
     modul = String(g.modul || '').trim();
-    if (!MODULLER[modul]) throw new Error('Pazarlama işinin modülünü seçin (İçerik / Görünürlük).');
+    if (!PAZARLAMA_MODULLERI[modul]) throw new Error('Pazarlama işinin modülünü seçin (İçerik / Görünürlük).');
   }
+  if (kategori === 'D') modul = D_MODULU;
 
-  const aciliyet = kategori === 'B' ? String(g.aciliyet || 'normal').trim() : 'normal';
+  const aciliyetli = kategori === 'B' || kategori === 'D';
+  const aciliyet = aciliyetli ? String(g.aciliyet || 'normal').trim() : 'normal';
   if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
 
   return {
@@ -185,7 +197,7 @@ function kisaYolGirdisi(kategori, g) {
     aciliyet,
     aciklama,
     modul,
-    kapsam: kategori === 'B' ? metin(g.kapsam, UZUNLUK.uzun, 'Kapsam') : '',
+    kapsam: aciliyetli ? metin(g.kapsam, UZUNLUK.uzun, 'Kapsam') : '',
     notlar: metin(g.notlar, UZUNLUK.uzun, 'Notlar'),
     termin: terminKontrol(g.termin),
     kisaYol: true
@@ -288,13 +300,16 @@ async function baglamKaydet(isId, v, uyarilar) {
   }
 }
 
-// --- B / C: kısa yol ---
+// --- B / C / D: kısa yol ---
 
 async function kisaYolKaydet(v, aktor) {
   const uyarilar = [];
   const masa = KATEGORI_MASASI[v.kategori] || null;
-  const not = [`Kategori: ${KATEGORILER[v.kategori]}`, v.modul ? `Modül: ${MODULLER[v.modul]}` : null]
-    .filter(Boolean).join(' | ');
+  const not = [
+    `Kategori: ${KATEGORILER[v.kategori]}`,
+    v.modul ? `Modül: ${MODULLER[v.modul]}` : null,
+    v.bagliIs ? `Bağlı iş: ${v.bagliIs}` : null
+  ].filter(Boolean).join(' | ');
 
   const { kayit, isId } = await isKaydiEkleYenidenDenemeli({
     tarih: new Date(),
@@ -305,6 +320,7 @@ async function kisaYolKaydet(v, aktor) {
     termin: v.termin,
     aciliyet: v.aciliyet,
     atananMasa: masa,
+    ...(v.bagliIs ? { bagliIs: v.bagliIs } : {}),
     ...kisaYolIlkKayitAlanlari(aktor, not, masa)
   });
   console.log(`isGirisi: ${v.kategori} işi oluşturuldu: ${isId}`);
@@ -326,7 +342,7 @@ async function kisaYolKaydet(v, aktor) {
 //
 // Döner: { isId, kayitId, musteriId, yeniMusteri, asama, durum, uyarilar: [] }
 // Doğrulama hatası veya İş Kaydı oluşturulamazsa hata fırlatır. İş Kaydı
-// oluştuktan sonraki adımlar (bağlam, Aşama 2) başarısız olursa iş kaybolmaz;
+// oluştuktan sonraki adımlar (bağlam, ilk durak) başarısız olursa iş kaybolmaz;
 // uyarı olarak döner.
 export async function isGirisiKaydet(girdi, aktor) {
   const v = girdiyiDogrula(girdi);
@@ -343,7 +359,7 @@ export async function isGirisiKaydet(girdi, aktor) {
     ({ musteri, degisiklikler } = await mevcutMusteriyiGuncelle(v.musteriId, v.musteriBilgileri));
   }
 
-  // 2. İş Kaydı (Aşama 1 / devam_ediyor)
+  // 2. İş Kaydı (Giriş / devam_ediyor)
   let isId;
   let kayit;
   try {
@@ -373,7 +389,7 @@ export async function isGirisiKaydet(girdi, aktor) {
   // 3. İş Bağlamı (kapsam + giriş notu)
   await baglamKaydet(isId, v, uyarilar);
 
-  // 4. Aşama 1 → Aşama 2 / sırada
+  // 4. Giriş → ilk durak / sırada
   let asama = '1_giris';
   let durum = 'devam_ediyor';
   try {
@@ -385,8 +401,8 @@ export async function isGirisiKaydet(girdi, aktor) {
       uyarilar.push(sonuc.mesaj);
     }
   } catch (hata) {
-    console.error(`isGirisi: ${isId} Aşama 1 tamamlanamadı:`, hata);
-    uyarilar.push('İş kaydı oluştu ama Aşama 2\'ye geçirilemedi (Aşama 1\'de kaldı).');
+    console.error(`isGirisi: ${isId} Giriş tamamlanamadı:`, hata);
+    uyarilar.push('İş kaydı oluştu ama ilk durağa geçirilemedi (Giriş\'te kaldı).');
   }
 
   return {
@@ -402,10 +418,11 @@ export async function isGirisiKaydet(girdi, aktor) {
 
 // --- Düzenleme (Kontrol Paneli → İş Detayı → Düzenle) ---
 //
-// Açık bir A/B/C işinin girişte yazılan bilgileri düzeltilebilir:
+// Açık bir A/B/C/D işinin girişte yazılan bilgileri düzeltilebilir:
 //   A: müşteri, açıklama, kapsam, not, bitiş tarihi, aciliyet
 //   B: modül, açıklama, kapsam, not, bitiş tarihi, aciliyet
 //   C: açıklama, not, tarih
+//   D: açıklama, kapsam, not, bitiş tarihi, aciliyet
 // Kategori, kaynak, İş ID ve aşama/durum değişmez. Her düzenleme geçmişe
 // ne değiştiği yazılarak eklenir (Süleyman). KN başvuruları düzenlenmez.
 const DUZENLEME_ETIKETLERI = {
@@ -434,14 +451,14 @@ export async function isGuncelle(isId, girdi, aktor) {
   if (!aciklama) throw new Error('Açıklama boş bırakılamaz.');
 
   const yeniKayit = { description: aciklama, termin: terminKontrol(g.termin) };
-  if (kategori === 'A' || kategori === 'B') {
+  if (kategori === 'A' || kategori === 'B' || kategori === 'D') {
     const aciliyet = String(g.aciliyet || 'normal').trim();
     if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
     yeniKayit.aciliyet = aciliyet;
   }
   if (kategori === 'B') {
     const modul = String(g.modul || '').trim();
-    if (!MODULLER[modul]) throw new Error('Modülü seçin (İçerik / Görünürlük).');
+    if (!PAZARLAMA_MODULLERI[modul]) throw new Error('Modülü seçin (İçerik / Görünürlük).');
     yeniKayit.modul = modul;
   }
   const musteriAdlari = {};
@@ -509,4 +526,31 @@ export async function isGuncelle(isId, girdi, aktor) {
     }
   }
   return { degisti: true, uyarilar };
+}
+
+// --- Bağlı iş (Kurulum sonrası Ar-Ge / Pazarlama notu) ---
+//
+// Ticari işin Kurulum durağı "İyi çalışıyor" ile kapanırken yazılan notlar
+// YENİ bir iş olarak açılır (kendi kategorisinde) ve ana işe bağlanır
+// (bagliIs = ana işin İş ID'si). Ana iş kapanır; bağlı iş kendi yolunda
+// yürür. tur: 'arge' (D, Ürün masası) | 'pazarlama' (B, İçerik modülü).
+export async function bagliIsAc(tur, notMetni, anaIsId, aktor) {
+  const tanim = BAGLI_ISLER[tur];
+  if (!tanim) throw new Error(`Bilinmeyen bağlı iş türü: ${tur}`);
+  const notlar = metin(notMetni, UZUNLUK.uzun, 'Not');
+  if (!notlar) return null;
+  const ilkSatir = notlar.split('\n')[0].trim();
+  const aciklama = `${tanim.baslik} (${anaIsId}): ${ilkSatir.length > 80 ? ilkSatir.slice(0, 77) + '…' : ilkSatir}`;
+  return kisaYolKaydet({
+    kategori: tanim.kategori,
+    kaynak: 'ic_ihtiyac',
+    aciliyet: 'normal',
+    aciklama,
+    modul: tanim.modul,
+    kapsam: '',
+    notlar,
+    termin: null,
+    bagliIs: String(anaIsId),
+    kisaYol: true
+  }, aktor);
 }

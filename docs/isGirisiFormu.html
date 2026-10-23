@@ -359,11 +359,13 @@
   });
 
   // ---- İş formu ----
-  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade yapılacak.
+  // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade yapılacak;
+  // D Ar-Ge (Ürün masası; modülü kendiliğinden Ürün Geliştirme).
   var KATEGORI_METNI = {
     A: { baslik: 'Ticari iş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
     B: { baslik: 'Pazarlama işi', aciklama: 'Ne üretilecek / yapılacak? ör. LinkedIn içerik serisi', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
-    C: { baslik: 'Yapılacak', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Yapılacaklara ekle' }
+    C: { baslik: 'Yapılacak', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Yapılacaklara ekle' },
+    D: { baslik: 'Ar-Ge işi', aciklama: 'Ürün için ne geliştirilecek / incelenecek?', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' }
   };
   function kategoriDegisti() {
     var k = $('kategori').value;
