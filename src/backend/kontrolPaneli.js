@@ -14,9 +14,12 @@
 import wixData from 'wix-data';
 import {
   DURUMLAR, KISA_YOL_ASAMASI, mevcutDurum, asamaEtiketi, durumEtiketi, sonucEtiketi,
-  izinliDurakIslemleri, gunTR
+  izinliDurakIslemleri, gunTR, ileriDuraklar, talepKalanGun
 } from './suleyman';
-import { DURAKLAR, CIKISLAR, GIRIS_DURAGI, SONUC_DURAGI, TAKIP_DURAGI, TAKIP_PLANI_GUN } from './rota';
+import {
+  DURAKLAR, CIKISLAR, GIRIS_DURAGI, SONUC_DURAGI, TAKIP_DURAGI, TAKIP_PLANI_GUN,
+  TALEP_DURAGI, TALEP_BEKLEME_GUN
+} from './rota';
 import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER } from './isGirisi';
 
 const IS = 'IsKayitlari';
@@ -46,7 +49,10 @@ const ISLEM_ETIKETLERI = {
   durak_devam: 'Beklemeden çıktı',
   is_iptal: 'İptal edildi',
   takip_yapildi: 'Takip yapıldı',
-  durak_cikisi: 'Durak kararı'
+  durak_cikisi: 'Durak kararı',
+  durak_atlandi: 'Durak atlandı',
+  talep_zaman_asimi: 'Talep gelmedi (zaman aşımı)',
+  form_cevaplari_silindi: 'Form cevapları silindi (KVKK)'
 };
 
 // Masalar koleksiyonunda satırı henüz olmayan masalar için ad.
@@ -86,10 +92,12 @@ function terminMetni(t) {
   return d && !isNaN(d) ? d.toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' }) : null;
 }
 
+// KN işlerinde kişi yalnızca rumuzuyla bilinir (formda kişisel bilgi yok).
+// Eski kayıtlarda kimlik alanları varsa onlar kullanılır.
 function baslik(k) {
   if (k.description) return k.description;
   if (k.source === 'Webhook') {
-    const kim = k.isletmeAdi || k.isim;
+    const kim = k.rumuz || k.isletmeAdi || k.isim;
     return kim ? `Kontrol Noktası – ${kim}` : 'Kontrol Noktası başvurusu';
   }
   return '(açıklama yok)';
@@ -108,7 +116,7 @@ async function musteriAdlari(idler) {
   return harita;
 }
 
-function satir(k, musteriler) {
+function satir(k, musteriler, simdi = new Date()) {
   const yer = mevcutDurum(k);
   const kisaYol = yer.asama === KISA_YOL_ASAMASI;
   const asama = yer.asama;
@@ -118,7 +126,7 @@ function satir(k, musteriler) {
   const musteriAdi = k.musteri ? musteriler[k.musteri] || '(müşteri bulunamadı)' : null;
 
   let musteri = musteriAdi;
-  if (!musteri && k.source === 'Webhook') musteri = k.isletmeAdi || k.isim || '—';
+  if (!musteri && k.source === 'Webhook') musteri = k.rumuz ? `Rumuz: ${k.rumuz}` : (k.isletmeAdi || k.isim || '—');
   if (!musteri && k.kategori === 'B') musteri = 'Pazarlama masası';
   if (!musteri && k.kategori === 'C') musteri = 'İşletme';
   if (!musteri && k.kategori === 'D') musteri = 'Ürün masası';
@@ -142,6 +150,8 @@ function satir(k, musteriler) {
     sonucEtiketi: sonucEtiketi(sonuc),
     sonrakiTakip: asama === TAKIP_DURAGI ? terminMetni(k.sonrakiTakip) : null,
     takipSayisi: asama === TAKIP_DURAGI ? Number(k.takipSayisi) || 0 : null,
+    rumuz: k.rumuz || null,
+    talepKalan: asama === TALEP_DURAGI && durum === 'sirada' ? talepKalanGun(k, simdi) : null,
     bagliIs: k.bagliIs || null,
     aciliyet: k.aciliyet || null,
     aciliyetEtiketi: k.aciliyet ? (ACILIYETLER[k.aciliyet] || k.aciliyet) : null,
@@ -219,7 +229,7 @@ export async function panelVerisiHazirla(simdi = new Date()) {
     .find({ suppressAuth: true });
 
   const musteriler = await musteriAdlari(sonuc.items.map((k) => k.musteri));
-  const isler = sonuc.items.map((k) => satir(k, musteriler));
+  const isler = sonuc.items.map((k) => satir(k, musteriler, simdi));
   const gundem = gundemHesapla(isler, simdi);
 
   return {
@@ -252,8 +262,11 @@ export async function isDetayiHazirla(isId) {
         eposta: m.email || '', adres: m.address || '' };
     }
   }
-  // KN işlerinde müşteri kaydı yok; başvurandaki kimlik bilgileri gösterilir.
-  if (!musteri && (k.isim || k.isletmeAdi || k.email || k.konum)) {
+  // KN işlerinde müşteri kaydı yok; kişi rumuzuyla bilinir. (Eski kayıtlarda
+  // kimlik alanları varsa onlar gösterilir.)
+  if (!musteri && k.rumuz) {
+    musteri = { ad: k.rumuz, irtibat: '', telefon: '', eposta: '', adres: '', knBasvurusu: true, rumuz: true };
+  } else if (!musteri && (k.isim || k.isletmeAdi || k.email || k.konum)) {
     musteri = { ad: k.isletmeAdi || '', irtibat: k.isim || '', telefon: '', eposta: k.email || '',
       adres: k.konum || '', knBasvurusu: true };
   }
@@ -269,8 +282,8 @@ export async function isDetayiHazirla(isId) {
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
     islem: g.etiket || ISLEM_ETIKETLERI[g.islem] || g.islem,
-    onceki: g.islem === 'kayit_guncellendi' ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
-    yeni: g.islem === 'kayit_guncellendi' ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
+    onceki: g.islem === 'kayit_guncellendi' || g.islem === 'form_cevaplari_silindi' ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
+    yeni: g.islem === 'kayit_guncellendi' || g.islem === 'form_cevaplari_silindi' ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
     not: g.not || null
   }));
@@ -301,7 +314,11 @@ export async function isDetayiHazirla(isId) {
       takip: ozet.asama === TAKIP_DURAGI
         ? { sayi: ozet.takipSayisi || 0, plan: TAKIP_PLANI_GUN.length, sonraki: ozet.sonrakiTakip, bugun: gunTR() }
         : null,
-      duzeltmeTuru: ozet.asama === 'kurulum' ? Number(k.duzeltmeTuru) || 0 : null
+      duzeltmeTuru: ozet.asama === 'kurulum' ? Number(k.duzeltmeTuru) || 0 : null,
+      talep: ozet.asama === TALEP_DURAGI
+        ? { rumuz: k.rumuz || null, kalan: ozet.talepKalan, bekleme: TALEP_BEKLEME_GUN }
+        : null,
+      ileriDuraklar: ileriDuraklar(ozet.asama).map((kod) => ({ kod, ad: DURAKLAR[kod].ad }))
     };
   }
 

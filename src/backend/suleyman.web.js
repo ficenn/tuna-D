@@ -4,7 +4,7 @@
 //   takipYapildi            Kısa yol işi (B, C, D) "Yapıldı".
 //   durakIslemiYap          Ticari (A) işin durağındaki karar ve işlemler
 //                           (Başla, Beklet, Devam, İptal, Takip yapıldı,
-//                           evet / hayır çıkışları). Kurulum "İyi çalışıyor"
+//                           evet / hayır çıkışları, İleri atla). Kurulum "İyi çalışıyor"
 //                           ile kapanırken yazılan notlar bağlı iş açar
 //                           (sorunlar → Ar-Ge, olumlu geri bildirim → Pazarlama).
 //   takipYapildi            Ar-Ge (D) işinde isteğe bağlı "çözüm" notu
@@ -83,7 +83,7 @@ export const takipYapildi = webMethod(
 );
 
 // Ticari (A) iş: durak işlemi.
-// secenek: { not, tarih (takip için), argeNotu, referansNotu (Kurulum kapanışı) }
+// secenek: { not, tarih (takip için), hedef (İleri atla), argeNotu, referansNotu (Kurulum kapanışı) }
 // Döner: Süleyman'ın sonucu + bagliIsler: [{ tur, isId }] + uyarilar: []
 export const durakIslemiYap = webMethod(
   Permissions.Admin,
@@ -91,7 +91,7 @@ export const durakIslemiYap = webMethod(
     if (!isId) throw new Error('İş ID eksik.');
     const s = secenek || {};
     const aktor = { tur: 'insan', kim: await istekYapan() };
-    const sonuc = await durakIslemi(String(isId), String(islem || ''), aktor, { not: s.not, tarih: s.tarih });
+    const sonuc = await durakIslemi(String(isId), String(islem || ''), aktor, { not: s.not, tarih: s.tarih, hedef: s.hedef });
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
 
     // Ana iş kapandı; bağlı işler açılamazsa ana iş yine kapalı kalır,

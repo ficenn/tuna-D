@@ -11,7 +11,9 @@
 //      termin, aciliyet, kaynak + Giriş / devam_ediyor + geçmiş.
 //   3. İş Bağlamı (IsBaglamlari): kapsam ve giriş notu (aynı isId).
 //   4. Süleyman: insanın girdiği işte girişin kendisi hazırlıktır →
-//      Giriş tamamlanır → ilk durak (Durum Fotoğrafı) / sırada.
+//      Giriş tamamlanır → seçilen başlangıç durağı / sırada (varsayılan
+//      Durum Fotoğrafı; iş olgunlaşmış geldiyse Aday Takibi, Satış Görüşmesi
+//      ya da Kurulum — 2026-10-24 kararı).
 //
 // Kategoriler:
 //   A Ticari / Ücretli İş: müşteri + duraklı iş yolculuğu (yukarıdaki akış).
@@ -26,7 +28,7 @@
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
 import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap, kayitDuzenle } from './suleyman';
-import { BAGLI_ISLER } from './rota';
+import { BAGLI_ISLER, DURAKLAR, ILK_DURAK, BASLANGIC_DURAKLARI } from './rota';
 
 const MUSTERI_KOLEKSIYONU = 'Musteriler';
 const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
@@ -68,6 +70,11 @@ export const KAYNAKLAR = {
   ic_ihtiyac: 'İç ihtiyaç',
   diger: 'Diğer'
 };
+
+// Elle girilen A işinin başlayabileceği duraklar (formdaki liste).
+export const BASLANGIC_SECENEKLERI = Object.fromEntries(
+  BASLANGIC_DURAKLARI.map((k) => [k, DURAKLAR[k].ad])
+);
 
 export const ACILIYETLER = {
   normal: 'Normal',
@@ -137,7 +144,8 @@ function musteriBilgisi(ham) {
 //   aciklama, kapsam, notlar,
 //   termin: 'YYYY-MM-DD' | '',
 //   aciliyet: 'normal' | 'acil',
-//   kaynak: 'telefon' | ...
+//   kaynak: 'telefon' | ...,
+//   baslangicDuragi: 'durum_fotografi' | 'aday_takibi' | ... (boşsa Durum Fotoğrafı)
 // }
 export function girdiyiDogrula(girdi) {
   const g = girdi || {};
@@ -156,6 +164,9 @@ export function girdiyiDogrula(girdi) {
   const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
   if (!aciklama) throw new Error('Açıklama zorunlu: iş ne?');
 
+  const baslangicDuragi = String(g.baslangicDuragi || ILK_DURAK).trim();
+  if (!BASLANGIC_SECENEKLERI[baslangicDuragi]) throw new Error('İşin başlayacağı durak geçersiz.');
+
   const musteriId = g.musteri?.id ? String(g.musteri.id).trim() : null;
   const musteriBilgileri = musteriBilgisi(g.musteriBilgileri);
   if (!musteriId && !musteriBilgileri.name) {
@@ -170,6 +181,7 @@ export function girdiyiDogrula(girdi) {
     kapsam: metin(g.kapsam, UZUNLUK.uzun, 'Kapsam'),
     notlar: metin(g.notlar, UZUNLUK.uzun, 'Notlar'),
     termin: terminKontrol(g.termin),
+    baslangicDuragi,
     musteriId,
     musteriBilgileri
   };
@@ -393,7 +405,7 @@ export async function isGirisiKaydet(girdi, aktor) {
   let asama = '1_giris';
   let durum = 'devam_ediyor';
   try {
-    const sonuc = await gecisYap(isId, 'giris_tamamlandi', aktor);
+    const sonuc = await gecisYap(isId, 'giris_tamamlandi', aktor, null, undefined, { hedefDurak: v.baslangicDuragi });
     if (sonuc.basarili) {
       asama = sonuc.asama;
       durum = sonuc.durum;
@@ -402,7 +414,7 @@ export async function isGirisiKaydet(girdi, aktor) {
     }
   } catch (hata) {
     console.error(`isGirisi: ${isId} Giriş tamamlanamadı:`, hata);
-    uyarilar.push('İş kaydı oluştu ama ilk durağa geçirilemedi (Giriş\'te kaldı).');
+    uyarilar.push('İş kaydı oluştu ama başlangıç durağına geçirilemedi (Giriş\'te kaldı).');
   }
 
   return {

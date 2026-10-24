@@ -7,6 +7,7 @@ import {
   KAYNAKLAR,
   ACILIYETLER,
   PAZARLAMA_MODULLERI,
+  BASLANGIC_SECENEKLERI,
   musterileriListele,
   musteriKaydet,
   isGirisiKaydet,
@@ -32,6 +33,7 @@ export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
     kaynaklar: KAYNAKLAR,
     aciliyetler: ACILIYETLER,
     moduller: PAZARLAMA_MODULLERI, // formda yalnızca B'nin modülleri seçilir
+    baslangicDuraklari: BASLANGIC_SECENEKLERI, // A işi nereden başlasın
     musteriler: await musterileriListele()
   };
 });

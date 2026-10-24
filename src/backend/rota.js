@@ -22,22 +22,39 @@ export const SONUC_DURAGI = 'sonuc';
 // Sıra numarası panelde "2. Aday Takibi" gibi gösterilir.
 export const DURAKLAR = {
   '1_giris': { ad: 'Giriş', masa: null, sira: 0 },
-  durum_fotografi: { ad: 'Durum Fotoğrafı', masa: 'hizmet', sira: 1 },
-  aday_takibi: { ad: 'Aday Takibi', masa: 'pazarlama', sira: 2 },
-  satis_gorusmesi: { ad: 'Satış Görüşmesi', masa: 'satis', sira: 3 },
-  kurulum: { ad: 'Kurulum ve 30 gün', masa: 'hizmet', sira: 4 },
-  sonuc: { ad: 'Sonuç', masa: null, sira: 5 }
+  talep_bekleniyor: { ad: 'Talep bekleniyor', masa: 'pazarlama', sira: 1 },
+  durum_fotografi: { ad: 'Durum Fotoğrafı', masa: 'hizmet', sira: 2 },
+  aday_takibi: { ad: 'Aday Takibi', masa: 'pazarlama', sira: 3 },
+  satis_gorusmesi: { ad: 'Satış Görüşmesi', masa: 'satis', sira: 4 },
+  kurulum: { ad: 'Kurulum ve 30 gün', masa: 'hizmet', sira: 5 },
+  sonuc: { ad: 'Sonuç', masa: null, sira: 6 }
 };
 
-// Girişten sonra her A işi buradan başlar (KN ve elle girilen işler).
+// Elle girilen A işinin varsayılan başlangıç durağı. Eski kayıtlar da
+// (2026-10-21 öncesi 7 aşamalı) burada okunur.
 export const ILK_DURAK = 'durum_fotografi';
+
+// KN (Kontrol Noktası formu) işleri: formda kişisel bilgi yok; kişi bize
+// rumuzuyla WhatsApp'tan yazana kadar iş "Talep bekleniyor"da durur.
+// Durum Fotoğrafı ancak kişi yazınca hazırlanır (gerçek istek).
+// (Karar: 2026-10-23/24, Fatoş Hanım + Tuna)
+export const KN_ILK_DURAK = 'talep_bekleniyor';
+export const TALEP_DURAGI = 'talep_bekleniyor';
+export const TALEP_BEKLEME_GUN = 14;   // bu kadar gün yazmazsa iş kendiliğinden kapanır
+
+// Elle girişte seçilebilen başlangıç durakları ("rota bir kafes değil":
+// iş olgunlaşmış gelebilir; ör. satış HAP dışında bitti, yalnızca kurulum).
+export const BASLANGIC_DURAKLARI = ['durum_fotografi', 'aday_takibi', 'satis_gorusmesi', 'kurulum'];
 
 // Çıkışlar. hedef: bir sonraki durak (aynı durak = tekrar tur).
 // sonuc: iş Sonuç durağında bu kodla kapanır.
 // notZorunlu: kararın yanında not yazmak zorunlu mu.
 export const CIKISLAR = {
+  talep_bekleniyor: {
+    evet: { etiket: 'Kişi rumuzuyla yazdı', hedef: 'durum_fotografi', notIpucu: 'Nereden yazdı, ne istedi… (isteğe bağlı)' }
+  },
   durum_fotografi: {
-    evet: { etiket: 'Durum Fotoğrafı gönderildi', hedef: 'aday_takibi' }
+    evet: { etiket: 'Durum Fotoğrafı hazırlandı, Pazarlama\'ya geçti', hedef: 'aday_takibi' }
   },
   aday_takibi: {
     evet: { etiket: 'Randevu alındı', hedef: 'satis_gorusmesi', notIpucu: 'Randevu tarihi, nasıl alındı…' },
@@ -56,7 +73,8 @@ export const CIKISLAR = {
 export const SONUCLAR = {
   sonuclandi: 'İş sonuçlandı',
   yonlendirme_gerceklesmedi: 'Yönlendirme gerçekleşmedi',
-  satis_gerceklesmedi: 'Satış gerçekleşmedi'
+  satis_gerceklesmedi: 'Satış gerçekleşmedi',
+  talep_gelmedi: 'Talep gelmedi'
 };
 
 // Aday Takibi: Durum Fotoğrafı'ndan sonra kaçıncı günlerde yoklanır.

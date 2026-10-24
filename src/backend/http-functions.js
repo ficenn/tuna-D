@@ -98,7 +98,7 @@ export async function post_boltSonucu(request) {
 
   console.log(`boltSonucu: ${isId} için bağlam güncellendi.`);
 
-  // 5. Giriş tamamlandı → ilk durak / sırada (Süleyman). Sadece ileri:
+  // 5. Giriş tamamlandı → "Talep bekleniyor" / sırada (Süleyman). Sadece ileri:
   // iş zaten Giriş'in ötesindeyse (ör. YZ'siz tamamlandıysa) dokunulmaz.
   // Hata olursa 500 döner; Netlify tekrar dener (her iki adım da tekrar
   // edilmeye güvenlidir).

@@ -9,6 +9,11 @@ const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 
 const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
 
+// KN formunda kişisel bilgi sorulmaz (2026-10-23 kararı): ad, işletme adı,
+// konum, e-posta yok. Kişi kendine bir rumuz seçer; Durum Fotoğrafı'nı
+// almak için bu rumuzu WhatsApp'tan yazar. Formdaki soru başlığı:
+const RUMUZ_SORUSU = 'Kendine bir rumuz seç';
+
 // Bolt/Netlify gatekeeper (hap-intake). Secret'ı kontrol eder, 202 döner,
 // YZ işini arka planda yapar ve sonucu /_functions/boltSonucu'ya gönderir.
 const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
@@ -30,31 +35,26 @@ function knCevabi(answers, soruBasligi) {
 export const invoke = async ({ payload }) => {
 
   const answers = payload?.answers || {};
-  const email = payload?.email || knCevabi(answers, 'E-posta Adresi');
   const dil = payload?.language || '';
 
-  // Kişi / işletme kimliği — İş Kaydı'nda doğrudan alan olarak tutulur.
-  // Tam cevaplar yine sadece IsBaglamlari.answers içinde kalır.
-  const isim = knCevabi(answers, 'İsim');
-  const isletmeAdi = knCevabi(answers, 'İşletme veya pratik adı');
-  const konum = knCevabi(answers, 'Konum');
+  // Rumuz: İş Kaydı'nda ayrı alan (panelde aranır, WhatsApp'ta eşleştirilir).
+  // Tam cevaplar yine yalnızca IsBaglamlari.answers içinde kalır.
+  const rumuz = knCevabi(answers, RUMUZ_SORUSU).slice(0, 100);
+  if (!rumuz) console.warn(`issKaydi: '${RUMUZ_SORUSU}' cevabı boş geldi; iş rumuzsuz açılıyor.`);
 
   let isId;
 
-  // 1. Hafif İş Kaydı: sadece takip/backend bilgisi (isId, email, tarih,
+  // 1. Hafif İş Kaydı: sadece takip/backend bilgisi (isId, rumuz, tarih,
   // dil, kaynak, aşama). Çakışma durumunda otomatik yeniden dener
   // (bkz. isIdCounter.js).
   try {
     const sonuc = await isKaydiEkleYenidenDenemeli({
       tarih: new Date(),
-      email,
+      rumuz: rumuz || null,
       dil,
-      isim,
-      isletmeAdi,
-      konum,
       source: 'Webhook',
       // Giriş başlar; YZ analizi (hazırlık) çalışırken durum: devam_ediyor.
-      // YZ sonucu gelince Süleyman işi ilk durağa (Durum Fotoğrafı) / sırada'ya taşır
+      // YZ sonucu gelince Süleyman işi "Talep bekleniyor" / sırada'ya taşır
       // (bkz. http-functions.js → post_boltSonucu).
       ...ilkKayitAlanlari({ tur: 'sistem', kim: 'KN' })
     });
