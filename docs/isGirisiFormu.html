@@ -166,6 +166,10 @@
                 <input type="date" id="termin">
               </label>
             </div>
+            <label class="alan" id="baslangicAlani" hidden><span class="ad">Nereden başlasın?</span>
+              <select id="baslangic"></select>
+              <span class="kucuk">Çoğu iş Durum Fotoğrafı'ndan başlar. İş olgunlaşmış geldiyse (ör. satış görüşmesi HAP dışında yapıldı) sonraki bir duraktan başlatın.</span>
+            </label>
             <div id="aciliyetAlani">
               <span class="ad" style="font-weight:500;font-size:13.5px">Aciliyet</span>
               <div class="radyo" id="aciliyet"></div>
@@ -373,6 +377,7 @@
     $('isAlanlari').hidden = !k;
     $('musteriAlani').hidden = k !== 'A';
     $('kaynakAlani').hidden = k !== 'A';
+    $('baslangicAlani').hidden = k !== 'A';
     $('modulAlani').hidden = k !== 'B';
     $('kapsamAlani').hidden = k === 'C';
     $('aciliyetAlani').hidden = k === 'C';
@@ -385,6 +390,7 @@
   function formuTemizle() {
     ['aciklama', 'kapsam', 'notlar', 'termin'].forEach(function (id) { $(id).value = ''; });
     $('kaynak').value = ''; $('modul').value = '';
+    if ($('baslangic').options.length) $('baslangic').selectedIndex = 0;
     var n = document.querySelector('input[name=aciliyet][value=normal]'); if (n) n.checked = true;
     seciliyiKaldir();
   }
@@ -400,7 +406,8 @@
       notlar: $('notlar').value.trim(),
       termin: $('termin').value,
       aciliyet: (document.querySelector('input[name=aciliyet]:checked') || {}).value || 'normal',
-      kaynak: $('kaynak').value
+      kaynak: $('kaynak').value,
+      baslangicDuragi: $('baslangic').value || ''
     };
   }
 
@@ -457,6 +464,7 @@
       secenekDoldur($('kategori'), v.kategoriler || {});
       secenekDoldur($('kaynak'), v.kaynaklar || {}, 'Seçin…');
       secenekDoldur($('modul'), v.moduller || {}, 'Seçin…');
+      secenekDoldur($('baslangic'), v.baslangicDuraklari || {});
       aciliyetDoldur(v.aciliyetler || {});
       kategoriDegisti();
       if (!bekliyor) $('kaydet').disabled = false;

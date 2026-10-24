@@ -14,11 +14,16 @@
 // (2026-10-21: eski 7 aşama masa içi çalışma ritmine indi, bkz. mimari §14.)
 //
 // Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge): Yapılacak → Yapıldı.
+//
+// 2026-10-24: "rota bir kafes değil". Elle girilen iş istenen durakta
+// başlayabilir; açık iş "İleri atla" ile sonraki bir durağa geçebilir (not
+// zorunlu, geçmişe yazılır). KN işleri "Talep bekleniyor"da başlar; kişi
+// TALEP_BEKLEME_GUN içinde yazmazsa iş kendiliğinden kapanır (sistem).
 
 import wixData from 'wix-data';
 import {
-  DURAKLAR, GIRIS_DURAGI, SONUC_DURAGI, ILK_DURAK, CIKISLAR, SONUCLAR,
-  TAKIP_DURAGI, TAKIP_PLANI_GUN
+  DURAKLAR, GIRIS_DURAGI, SONUC_DURAGI, ILK_DURAK, KN_ILK_DURAK, CIKISLAR, SONUCLAR,
+  TAKIP_DURAGI, TAKIP_PLANI_GUN, TALEP_DURAGI, TALEP_BEKLEME_GUN, BASLANGIC_DURAKLARI
 } from './rota';
 
 const KOLEKSIYON = 'IsKayitlari';
@@ -84,6 +89,12 @@ export function gunEkle(ymd, gun) {
   return new Date(Date.UTC(y, m - 1, d + gun)).toISOString().slice(0, 10);
 }
 
+// İki 'YYYY-MM-DD' arasındaki gün farkı (b - a).
+export function gunArasi(a, b) {
+  const t = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+
 function tarihKontrol(deger) {
   const s = String(deger ?? '').trim();
   if (!s) return null;
@@ -108,24 +119,27 @@ function gunMetni(t) {
 // (hedef), kim yapabilir (aktorTurleri), gerekçe zorunlu mu (notZorunlu).
 // Duraklar arası geçişler aşağıda durakIslemi()'ndedir.
 const GECISLER = {
-  // KN: YZ analizi başarıyla geldi → Giriş tamamlandı, iş ilk durakta.
+  // KN: YZ analizi başarıyla geldi → Giriş tamamlandı, iş "Talep bekleniyor"da
+  // (kişi rumuzuyla yazana kadar).
   yz_hazirlik_tamamlandi: {
     kaynak: [[GIRIS_DURAGI, 'devam_ediyor']],
-    hedef: [ILK_DURAK, 'sirada'],
+    hedef: [KN_ILK_DURAK, 'sirada'],
     aktorTurleri: ['yz'],
     notZorunlu: false
   },
   // YZ analizi başarısız/gelmedi → insan Girişi YZ'siz tamamlar.
   hazirlik_yz_olmadan_tamamlandi: {
     kaynak: [[GIRIS_DURAGI, 'devam_ediyor']],
-    hedef: [ILK_DURAK, 'sirada'],
+    hedef: [KN_ILK_DURAK, 'sirada'],
     aktorTurleri: ['insan'],
     notZorunlu: true
   },
-  // İnsanın girdiği iş: girişin kendisi hazırlıktır → ilk durak.
+  // İnsanın girdiği iş: girişin kendisi hazırlıktır → seçilen başlangıç
+  // durağı (varsayılan Durum Fotoğrafı).
   giris_tamamlandi: {
     kaynak: [[GIRIS_DURAGI, 'devam_ediyor']],
     hedef: [ILK_DURAK, 'sirada'],
+    hedefSecenekleri: BASLANGIC_DURAKLARI,
     aktorTurleri: ['insan'],
     notZorunlu: false
   },
@@ -233,7 +247,8 @@ function duraktanCikisAlanlari(durak) {
 //   { basarili: false, degisti: false, sebep, mesaj } izinsiz geçiş
 // Kayıt bulunamazsa, aktör/gerekçe eksikse veya veritabanı hatası olursa
 // hata fırlatır.
-export async function gecisYap(isId, islem, aktor, not, simdi = new Date()) {
+// secenek.hedefDurak: yalnızca hedefSecenekleri olan geçişte (giris_tamamlandi).
+export async function gecisYap(isId, islem, aktor, not, simdi = new Date(), secenek = {}) {
   const tanim = GECISLER[islem];
   if (!tanim) throw new Error(`Süleyman: bilinmeyen geçiş: ${islem}`);
 
@@ -247,9 +262,18 @@ export async function gecisYap(isId, islem, aktor, not, simdi = new Date()) {
     throw new Error(`Süleyman: '${islem}' için gerekçe zorunlu.`);
   }
 
+  let [hedefAsama, hedefDurum] = tanim.hedef;
+  let etiket = null;
+  if (secenek && secenek.hedefDurak && secenek.hedefDurak !== hedefAsama) {
+    if (!(tanim.hedefSecenekleri || []).includes(secenek.hedefDurak)) {
+      throw new Error(`Süleyman: '${islem}' geçişi '${secenek.hedefDurak}' durağına gidemez.`);
+    }
+    hedefAsama = secenek.hedefDurak;
+    etiket = `Giriş tamamlandı · başlangıç: ${DURAKLAR[hedefAsama].ad}`;
+  }
+
   const kayit = await kayitBul(isId);
   const onceki = mevcutDurum(kayit);
-  const [hedefAsama, hedefDurum] = tanim.hedef;
 
   if (onceki.asama === hedefAsama && onceki.durum === hedefDurum) {
     return { basarili: true, degisti: false, sebep: 'zaten_hedefte', asama: onceki.asama, durum: onceki.durum };
@@ -270,7 +294,7 @@ export async function gecisYap(isId, islem, aktor, not, simdi = new Date()) {
   // Durağa girildiğinde iş o durağın masasına geçer; kısa yolda masa değişmez.
   const hedefMasa = DURAKLAR[hedefAsama] ? DURAKLAR[hedefAsama].masa || onceki.masa : onceki.masa;
   const yeni = { asama: hedefAsama, durum: hedefDurum, masa: hedefMasa };
-  const giris = gecmisKaydi({ islem, onceki, yeni, aktor: a, not: temizNot });
+  const giris = gecmisKaydi({ islem, onceki, yeni, aktor: a, not: temizNot, etiket });
 
   await wixData.update(
     KOLEKSIYON,
@@ -298,20 +322,35 @@ export async function gecisYap(isId, islem, aktor, not, simdi = new Date()) {
 //   iptal        açık iş → İptal (gerekçe zorunlu; yalnızca anlamsızlaşan işler)
 //   takipYapildi Aday Takibi'nde bir yoklama yapıldı (not, isteğe bağlı sonraki tarih)
 //   evet / hayir durağın çıkış kararı (rota.js'teki CIKISLAR)
-// secenek: { not, tarih }
+//   ileriAtla    sonraki bir durağa doğrudan geç (not zorunlu; secenek.hedef)
+// secenek: { not, tarih, hedef }
 //
 // İzinsiz işlemde hata fırlatmaz: { basarili: false, sebep, mesaj } döner.
-export const DURAK_ISLEMLERI = ['basla', 'beklet', 'devamEt', 'iptal', 'takipYapildi', 'evet', 'hayir'];
+export const DURAK_ISLEMLERI = ['basla', 'beklet', 'devamEt', 'iptal', 'takipYapildi', 'evet', 'hayir', 'ileriAtla'];
 const ISLEM_GECMIS_ADLARI = {
   basla: 'durak_basladi', beklet: 'durak_bekletildi', devamEt: 'durak_devam',
-  iptal: 'is_iptal', takipYapildi: 'takip_yapildi', evet: 'durak_cikisi', hayir: 'durak_cikisi'
+  iptal: 'is_iptal', takipYapildi: 'takip_yapildi', evet: 'durak_cikisi', hayir: 'durak_cikisi',
+  ileriAtla: 'durak_atlandi'
 };
+
+// Bir duraktan "İleri atla" ile gidilebilecek duraklar (sırasıyla).
+// Giriş ve Sonuç hariç; yalnızca ileri.
+export function ileriDuraklar(asama) {
+  const su = DURAKLAR[asama];
+  if (!su) return [];
+  return Object.keys(DURAKLAR)
+    .filter((k) => k !== GIRIS_DURAGI && k !== SONUC_DURAGI && DURAKLAR[k].sira > su.sira)
+    .sort((x, y) => DURAKLAR[x].sira - DURAKLAR[y].sira);
+}
 
 // Durağın şu an izin verdiği işlemler (panel düğmeleri için).
 export function izinliDurakIslemleri(durum) {
   const { asama, durum: d } = durum;
   if (asama === KISA_YOL_ASAMASI || asama === GIRIS_DURAGI || asama === SONUC_DURAGI) return [];
   if (d === 'tamamlandi' || d === 'iptal') return [];
+  // Talep bekleniyor: kişi yazınca evet; olgunlaşmış gelirse ileri atla.
+  // Başla / Beklet yok; 14 gün dolunca sistem kapatır.
+  if (asama === TALEP_DURAGI) return ['evet', 'ileriAtla', 'iptal'];
   const liste = [];
   if (d === 'sirada') liste.push('basla');
   if (d === 'sirada' || d === 'devam_ediyor') liste.push('beklet');
@@ -321,6 +360,7 @@ export function izinliDurakIslemleri(durum) {
   if (d !== 'beklemede') {
     if (cikis.evet) liste.push('evet');
     if (cikis.hayir) liste.push('hayir');
+    if (ileriDuraklar(asama).length > 1) liste.push('ileriAtla');
   }
   liste.push('iptal');
   return liste;
@@ -380,6 +420,13 @@ export async function durakIslemi(isId, islem, aktor, secenek = {}, simdi = new 
     yeni.durum = 'devam_ediyor';
     ek = { takipSayisi: sayi, sonrakiTakip: sonraki || null };
     etiket = `${sayi}. takip yapıldı` + (sonraki ? ` · sonraki: ${sonraki.split('-').reverse().join('.')}` : ' · sonraki tarih yok, karar sizde');
+  } else if (islem === 'ileriAtla') {
+    const hedef = String(secenek.hedef || '').trim();
+    if (!ileriDuraklar(onceki.asama).includes(hedef)) throw new Error('İleri atla: geçerli bir sonraki durak seçin.');
+    if (!temizNot) throw new Error('Not zorunlu: neden atlanıyor? (ör. satış HAP dışında bitti)');
+    yeni = { asama: hedef, durum: 'sirada', masa: DURAKLAR[hedef].masa || onceki.masa };
+    ek = { ...duraktanCikisAlanlari(onceki.asama), ...duragaGirisAlanlari(hedef, simdi) };
+    etiket = `İleri atlandı: ${DURAKLAR[onceki.asama].ad} → ${DURAKLAR[hedef].ad}`;
   } else {
     const cikis = CIKISLAR[onceki.asama][islem];
     if (cikis.notZorunlu && !temizNot) throw new Error(`Not zorunlu: ${cikis.notIpucu || cikis.etiket}`);
@@ -456,4 +503,131 @@ export async function kayitDuzenle(isId, alanlar, aktor, not) {
   );
   console.log(`Süleyman: ${isId} düzenlendi (${Object.keys(alanlar || {}).join(', ') || 'yalnızca bağlam'})`);
   return { basarili: true, degisti: true };
+}
+
+// --- Talep bekleniyor: zaman aşımı (sistem) ---
+//
+// KN işi "Talep bekleniyor"a girdiği günden itibaren TALEP_BEKLEME_GUN gün
+// içinde kişi rumuzuyla yazmazsa iş Sonuç'ta "talep gelmedi" koduyla kapanır.
+// Rotadaki tek otomatik karar (2026-10-23 kararı). jobs.config günde bir
+// kez çağırır; elle de çağrılabilir. Tekrar çağrılması güvenlidir.
+
+// İşin "Talep bekleniyor"a girdiği gün ('YYYY-MM-DD'): geçmişteki son giriş.
+export function talepBaslangici(kayit) {
+  const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
+  for (let i = gecmis.length - 1; i >= 0; i--) {
+    const g = gecmis[i];
+    if (g && g.yeni && g.yeni.asama === TALEP_DURAGI && (!g.onceki || g.onceki.asama !== TALEP_DURAGI)) {
+      const d = new Date(g.tarih);
+      if (!isNaN(d)) return gunTR(d);
+    }
+  }
+  return gunMetni(kayit.tarih || kayit._createdDate);
+}
+
+// Kalan gün (0 = bugün kapanacak). Başlangıç bilinmiyorsa null.
+export function talepKalanGun(kayit, simdi = new Date()) {
+  const bas = talepBaslangici(kayit);
+  if (!bas) return null;
+  return TALEP_BEKLEME_GUN - gunArasi(bas, gunTR(simdi));
+}
+
+export async function talepSuresiDolanlariKapat(simdi = new Date()) {
+  const sonuc = await wixData
+    .query(KOLEKSIYON)
+    .eq('asama', TALEP_DURAGI)
+    .eq('status', 'sirada')
+    .limit(1000)
+    .find({ suppressAuth: true });
+
+  const aktor = { tur: 'sistem', kim: 'Süleyman (zaman aşımı)' };
+  const kapatilan = [];
+  for (const kayit of sonuc.items) {
+    const kalan = talepKalanGun(kayit, simdi);
+    if (kalan === null || kalan > 0) continue;
+    const onceki = mevcutDurum(kayit);
+    const yeni = { asama: SONUC_DURAGI, durum: 'tamamlandi', masa: onceki.masa };
+    const giris = gecmisKaydi({
+      islem: 'talep_zaman_asimi', onceki, yeni, aktor,
+      not: `${TALEP_BEKLEME_GUN} gün içinde kişi rumuzuyla yazmadı.`,
+      etiket: `${SONUCLAR.talep_gelmedi} (${TALEP_BEKLEME_GUN} gün)`
+    });
+    try {
+      await wixData.update(
+        KOLEKSIYON,
+        {
+          ...kayit,
+          asama: yeni.asama,
+          status: yeni.durum,
+          atananMasa: yeni.masa,
+          sonuc: 'talep_gelmedi',
+          gecmis: [...(Array.isArray(kayit.gecmis) ? kayit.gecmis : []), giris]
+        },
+        { suppressAuth: true }
+      );
+      kapatilan.push(kayit.isId);
+    } catch (hata) {
+      console.error(`Süleyman: ${kayit.isId} zaman aşımıyla kapatılamadı:`, hata);
+    }
+  }
+  if (kapatilan.length) console.log(`Süleyman: talep gelmedi, kapatılan işler: ${kapatilan.join(', ')}`);
+  return { kapatilan };
+}
+
+// --- KVKK: "Talep gelmedi" işlerinin form cevaplarını silme ---
+//
+// Kişi bize hiç yazmadıysa form cevaplarına ihtiyaç kalmaz (2026-10-24
+// kararı). Kapanıştan CEVAP_SAKLAMA_GUN gün sonra İş Bağlamı (form
+// cevapları + YZ analizi) silinir; İş Kaydı (rumuz, geçmiş) sayım için kalır
+// (avukata sorulacak). Geçmişe "form_cevaplari_silindi" yazılır.
+export const CEVAP_SAKLAMA_GUN = 30;
+
+function kapanisGunu(kayit) {
+  const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
+  const g = [...gecmis].reverse().find((x) => x && x.islem === 'talep_zaman_asimi');
+  if (!g) return null;
+  const d = new Date(g.tarih);
+  return isNaN(d) ? null : gunTR(d);
+}
+
+export async function talepGelmeyenCevaplariSil(simdi = new Date()) {
+  const sonuc = await wixData
+    .query(KOLEKSIYON)
+    .eq('asama', SONUC_DURAGI)
+    .eq('sonuc', 'talep_gelmedi')
+    .limit(1000)
+    .find({ suppressAuth: true });
+
+  const bugun = gunTR(simdi);
+  const silinen = [];
+  for (const kayit of sonuc.items) {
+    const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
+    if (gecmis.some((x) => x && x.islem === 'form_cevaplari_silindi')) continue;
+    const kapanis = kapanisGunu(kayit);
+    if (!kapanis || gunArasi(kapanis, bugun) < CEVAP_SAKLAMA_GUN) continue;
+    try {
+      const b = await wixData.query('IsBaglamlari').eq('isId', kayit.isId).limit(10).find({ suppressAuth: true });
+      for (const x of b.items) await wixData.remove('IsBaglamlari', x._id, { suppressAuth: true });
+      const durum = mevcutDurum(kayit);
+      const giris = gecmisKaydi({
+        islem: 'form_cevaplari_silindi', onceki: durum, yeni: durum,
+        aktor: { tur: 'sistem', kim: 'Süleyman (KVKK)' },
+        not: `Talep gelmedi; form cevapları ve YZ analizi kapanıştan ${CEVAP_SAKLAMA_GUN} gün sonra silindi.`
+      });
+      await wixData.update(KOLEKSIYON, { ...kayit, gecmis: [...gecmis, giris] }, { suppressAuth: true });
+      silinen.push(kayit.isId);
+    } catch (hata) {
+      console.error(`Süleyman: ${kayit.isId} form cevapları silinemedi:`, hata);
+    }
+  }
+  if (silinen.length) console.log(`Süleyman: form cevapları silindi: ${silinen.join(', ')}`);
+  return { silinen };
+}
+
+// Günlük bakım (jobs.config her gün çağırır): önce zaman aşımı, sonra silme.
+export async function gunlukBakim() {
+  const simdi = new Date();
+  const a = await talepSuresiDolanlariKapat(simdi);
+  const b = await talepGelmeyenCevaplariSil(simdi);
+  return { ...a, ...b };
 }

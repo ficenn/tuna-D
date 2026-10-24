@@ -145,6 +145,9 @@
   .arama:focus-within { border-color: var(--ana); }
   table { width: 100%; border-collapse: collapse; }
   th { text-align: left; font-weight: 600; font-size: 12px; color: var(--soluk); padding: 7px 8px; border-bottom: 1px solid var(--cizgi); white-space: nowrap; }
+  th .sirala { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  th .sirala:hover, th .sirala.aktif { color: var(--ana-koyu); }
+  th .sirala:focus-visible { outline: 2px solid var(--ana); outline-offset: 2px; border-radius: 4px; }
   td { padding: 8px; border-bottom: 1px solid var(--cizgi); vertical-align: middle; }
   tbody tr { cursor: pointer; }
   tbody tr:hover { background: #faf9f6; }
@@ -208,6 +211,7 @@
   .durak-alt .metin-dugme.tehlike { color: var(--bugun); }
   details.notlar { margin: 0 0 8px; }
   details.notlar summary { cursor: pointer; font-size: 13px; color: var(--ana-koyu); font-weight: 600; }
+  details.notlar select { font: inherit; font-size: 13.5px; padding: 6px 8px; margin: 6px 0 2px; border: 1px solid var(--cizgi); border-radius: 8px; background: #fff; color: var(--metin); max-width: 100%; }
   ul.bagli { list-style: none; margin: 0; padding: 0; }
   ul.bagli li { padding: 6px 0; cursor: pointer; }
   ul.bagli li + li { border-top: 1px solid var(--cizgi); }
@@ -272,7 +276,7 @@
 
 <div class="sayfa">
   <header class="ust">
-    <div class="marka"><b>HAP</b><span>Tek bir hap size yeter.</span></div>
+    <div class="marka"><b>HAP</b><span>İşletmeni HAP gibi yönet.</span></div>
     <div class="selam">
       <h1 id="selam">Merhaba 👋</h1>
       <p id="tarihMetni"></p>
@@ -319,10 +323,10 @@
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
-        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş ID, başlık veya müşteri ara…" aria-label="İşlerde ara"></label>
+        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş ID, başlık, müşteri veya rumuz ara…" aria-label="İşlerde ara"></label>
       </div>
       <div class="tablo-alani"><table>
-        <thead><tr><th class="k-id">İş ID</th><th>İş</th><th class="k-mk">Müşteri / Kaynak</th><th class="k-du">Durum</th><th class="k-bt">Bitiş tarihi</th><th class="k-ok"></th></tr></thead>
+        <thead><tr><th class="k-id"><button type="button" class="sirala" data-sirala="id">İş ID <span class="ok-sira" aria-hidden="true"></span></button></th><th>İş</th><th class="k-mk">Müşteri / Kaynak</th><th class="k-du">Durum</th><th class="k-bt"><button type="button" class="sirala" data-sirala="tarih">Bitiş tarihi <span class="ok-sira" aria-hidden="true"></span></button></th><th class="k-ok"></th></tr></thead>
         <tbody id="isSatirlari"></tbody>
       </table></div>
       <div class="sayfalama" id="sayfalama">
@@ -506,18 +510,54 @@ window.HAP = { secenekler: null };
   $('oncekiSayfa').addEventListener('click', function () { if (sayfa > 1) { sayfa--; tabloyuCiz(); } });
   $('sonrakiSayfa').addEventListener('click', function () { sayfa++; tabloyuCiz(); });
 
+  // Sıralama: başlığa tıklayınca. İş ID (varsayılan, yeniden eskiye) ya da
+  // bitiş tarihi (yakından uzağa; tarihsiz işler her zaman en altta).
+  // Tekrar tıklayınca yön değişir. Seçim bu tarayıcıda hatırlanır.
+  var siralama = { alan: 'id', yon: -1 };
+  try { var ks = JSON.parse(localStorage.getItem('hapSiralama') || 'null'); if (ks && (ks.alan === 'id' || ks.alan === 'tarih')) siralama = ks; } catch (e) {}
+  function siralamaCiz() {
+    [].forEach.call(document.querySelectorAll('.sirala'), function (b) {
+      var aktif = b.getAttribute('data-sirala') === siralama.alan;
+      b.classList.toggle('aktif', aktif);
+      b.querySelector('.ok-sira').textContent = aktif ? (siralama.yon === 1 ? '↑' : '↓') : '';
+      b.parentNode.setAttribute('aria-sort', aktif ? (siralama.yon === 1 ? 'ascending' : 'descending') : 'none');
+    });
+  }
+  [].forEach.call(document.querySelectorAll('.sirala'), function (b) {
+    b.addEventListener('click', function () {
+      var alan = b.getAttribute('data-sirala');
+      if (siralama.alan === alan) siralama.yon = -siralama.yon;
+      else siralama = { alan: alan, yon: alan === 'tarih' ? 1 : -1 };
+      try { localStorage.setItem('hapSiralama', JSON.stringify(siralama)); } catch (e) {}
+      siralamaCiz(); sayfa = 1; if (veri) tabloyuCiz();
+    });
+  });
+  siralamaCiz();
+  function sirala(liste) {
+    var y = siralama.yon;
+    return liste.slice().sort(function (a, b) {
+      if (siralama.alan === 'tarih') {
+        if (!a.termin && !b.termin) return String(b.isId).localeCompare(String(a.isId));
+        if (!a.termin) return 1;
+        if (!b.termin) return -1;
+        if (a.termin !== b.termin) return a.termin < b.termin ? -y : y;
+      }
+      return String(a.isId).localeCompare(String(b.isId)) * (siralama.alan === 'id' ? y : -1);
+    });
+  }
+
   function filtrelenmis() {
     var q = kucult(filtre.metin.trim());
     var arsiv = filtre.kapsam === 'arsiv';
-    return veri.isler.filter(function (i) {
+    return sirala(veri.isler.filter(function (i) {
       if (arsiv ? i.acik : !i.acik) return false;
       if (filtre.kapsam === 'A') { if (i.kategoriKod !== 'A' && i.kategoriKod !== 'KN') return false; }
       else if (['B', 'C', 'D'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
       if (filtre.gun && i.termin !== filtre.gun) return false;
       if (filtre.idler && filtre.idler.indexOf(i.isId) === -1) return false;
-      if (q && [i.isId, i.baslik, i.musteri, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
+      if (q && [i.isId, i.baslik, i.musteri, i.rumuz, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
       return true;
-    });
+    }));
   }
 
   // ---------- Tablo ----------
@@ -649,9 +689,13 @@ window.HAP = { secenekler: null };
   // iptali geri almak mümkün olmadığı için bu düğmeler iki tıklama ister.
   var DURAK_DUGME = {
     basla: '▶ Başla', beklet: 'Beklet', devamEt: '▶ Devam ettir', iptal: 'İptal et',
-    takipYapildi: '✓ Takip yapıldı'
+    takipYapildi: '✓ Takip yapıldı', ileriAtla: '⇥ İleri atla'
   };
-  var NOT_ZORUNLU = { beklet: 'Neden bekliyor? Not zorunlu.', iptal: 'Neden iptal? Not zorunlu. (Satış olmadıysa iptal değil, “hayır” kararını kullanın.)' };
+  var NOT_ZORUNLU = {
+    beklet: 'Neden bekliyor? Not zorunlu.',
+    iptal: 'Neden iptal? Not zorunlu. (Satış olmadıysa iptal değil, “hayır” kararını kullanın.)',
+    ileriAtla: 'Neden atlanıyor? Not zorunlu. (ör. satış HAP dışında bitti, yalnızca kurulum istiyor)'
+  };
 
   function durakCiz(ic, d) {
     var dk = d.durak, var_ = function (x) { return dk.islemler.indexOf(x) !== -1; };
@@ -680,10 +724,19 @@ window.HAP = { secenekler: null };
       var si = el('div', 'mesaj tamam'); si.style.margin = '6px 0 0'; si.textContent = sonIslem.metin;
       k.appendChild(si); sonIslem = null;
     }
+    if (dk.talep) {
+      var tp = dk.talep, ts = 'Kişi bize rumuzuyla yazınca “' + (dk.cikislar.evet ? dk.cikislar.evet.etiket : 'evet') + '” deyin; iş Durum Fotoğrafı\'na geçer.';
+      if (tp.rumuz) ts = 'Rumuz: “' + tp.rumuz + '”. ' + ts; else ts = 'Bu başvuruda rumuz yok (form cevaplarına bakın). ' + ts;
+      if (tp.kalan !== null && tp.kalan !== undefined) {
+        ts += tp.kalan > 0 ? ' Yazmazsa ' + tp.kalan + ' gün sonra kendiliğinden kapanır (Talep gelmedi).'
+                           : ' Bekleme süresi doldu; bu gece kendiliğinden kapanır (Talep gelmedi).';
+      }
+      k.appendChild(el('p', 'durak-bilgi', ts));
+    }
     if (dk.duzeltmeTuru) k.appendChild(el('p', 'durak-bilgi', 'Düzeltme turu: ' + dk.duzeltmeTuru));
     if (d.durum === 'beklemede') k.appendChild(el('p', 'durak-bilgi', 'İş beklemede. Gerekçe İş Geçmişi\'nde.'));
 
-    var ta = el('textarea'); ta.id = 'durakNot'; ta.maxLength = 2000; ta.placeholder = 'Not (isteğe bağlı; Beklet ve İptal için zorunlu)';
+    var ta = el('textarea'); ta.id = 'durakNot'; ta.maxLength = 2000; ta.placeholder = 'Not (isteğe bağlı; Beklet, İptal ve İleri atla için zorunlu)';
     k.appendChild(ta);
 
     var tarih = null;
@@ -710,7 +763,21 @@ window.HAP = { secenekler: null };
       k.appendChild(nt);
     }
 
+    // İleri atla: iş olgunlaşmış geldiyse sonraki bir durağa doğrudan geçer.
+    var atlaSec = null, atlaKutu = null;
+    if (var_('ileriAtla') && dk.ileriDuraklar && dk.ileriDuraklar.length) {
+      var at = el('details', 'notlar');
+      at.appendChild(el('summary', null, 'İleri atla (iş olgunlaşmış geldiyse)'));
+      at.appendChild(el('div', 'kucuk', 'İş seçtiğiniz durağa “sırada” olarak geçer; aradaki duraklar atlanır. Not zorunlu, İş Geçmişi\'ne yazılır.'));
+      atlaSec = el('select'); atlaSec.id = 'atlaHedef';
+      dk.ileriDuraklar.forEach(function (x) { var o = el('option', null, x.ad); o.value = x.kod; atlaSec.appendChild(o); });
+      at.appendChild(atlaSec);
+      var atb = el('div', 'butonlar'); at.appendChild(atb);
+      atlaKutu = at;
+    }
+
     var butonlar = el('div', 'butonlar'); k.appendChild(butonlar);
+    if (atlaKutu) k.appendChild(atlaKutu);   // ana kararın altında, ikincil yol
     var alt = el('div', 'durak-alt');
     var dm = el('div', 'mesaj islem-mesaj'); dm.id = 'durakMesaj'; dm.setAttribute('role', 'status');
 
@@ -731,6 +798,7 @@ window.HAP = { secenekler: null };
       if (cikis && cikis.notZorunlu && !not) { mesaj('durakMesaj', 'hata', 'Not zorunlu: ' + (cikis.notIpucu || cikis.etiket)); ta.focus(); return; }
       var secenek = { not: not };
       if (islem === 'takipYapildi' && tarih) secenek.tarih = tarih.value;
+      if (islem === 'ileriAtla' && atlaSec) secenek.hedef = atlaSec.value;
       if (islem === 'evet' && arge) { secenek.argeNotu = arge.value.trim(); secenek.referansNotu = paz.value.trim(); }
       [].forEach.call(k.querySelectorAll('button'), function (b) { b.disabled = true; });
       mesaj('durakMesaj', 'bilgi', 'İşleniyor…');
@@ -762,6 +830,7 @@ window.HAP = { secenekler: null };
     if (var_('evet')) dugme(butonlar, 'dugme', '✓ ' + dk.cikislar.evet.etiket, 'evet', true, dk.cikislar.evet.notIpucu);
     if (var_('hayir')) dugme(butonlar, 'dugme ikincil', '✕ ' + dk.cikislar.hayir.etiket, 'hayir', true, dk.cikislar.hayir.notIpucu);
     if (!butonlar.children.length) butonlar.remove();
+    if (atlaSec) dugme(atb, 'dugme ikincil', DURAK_DUGME.ileriAtla, 'ileriAtla', true, NOT_ZORUNLU.ileriAtla);
 
     ['basla', 'devamEt', 'beklet'].forEach(function (x) { if (var_(x)) dugme(alt, 'metin-dugme', DURAK_DUGME[x], x, false); });
     if (var_('iptal')) dugme(alt, 'metin-dugme tehlike', DURAK_DUGME.iptal, 'iptal', true, NOT_ZORUNLU.iptal);
@@ -808,7 +877,7 @@ window.HAP = { secenekler: null };
     }
     if (d.islemler.indexOf('yzsizTamamla') !== -1) {
       var k = el('div', 'islem-kutu yz');
-      k.appendChild(el('div', null, 'YZ analizi bekleniyor. Gelmediyse Giriş\'i YZ\'siz tamamlayıp işi Durum Fotoğrafı sırasına alabilirsiniz.'));
+      k.appendChild(el('div', null, 'YZ analizi bekleniyor. Gelmediyse Giriş\'i YZ\'siz tamamlayıp işi “Talep bekleniyor” sırasına alabilirsiniz.'));
       var ta = el('textarea'); ta.id = 'gerekce'; ta.maxLength = 1000; ta.placeholder = 'Gerekçe (zorunlu): ör. YZ analizi 1 saattir gelmedi.';
       k.appendChild(ta);
       var btn = el('button', 'dugme', 'Giriş\'i YZ\'siz tamamla'); btn.type = 'button'; btn.id = 'yzsizBtn';
@@ -827,8 +896,8 @@ window.HAP = { secenekler: null };
     var iz = el('div', 'bilgi-izgara');
     if (d.musteriBilgisi) {
       var mb = d.musteriBilgisi;
-      bilgi(iz, mb.knBasvurusu ? 'Başvuran' : 'Müşteri', [mb.ad, mb.irtibat].filter(Boolean).join(' · '));
-      bilgi(iz, 'İletişim', [mb.telefon, mb.eposta].filter(Boolean).join(' · '));
+      bilgi(iz, mb.rumuz ? 'Rumuz' : mb.knBasvurusu ? 'Başvuran' : 'Müşteri', [mb.ad, mb.irtibat].filter(Boolean).join(' · '));
+      bilgi(iz, 'İletişim', mb.rumuz ? 'Kişi bize WhatsApp\'tan yazar' : [mb.telefon, mb.eposta].filter(Boolean).join(' · '));
     } else {
       bilgi(iz, 'Kimin işi', d.musteri);
       bilgi(iz, 'Kategori', d.kategori);
