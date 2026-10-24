@@ -18,11 +18,12 @@ const RUMUZ_SORUSU = 'Kendine bir rumuz seç';
 // YZ işini arka planda yapar ve sonucu /_functions/boltSonucu'ya gönderir.
 const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
 
-// KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır
-// ve büyük/küçük harf duyarsız (Türkçe kurallarıyla) karşılaştırılır; formda
-// başlığın sonuna boşluk eklenmesi gibi küçük değişiklikler eşleşmeyi bozmasın.
+// KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır,
+// baştaki soru numarası ("14. ") atılır ve büyük/küçük harf duyarsız (Türkçe
+// kurallarıyla) karşılaştırılır; formda soruların yeri değişse ya da başlığın
+// sonuna boşluk eklense de eşleşme bozulmasın.
 function knCevabi(answers, soruBasligi) {
-  const normallestir = (metin) => String(metin).trim().toLocaleLowerCase('tr-TR');
+  const normallestir = (metin) => String(metin).trim().replace(/^\d+\s*[.)-]\s*/, '').replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
   const aranan = normallestir(soruBasligi);
   for (const [anahtar, deger] of Object.entries(answers || {})) {
     if (normallestir(anahtar) === aranan) {
