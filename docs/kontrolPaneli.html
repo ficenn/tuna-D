@@ -877,7 +877,9 @@ window.HAP = { secenekler: null };
     }
     if (d.islemler.indexOf('yzsizTamamla') !== -1) {
       var k = el('div', 'islem-kutu yz');
-      k.appendChild(el('div', null, 'YZ analizi bekleniyor. Gelmediyse Giriş\'i YZ\'siz tamamlayıp işi “Talep bekleniyor” sırasına alabilirsiniz.'));
+      k.appendChild(el('div', null, d.yzHata
+        ? 'YZ analizi başarısız oldu (' + d.yzHata + '). Giriş\'i YZ\'siz tamamlayıp işi “Talep bekleniyor” sırasına alabilirsiniz.'
+        : 'YZ analizi bekleniyor. Gelmediyse Giriş\'i YZ\'siz tamamlayıp işi “Talep bekleniyor” sırasına alabilirsiniz.'));
       var ta = el('textarea'); ta.id = 'gerekce'; ta.maxLength = 1000; ta.placeholder = 'Gerekçe (zorunlu): ör. YZ analizi 1 saattir gelmedi.';
       k.appendChild(ta);
       var btn = el('button', 'dugme', 'Giriş\'i YZ\'siz tamamla'); btn.type = 'button'; btn.id = 'yzsizBtn';
@@ -937,10 +939,11 @@ window.HAP = { secenekler: null };
     if (d.yz || d.cevaplar.length) {
       var yb2 = bolum(ic, '✦ YZ Analizi', false);
       if (d.yz) {
-        if (d.yz.ozet) { yb2.appendChild(el('div', 'kucuk', 'Özet')); yb2.appendChild(el('div', 'metin-kutu', d.yz.ozet)); }
-        if (d.yz.baglam) { yb2.appendChild(el('div', 'kucuk', 'Bağlam')); yb2.appendChild(el('div', 'metin-kutu', d.yz.baglam)); }
+        // Durum Fotoğrafı taslağı: önce ayna (anlattıkları), sonra görüşümüz.
+        if (d.yz.baglam) { yb2.appendChild(el('div', 'kucuk', 'Bize anlattıkları')); yb2.appendChild(el('div', 'metin-kutu', d.yz.baglam)); }
+        if (d.yz.ozet) { yb2.appendChild(el('div', 'kucuk', 'Görüşümüz')); yb2.appendChild(el('div', 'metin-kutu', d.yz.ozet)); }
         if (d.yz.yapilacaklar.length) {
-          yb2.appendChild(el('div', 'kucuk', 'Önerilen adımlar'));
+          yb2.appendChild(el('div', 'kucuk', 'Önerdiğimiz sıra'));
           var ol = el('ol', 'yapilacak'); d.yz.yapilacaklar.forEach(function (x) { ol.appendChild(el('li', null, x)); }); yb2.appendChild(ol);
         }
       } else {

@@ -5,6 +5,9 @@
 //
 // Beklenen istek gövdesi:
 //   { "isId": "000024", "context": "...", "summary": "...", "checklist": ["...", "..."] }
+// YZ başarısız olursa (Netlify tekrar denemelerinden sonra):
+//   { "isId": "000024", "hata": true, "neden": "HTTP 429: ..." }
+//   → iş Giriş'te kalır, neden geçmişe yazılır, panel hemen gösterir.
 //
 // Yetkilendirme: Authorization header'ında "Bearer <secret>" bekleniyor.
 // <secret>, Wix Secrets Manager'da BOLT_WEBHOOK_SECRET adıyla saklanan
@@ -12,7 +15,7 @@
 
 import { ok, badRequest, serverError } from 'wix-http-functions';
 import wixData from 'wix-data';
-import { gecisYap } from './suleyman';
+import { gecisYap, yzHatasiKaydet } from './suleyman';
 import { secrets } from 'wix-secrets-backend.v2';
 import { elevate } from 'wix-auth';
 
@@ -56,6 +59,18 @@ export async function post_boltSonucu(request) {
 
   if (!isId) {
     return badRequest({ body: { hata: 'isId eksik.' } });
+  }
+
+  // YZ başarısız haberi: bağlama dokunmadan geçmişe yaz, Giriş'te bırak.
+  if (govde.hata) {
+    try {
+      const s = await yzHatasiKaydet(String(isId), govde.neden);
+      if (!s.basarili) console.warn(`boltSonucu: ${isId} YZ hatası kaydedilmedi: ${s.mesaj}`);
+      return ok({ body: { basarili: true } });
+    } catch (hata) {
+      console.error(`boltSonucu: ${isId} YZ hatası kaydedilemedi:`, hata);
+      return serverError({ body: { hata: 'YZ hatası kaydedilemedi.' } });
+    }
   }
 
   // 3. IsBaglamlari'nda isId'ye göre kaydı bul

@@ -631,3 +631,40 @@ export async function gunlukBakim() {
   const b = await talepGelmeyenCevaplariSil(simdi);
   return { ...a, ...b };
 }
+
+// --- YZ analizi başarısız (Netlify'dan gelen haber) ---
+//
+// YZ analizi tekrar denemelerden sonra da başarısız olursa Netlify Wix'e
+// { hata: true, neden } gönderir. İş Giriş'te kalır (durum değişmez);
+// geçmişe neden yazılır, panel 15 dakika beklemeden gösterir. İnsan
+// "Giriş'i YZ'siz tamamla" ile devam eder.
+export async function yzHatasiKaydet(isId, neden) {
+  const kayit = await kayitBul(isId);
+  const durum = mevcutDurum(kayit);
+  if (durum.asama !== GIRIS_DURAGI) {
+    return { basarili: false, degisti: false, sebep: 'giriste_degil', mesaj: `${isId} Giriş'te değil; YZ hatası kaydedilmedi.` };
+  }
+  const temiz = String(neden || 'bilinmiyor').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
+  const son = gecmis[gecmis.length - 1];
+  if (son && son.islem === 'yz_basarisiz' && son.not === temiz) {
+    return { basarili: true, degisti: false, sebep: 'zaten_kayitli' };
+  }
+  const giris = gecmisKaydi({
+    islem: 'yz_basarisiz', onceki: durum, yeni: durum,
+    aktor: { tur: 'yz', kim: 'Memur YZ' }, not: temiz, etiket: 'YZ analizi başarısız'
+  });
+  await wixData.update(KOLEKSIYON, { ...kayit, gecmis: [...gecmis, giris] }, { suppressAuth: true });
+  console.log(`Süleyman: ${isId} YZ analizi başarısız: ${temiz}`);
+  return { basarili: true, degisti: true };
+}
+
+// Giriş'teki işin son YZ hatası (yoksa null).
+export function sonYzHatasi(kayit) {
+  if (mevcutDurum(kayit).asama !== GIRIS_DURAGI) return null;
+  const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
+  for (let i = gecmis.length - 1; i >= 0; i--) {
+    if (gecmis[i] && gecmis[i].islem === 'yz_basarisiz') return gecmis[i].not || 'bilinmiyor';
+  }
+  return null;
+}
