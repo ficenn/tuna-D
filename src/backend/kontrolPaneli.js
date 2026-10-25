@@ -14,7 +14,7 @@
 import wixData from 'wix-data';
 import {
   DURUMLAR, KISA_YOL_ASAMASI, mevcutDurum, asamaEtiketi, durumEtiketi, sonucEtiketi,
-  izinliDurakIslemleri, gunTR, ileriDuraklar, talepKalanGun
+  izinliDurakIslemleri, gunTR, ileriDuraklar, talepKalanGun, sonYzHatasi
 } from './suleyman';
 import {
   DURAKLAR, CIKISLAR, GIRIS_DURAGI, SONUC_DURAGI, TAKIP_DURAGI, TAKIP_PLANI_GUN,
@@ -52,7 +52,8 @@ const ISLEM_ETIKETLERI = {
   durak_cikisi: 'Durak kararı',
   durak_atlandi: 'Durak atlandı',
   talep_zaman_asimi: 'Talep gelmedi (zaman aşımı)',
-  form_cevaplari_silindi: 'Form cevapları silindi (KVKK)'
+  form_cevaplari_silindi: 'Form cevapları silindi (KVKK)',
+  yz_basarisiz: 'YZ analizi başarısız'
 };
 
 // Masalar koleksiyonunda satırı henüz olmayan masalar için ad.
@@ -151,6 +152,7 @@ function satir(k, musteriler, simdi = new Date()) {
     sonrakiTakip: asama === TAKIP_DURAGI ? terminMetni(k.sonrakiTakip) : null,
     takipSayisi: asama === TAKIP_DURAGI ? Number(k.takipSayisi) || 0 : null,
     rumuz: k.rumuz || null,
+    yzHata: sonYzHatasi(k),
     talepKalan: asama === TALEP_DURAGI && durum === 'sirada' ? talepKalanGun(k, simdi) : null,
     bagliIs: k.bagliIs || null,
     aciliyet: k.aciliyet || null,
@@ -175,7 +177,10 @@ export function gundemHesapla(isler, simdi = new Date()) {
   for (const i of isler) {
     if (!i.acik) continue;
 
-    if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.olusturma) {
+    if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.yzHata) {
+      bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
+        neden: `YZ analizi başarısız (${i.yzHata}) — detaydan YZ'siz tamamlayabilirsiniz.`, etiket: 'YZ hatası', tur: 'hata' });
+    } else if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.olusturma) {
       const dakika = (simdi - new Date(i.olusturma)) / 60000;
       if (dakika >= ESIKLER.yzBeklemeDakika) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
@@ -282,8 +287,8 @@ export async function isDetayiHazirla(isId) {
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
     islem: g.etiket || ISLEM_ETIKETLERI[g.islem] || g.islem,
-    onceki: g.islem === 'kayit_guncellendi' || g.islem === 'form_cevaplari_silindi' ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
-    yeni: g.islem === 'kayit_guncellendi' || g.islem === 'form_cevaplari_silindi' ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
+    onceki: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz'].includes(g.islem) ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
+    yeni: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz'].includes(g.islem) ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
     not: g.not || null
   }));
