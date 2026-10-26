@@ -1,22 +1,11 @@
 import wixData from 'wix-data';
-import { fetch } from 'wix-fetch';
-import { secrets } from 'wix-secrets-backend.v2';
-import { elevate } from 'wix-auth';
 import { isKaydiEkleYenidenDenemeli } from '../../../isIdCounter';
-import { ilkKayitAlanlari } from '../../../suleyman';
-
-const elevatedGetSecretValue = elevate(secrets.getSecretValue);
-
-const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
+import { ilkKayitAlanlari, gecisYap } from '../../../suleyman';
 
 // KN formunda kişisel bilgi sorulmaz (2026-10-23 kararı): ad, işletme adı,
 // konum, e-posta yok. Kişi kendine bir rumuz seçer; Durum Fotoğrafı'nı
 // almak için bu rumuzu WhatsApp'tan yazar. Formdaki soru başlığı:
 const RUMUZ_SORUSU = 'Kendine bir rumuz seç';
-
-// Bolt/Netlify gatekeeper (hap-intake). Secret'ı kontrol eder, 202 döner,
-// YZ işini arka planda yapar ve sonucu /_functions/boltSonucu'ya gönderir.
-const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
 
 // KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır,
 // baştaki soru numarası ("14. ") atılır ve büyük/küçük harf duyarsız (Türkçe
@@ -54,9 +43,7 @@ export const invoke = async ({ payload }) => {
       rumuz: rumuz || null,
       dil,
       source: 'Webhook',
-      // Giriş başlar; YZ analizi (hazırlık) çalışırken durum: devam_ediyor.
-      // YZ sonucu gelince Süleyman işi "Talep bekleniyor" / sırada'ya taşır
-      // (bkz. http-functions.js → post_boltSonucu).
+      // Giriş başlar; kayıt ve bağlam yazılınca aşağıda "Talep bekleniyor"a geçer.
       ...ilkKayitAlanlari({ tur: 'sistem', kim: 'KN' })
     });
     isId = sonuc.isId;
@@ -97,43 +84,16 @@ export const invoke = async ({ payload }) => {
     throw hata;
   }
 
-  // 3. Bolt'a "işle" isteği gönder — fire-and-forget. Sadece Bolt'un
-  // isteği KABUL ettiğini (hızlı bir HTTP cevabı) doğruluyoruz, AI
-  // sonucunu beklemiyoruz (Section 9'daki timeout dersi burada da
-  // geçerli — senkron beklemek yerine, sonuç ayrıca /_functions/
-  // boltSonucu üzerinden geri gelecek).
-  //
-  // ÖNEMLİ: Bu adımın başarısız olması İş Kaydı'nı veya Bağlam
-  // kaydını GERİ ALMIYOR — ikisi de zaten oluştu. Bolt'a ulaşılamazsa
-  // sadece logluyoruz; iş kaydı hâlâ geçerli, sadece YZ işlemesi
-  // henüz tetiklenmemiş olur.
+  // 3. Giriş tamamlandı → "Talep bekleniyor" (2026-10-26). YZ'ye burada
+  // GİDİLMEZ: Durum Fotoğrafı taslağı kişi rumuzuyla yazınca istenir
+  // (yzCagir.js). Hiç yazmayan kişinin cevapları böylece YZ'ye gitmez.
+  // Geçiş başarısız olursa iş Giriş'te kalır; panel bunu gösterir ve
+  // insan "Giriş'i YZ'siz tamamla" ile ilerletir.
   try {
-    // getSecretValue { value: '...' } nesnesi döndürür, düz metin değil.
-    const secretSonuc = await elevatedGetSecretValue(SECRET_ADI);
-    const secret = typeof secretSonuc === 'string' ? secretSonuc : secretSonuc?.value;
-    if (!secret) throw new Error('BOLT_WEBHOOK_SECRET boş veya okunamadı.');
-    const yanit = await fetch(BOLT_URL, {
-      method: 'post',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${secret}`
-      },
-      body: JSON.stringify({ isId, answers })
-    });
-
-    if (!yanit.ok) {
-      console.warn(
-        `issKaydi: Bolt isteği kabul edilmedi (isId=${isId}), status: ${yanit.status}`
-      );
-    } else {
-      console.log(`issKaydi: Bolt'a işleme isteği gönderildi: ${isId}`);
-    }
+    const gecis = await gecisYap(isId, 'kn_giris_tamamlandi', { tur: 'sistem', kim: 'KN' });
+    if (!gecis.basarili) console.warn(`issKaydi: ${isId} Talep bekleniyor'a geçmedi: ${gecis.mesaj}`);
   } catch (hata) {
-    console.error(
-      `issKaydi: Bolt'a ulaşılamadı (isId=${isId}) — iş kaydı ve bağlam yine de oluşturuldu:`,
-      hata
-    );
-    // Kasıtlı olarak fırlatmıyoruz — bu adım opsiyonel/best-effort.
+    console.error(`issKaydi: ${isId} Talep bekleniyor'a geçirilemedi:`, hata);
   }
 
   return {};

@@ -134,6 +134,15 @@ const GECISLER = {
     aktorTurleri: ['insan'],
     notZorunlu: true
   },
+  // KN (2026-10-26): form gelince YZ beklenmez; iş doğrudan "Talep
+  // bekleniyor"a geçer. YZ taslağı kişi rumuzuyla yazınca istenir (KVKK:
+  // cevaplar yalnızca gerçek talepte YZ'ye gider).
+  kn_giris_tamamlandi: {
+    kaynak: [[GIRIS_DURAGI, 'devam_ediyor']],
+    hedef: [KN_ILK_DURAK, 'sirada'],
+    aktorTurleri: ['sistem'],
+    notZorunlu: false
+  },
   // İnsanın girdiği iş: girişin kendisi hazırlıktır → seçilen başlangıç
   // durağı (varsayılan Durum Fotoğrafı).
   giris_tamamlandi: {
@@ -632,39 +641,55 @@ export async function gunlukBakim() {
   return { ...a, ...b };
 }
 
-// --- YZ analizi başarısız (Netlify'dan gelen haber) ---
+// --- YZ taslağı olayları (istendi / geldi / başarısız) ---
 //
-// YZ analizi tekrar denemelerden sonra da başarısız olursa Netlify Wix'e
-// { hata: true, neden } gönderir. İş Giriş'te kalır (durum değişmez);
-// geçmişe neden yazılır, panel 15 dakika beklemeden gösterir. İnsan
-// "Giriş'i YZ'siz tamamla" ile devam eder.
-export async function yzHatasiKaydet(isId, neden) {
+// KN işinde YZ, Durum Fotoğrafı taslağını kişi rumuzuyla yazınca hazırlar
+// (2026-10-26). Eski / yolda kalan kayıtlar için Giriş'te de geçerlidir.
+// Olaylar işin durumunu DEĞİŞTİRMEZ; yalnızca geçmişe yazılır:
+//   yz_istendi    taslak Netlify'dan istendi
+//   yz_geldi      taslak geldi (Giriş dışında; Giriş'te geçiş zaten yazılır)
+//   yz_basarisiz  YZ tekrar denemelerden sonra da başarısız (neden ile)
+const YZ_DURAKLARI = [GIRIS_DURAGI, ILK_DURAK];
+const YZ_OLAYLARI = {
+  yz_istendi: 'YZ taslağı istendi',
+  yz_geldi: 'YZ taslağı geldi',
+  yz_basarisiz: 'YZ analizi başarısız'
+};
+
+export async function yzOlayiKaydet(isId, islem, not, aktor = { tur: 'yz', kim: 'Memur YZ' }) {
+  if (!YZ_OLAYLARI[islem]) throw new Error(`Süleyman: bilinmeyen YZ olayı: ${islem}`);
+  const a = aktorKontrol(aktor);
   const kayit = await kayitBul(isId);
   const durum = mevcutDurum(kayit);
-  if (durum.asama !== GIRIS_DURAGI) {
-    return { basarili: false, degisti: false, sebep: 'giriste_degil', mesaj: `${isId} Giriş'te değil; YZ hatası kaydedilmedi.` };
+  if (!YZ_DURAKLARI.includes(durum.asama)) {
+    return { basarili: false, degisti: false, sebep: 'yz_duragi_degil', mesaj: `${isId} YZ taslağı beklenen bir durakta değil.` };
   }
-  const temiz = String(neden || 'bilinmiyor').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const temiz = not ? String(not).replace(/\s+/g, ' ').trim().slice(0, 240) : null;
   const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
   const son = gecmis[gecmis.length - 1];
-  if (son && son.islem === 'yz_basarisiz' && son.not === temiz) {
+  if (son && son.islem === islem && (son.not || null) === temiz) {
     return { basarili: true, degisti: false, sebep: 'zaten_kayitli' };
   }
-  const giris = gecmisKaydi({
-    islem: 'yz_basarisiz', onceki: durum, yeni: durum,
-    aktor: { tur: 'yz', kim: 'Memur YZ' }, not: temiz, etiket: 'YZ analizi başarısız'
-  });
+  const giris = gecmisKaydi({ islem, onceki: durum, yeni: durum, aktor: a, not: temiz, etiket: YZ_OLAYLARI[islem] });
   await wixData.update(KOLEKSIYON, { ...kayit, gecmis: [...gecmis, giris] }, { suppressAuth: true });
-  console.log(`Süleyman: ${isId} YZ analizi başarısız: ${temiz}`);
+  console.log(`Süleyman: ${isId} ${YZ_OLAYLARI[islem]}${temiz ? ': ' + temiz : ''}`);
   return { basarili: true, degisti: true };
 }
 
-// Giriş'teki işin son YZ hatası (yoksa null).
+export function yzHatasiKaydet(isId, neden) {
+  return yzOlayiKaydet(isId, 'yz_basarisiz', neden || 'bilinmiyor');
+}
+
+// YZ'nin son durumu (Giriş ya da Durum Fotoğrafı'nda): son olay hata ise
+// nedeni döner; sonrasında yeni istek ya da taslak geldiyse null.
 export function sonYzHatasi(kayit) {
-  if (mevcutDurum(kayit).asama !== GIRIS_DURAGI) return null;
+  if (!YZ_DURAKLARI.includes(mevcutDurum(kayit).asama)) return null;
   const gecmis = Array.isArray(kayit.gecmis) ? kayit.gecmis : [];
   for (let i = gecmis.length - 1; i >= 0; i--) {
-    if (gecmis[i] && gecmis[i].islem === 'yz_basarisiz') return gecmis[i].not || 'bilinmiyor';
+    const g = gecmis[i];
+    if (!g) continue;
+    if (g.islem === 'yz_basarisiz') return g.not || 'bilinmiyor';
+    if (['yz_istendi', 'yz_geldi', 'yz_hazirlik_tamamlandi'].includes(g.islem)) return null;
   }
   return null;
 }

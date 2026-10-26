@@ -152,6 +152,7 @@ function satir(k, musteriler, simdi = new Date()) {
     sonrakiTakip: asama === TAKIP_DURAGI ? terminMetni(k.sonrakiTakip) : null,
     takipSayisi: asama === TAKIP_DURAGI ? Number(k.takipSayisi) || 0 : null,
     rumuz: k.rumuz || null,
+    sorumlu: k.sorumlu || null,
     yzHata: sonYzHatasi(k),
     talepKalan: asama === TALEP_DURAGI && durum === 'sirada' ? talepKalanGun(k, simdi) : null,
     bagliIs: k.bagliIs || null,
@@ -177,14 +178,14 @@ export function gundemHesapla(isler, simdi = new Date()) {
   for (const i of isler) {
     if (!i.acik) continue;
 
-    if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.yzHata) {
+    if (i.yzHata && i.acik && (i.asama === GIRIS_DURAGI || i.asama === 'durum_fotografi')) {
       bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
         neden: `YZ analizi başarısız (${i.yzHata}) — detaydan YZ'siz tamamlayabilirsiniz.`, etiket: 'YZ hatası', tur: 'hata' });
     } else if (i.asama === GIRIS_DURAGI && i.durum === 'devam_ediyor' && i.olusturma) {
       const dakika = (simdi - new Date(i.olusturma)) / 60000;
       if (dakika >= ESIKLER.yzBeklemeDakika) {
         bugunListe.push({ isId: i.isId, baslik: i.baslik, kategoriKod: i.kategoriKod, sira: 0,
-          neden: 'YZ analizi gelmedi — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Bekliyor', tur: 'hata' });
+          neden: 'Giriş tamamlanmadı — detaydan YZ\'siz tamamlayabilirsiniz.', etiket: 'Bekliyor', tur: 'hata' });
       }
     }
 
@@ -300,6 +301,16 @@ export async function isDetayiHazirla(isId) {
   // Ar-Ge işi kapanırken çözüm Pazarlama'ya not olarak gönderilebilir.
   if (islemler.includes('yapildi') && k.kategori === 'D') islemler.push('cozumNotu');
 
+  // KN işi Durum Fotoğrafı'nda: YZ taslağının durumu (taslak kişi rumuzuyla
+  // yazınca istenir). Gelmediyse ya da başarısızsa yeniden istenebilir.
+  let yzDurumu = null;
+  if (k.source === 'Webhook' && ozet.asama === 'durum_fotografi' && ozet.acik) {
+    const hazir = Boolean(b && (b.context || b.summary));
+    const istendi = (Array.isArray(k.gecmis) ? k.gecmis : []).some((g) => g && g.islem === 'yz_istendi');
+    yzDurumu = { hazir, istendi, hata: ozet.yzHata || null };
+    if (!hazir) islemler.push('yzTekrar');
+  }
+
   // Ticari işin durağı: düğmeler ve etiketleri (rota.js'ten).
   let durak = null;
   if (!ozet.kisaYol && DURAKLAR[ozet.asama]) {
@@ -353,7 +364,8 @@ export async function isDetayiHazirla(isId) {
       modul: k.modul || '',
       musteriId: k.musteri || '',
       kapsam: b?.kapsam || '',
-      notlar: b?.girisNotu || ''
+      notlar: b?.girisNotu || '',
+      sorumlu: k.sorumlu || ''
     };
   }
 
@@ -384,6 +396,7 @@ export async function isDetayiHazirla(isId) {
     duzenleme,
     masa,
     durak,
-    bagliIsler
+    bagliIsler,
+    yzDurumu
   };
 }

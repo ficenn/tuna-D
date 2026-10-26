@@ -34,7 +34,7 @@
 
 import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
-import { asama1YzOlmadanTamamla, takipYapildi, durakIslemiYap } from 'backend/suleyman.web';
+import { asama1YzOlmadanTamamla, takipYapildi, durakIslemiYap, yzTaslagiYenidenIste } from 'backend/suleyman.web';
 
 const PANEL = '#kontrolPaneli';
 const DURAK_MESAJLARI = { basla: 'çalışmaya başlandı', beklet: 'beklemeye alındı', devamEt: 'beklemeden çıktı', iptal: 'iptal edildi' };
@@ -105,8 +105,13 @@ const ISLEYICILER = {
   yzsizTamamla: (m) => islem(
     () => asama1YzOlmadanTamamla(m.isId, m.gerekce),
     (s) => (s.degisti
-      ? `${m.isId}: Giriş YZ'siz tamamlandı, iş Durum Fotoğrafı sırasında.`
-      : `${m.isId} zaten Durum Fotoğrafı sırasındaydı.`)
+      ? `${m.isId}: Giriş YZ'siz tamamlandı, iş Talep bekleniyor sırasında.`
+      : `${m.isId} zaten Talep bekleniyor sırasındaydı.`)
+  ),
+
+  yzTekrar: (m) => islem(
+    () => yzTaslagiYenidenIste(m.isId),
+    (s) => `${m.isId}: ${s.mesaj}`
   ),
 
   yapildi: (m) => islem(
@@ -127,6 +132,7 @@ const ISLEYICILER = {
       if (s.sonuc) parcalar.push('İş kapandı, arşive geçti.');
       else if ((m.islem === 'evet' || m.islem === 'hayir') && s.durakAdi) parcalar.push(`İş şimdi: ${s.durakAdi}.`);
       (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.ad} işi açıldı: ${b.isId}.`));
+      (s.bilgiler || []).forEach((u) => parcalar.push(u));
       (s.uyarilar || []).forEach((u) => parcalar.push(u));
       return parcalar.join(' ');
     }

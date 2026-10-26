@@ -166,6 +166,10 @@
                 <input type="date" id="termin">
               </label>
             </div>
+            <label class="alan" id="sorumluAlani"><span class="ad">Sorumlu</span>
+              <input type="text" id="sorumlu" maxlength="60" list="sorumluOneri" autocomplete="off" placeholder="Kim yapacak? (isteğe bağlı)">
+              <datalist id="sorumluOneri"></datalist>
+            </label>
             <label class="alan" id="baslangicAlani" hidden><span class="ad">Nereden başlasın?</span>
               <select id="baslangic"></select>
               <span class="kucuk">Çoğu iş Durum Fotoğrafı'ndan başlar. İş olgunlaşmış geldiyse (ör. satış görüşmesi HAP dışında yapıldı) sonraki bir duraktan başlatın.</span>
@@ -388,7 +392,7 @@
   }
 
   function formuTemizle() {
-    ['aciklama', 'kapsam', 'notlar', 'termin'].forEach(function (id) { $(id).value = ''; });
+    ['aciklama', 'kapsam', 'notlar', 'termin', 'sorumlu'].forEach(function (id) { $(id).value = ''; });
     $('kaynak').value = ''; $('modul').value = '';
     if ($('baslangic').options.length) $('baslangic').selectedIndex = 0;
     var n = document.querySelector('input[name=aciliyet][value=normal]'); if (n) n.checked = true;
@@ -407,7 +411,8 @@
       termin: $('termin').value,
       aciliyet: (document.querySelector('input[name=aciliyet]:checked') || {}).value || 'normal',
       kaynak: $('kaynak').value,
-      baslangicDuragi: $('baslangic').value || ''
+      baslangicDuragi: $('baslangic').value || '',
+      sorumlu: $('sorumlu').value.trim()
     };
   }
 
@@ -465,6 +470,8 @@
       secenekDoldur($('kaynak'), v.kaynaklar || {}, 'Seçin…');
       secenekDoldur($('modul'), v.moduller || {}, 'Seçin…');
       secenekDoldur($('baslangic'), v.baslangicDuraklari || {});
+      var dl = $('sorumluOneri'); dl.innerHTML = '';
+      (v.sorumlular || []).forEach(function (a) { var o = document.createElement('option'); o.value = a; dl.appendChild(o); });
       aciliyetDoldur(v.aciliyetler || {});
       kategoriDegisti();
       if (!bekliyor) $('kaydet').disabled = false;
