@@ -14,7 +14,7 @@ import { yzOlayiKaydet } from './suleyman';
 
 const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
-const BOLT_URL = 'https://quiet-fudge-87d5ac.netlify.app/.netlify/functions/hap-intake';
+const BOLT_URL = 'https://hap-backend.netlify.app/.netlify/functions/hap-intake';
 
 async function baglamBul(isId) {
   const b = await wixData.query('IsBaglamlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
