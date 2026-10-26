@@ -164,6 +164,7 @@
   .etiket { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; margin-top: 2px; margin-right: 4px; }
   .e-acil { background: var(--bugun-z); color: var(--bugun); }
   .e-modul { background: var(--mor-z); color: var(--mor); }
+  .e-sorumlu { background: #eef2ef; color: var(--ana-koyu); }
   .kucuk { font-size: 12px; color: var(--soluk); }
   .rozet { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .r-sirada { background: var(--mavi-z); color: var(--mavi); }
@@ -555,7 +556,7 @@ window.HAP = { secenekler: null };
       else if (['B', 'C', 'D'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
       if (filtre.gun && i.termin !== filtre.gun) return false;
       if (filtre.idler && filtre.idler.indexOf(i.isId) === -1) return false;
-      if (q && [i.isId, i.baslik, i.musteri, i.rumuz, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
+      if (q && [i.isId, i.baslik, i.musteri, i.rumuz, i.sorumlu, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
       return true;
     }));
   }
@@ -590,6 +591,7 @@ window.HAP = { secenekler: null };
       var m = el('div'); m.appendChild(el('b', null, i.baslik));
       if (i.aciliyet === 'acil' && i.acik) m.appendChild(el('span', 'etiket e-acil', 'Acil'));
       if (i.modul) m.appendChild(el('span', 'etiket e-modul', i.modul));
+      if (i.sorumlu) { var so = el('span', 'etiket e-sorumlu', i.sorumlu); so.title = 'Sorumlu'; m.appendChild(so); }
       ic.appendChild(m); h.appendChild(ic); tr.appendChild(h);
       var mk = el('td', 'mk'); mk.appendChild(el('div', null, i.musteri)); mk.appendChild(el('div', 'kucuk', i.kaynak)); tr.appendChild(mk);
       var d = el('td'); d.appendChild(rozet(i));
@@ -663,6 +665,9 @@ window.HAP = { secenekler: null };
     g.aciklama = el('textarea'); g.aciklama.maxLength = 5000; g.aciklama.value = v.aciklama; alan(f, 'Açıklama', g.aciklama, true);
     if (v.kategori !== 'C') { g.kapsam = el('textarea'); g.kapsam.maxLength = 5000; g.kapsam.value = v.kapsam; alan(f, 'Kapsam', g.kapsam); }
     g.notlar = el('textarea'); g.notlar.maxLength = 5000; g.notlar.value = v.notlar; alan(f, 'Not', g.notlar);
+    g.sorumlu = el('input'); g.sorumlu.type = 'text'; g.sorumlu.maxLength = 60; g.sorumlu.value = v.sorumlu || ''; g.sorumlu.placeholder = 'Kim yapacak? (isteğe bağlı)';
+    var dl = el('datalist'); dl.id = 'sorumluOneri'; (sec.sorumlular || []).forEach(function (a) { var o = el('option'); o.value = a; dl.appendChild(o); });
+    g.sorumlu.setAttribute('list', 'sorumluOneri'); f.appendChild(dl); alan(f, 'Sorumlu', g.sorumlu);
     var iki = el('div', 'ikili'); f.appendChild(iki);
     g.termin = el('input'); g.termin.type = 'date'; g.termin.value = v.termin; alan(iki, v.kategori === 'C' ? 'Tarih' : 'Bitiş tarihi', g.termin);
     if (v.kategori !== 'C') { g.aciliyet = secim(sec.aciliyetler || { normal: 'Normal', acil: 'Acil' }, v.aciliyet); alan(iki, 'Aciliyet', g.aciliyet); }
@@ -725,7 +730,7 @@ window.HAP = { secenekler: null };
       k.appendChild(si); sonIslem = null;
     }
     if (dk.talep) {
-      var tp = dk.talep, ts = 'Kişi bize rumuzuyla yazınca “' + (dk.cikislar.evet ? dk.cikislar.evet.etiket : 'evet') + '” deyin; iş Durum Fotoğrafı\'na geçer.';
+      var tp = dk.talep, ts = 'Kişi bize rumuzuyla yazınca “' + (dk.cikislar.evet ? dk.cikislar.evet.etiket : 'evet') + '” deyin; iş Durum Fotoğrafı\'na geçer ve YZ taslağı o anda istenir.';
       if (tp.rumuz) ts = 'Rumuz: “' + tp.rumuz + '”. ' + ts; else ts = 'Bu başvuruda rumuz yok (form cevaplarına bakın). ' + ts;
       if (tp.kalan !== null && tp.kalan !== undefined) {
         ts += tp.kalan > 0 ? ' Yazmazsa ' + tp.kalan + ' gün sonra kendiliğinden kapanır (Talep gelmedi).'
@@ -893,6 +898,20 @@ window.HAP = { secenekler: null };
       var im = el('div', 'mesaj'); im.id = 'islemMesaj'; im.setAttribute('role', 'status'); k.appendChild(im);
       ic.appendChild(k);
     }
+    if (d.yzDurumu) {
+      var yd = d.yzDurumu, yk = el('div', 'islem-kutu yz');
+      if (yd.hazir) yk.appendChild(el('div', null, '✦ YZ taslağı hazır: aşağıda “YZ Analizi” bölümünde.'));
+      else if (yd.hata) yk.appendChild(el('div', null, 'YZ taslağı alınamadı (' + yd.hata + '). Yeniden isteyebilir ya da Durum Fotoğrafı\'nı taslaksız hazırlayabilirsiniz.'));
+      else if (yd.istendi) yk.appendChild(el('div', null, '✦ YZ taslağı hazırlanıyor; birkaç dakika içinde burada görünür. Gelmezse yeniden isteyin.'));
+      else yk.appendChild(el('div', null, 'Bu iş için YZ taslağı henüz istenmedi.'));
+      if (d.islemler.indexOf('yzTekrar') !== -1) {
+        var yb = el('button', 'dugme ikincil', yd.istendi || yd.hata ? 'YZ taslağını yeniden iste' : 'YZ taslağı iste'); yb.type = 'button'; yb.id = 'yzTekrarBtn';
+        yb.addEventListener('click', function () { yb.disabled = true; mesaj('islemMesaj', 'bilgi', 'İsteniyor…'); gonder({ tip: 'yzTekrar', isId: d.isId }); });
+        yk.appendChild(yb);
+        var ym2 = el('div', 'mesaj'); ym2.id = 'islemMesaj'; ym2.setAttribute('role', 'status'); yk.appendChild(ym2);
+      }
+      ic.appendChild(yk);
+    }
     if (d.durak) durakCiz(ic, d);
 
     var iz = el('div', 'bilgi-izgara');
@@ -911,6 +930,7 @@ window.HAP = { secenekler: null };
     if (d.masa) bilgi(iz, 'Masa', [d.masa.ad, d.modul].filter(Boolean).join(' · '), 'Masa sayfası yakında');
     else if (d.modul) bilgi(iz, 'Modül', d.modul);
     if (d.kategoriKod !== 'C') bilgi(iz, 'Aciliyet', d.aciliyetEtiketi);
+    if (d.sorumlu || d.duzenleme) bilgi(iz, 'Sorumlu', d.sorumlu);
     if (d.sonrakiTakip) bilgi(iz, 'Sonraki takip', tarihTR(d.sonrakiTakip));
     bilgi(iz, 'Kaynak', d.kaynak);
     bilgi(iz, 'Oluşturma', d.olusturma ? saatTR(d.olusturma) : null);
@@ -994,7 +1014,7 @@ window.HAP = { secenekler: null };
       if (m.basarili) detayiCiz(m.veri);
       else { var ic = $('detayIcerik'); ic.innerHTML = ''; ic.appendChild(el('div', 'mesaj hata', m.hata || 'İş açılamadı.')); }
     } else if (m.tip === 'islemSonuc') {
-      ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
+      ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet', 'yzTekrarBtn'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
       [].forEach.call(document.querySelectorAll('.durak-btn'), function (b) { b.disabled = false; });
       if (m.basarili) {
         mesaj('genelMesaj', 'tamam', m.mesaj || 'İşlem tamamlandı.');

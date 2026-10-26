@@ -15,7 +15,7 @@
 
 import { ok, badRequest, serverError } from 'wix-http-functions';
 import wixData from 'wix-data';
-import { gecisYap, yzHatasiKaydet } from './suleyman';
+import { gecisYap, yzHatasiKaydet, yzOlayiKaydet } from './suleyman';
 import { secrets } from 'wix-secrets-backend.v2';
 import { elevate } from 'wix-auth';
 
@@ -113,14 +113,16 @@ export async function post_boltSonucu(request) {
 
   console.log(`boltSonucu: ${isId} için bağlam güncellendi.`);
 
-  // 5. Giriş tamamlandı → "Talep bekleniyor" / sırada (Süleyman). Sadece ileri:
-  // iş zaten Giriş'in ötesindeyse (ör. YZ'siz tamamlandıysa) dokunulmaz.
+  // 5. İş Giriş'teyse (eski akış / yolda kalan kayıt) → "Talep bekleniyor".
+  // 2026-10-26'dan beri taslak Durum Fotoğrafı'nda istenir; o zaman iş
+  // durak değiştirmez, yalnızca "YZ taslağı geldi" geçmişe yazılır.
   // Hata olursa 500 döner; Netlify tekrar dener (her iki adım da tekrar
   // edilmeye güvenlidir).
   try {
     const gecis = await gecisYap(isId, 'yz_hazirlik_tamamlandi', { tur: 'yz', kim: 'Memur YZ' });
     if (!gecis.basarili) {
-      console.warn(`boltSonucu: ${isId} aşama geçişi yapılmadı: ${gecis.mesaj}`);
+      const olay = await yzOlayiKaydet(isId, 'yz_geldi', null);
+      if (!olay.basarili) console.warn(`boltSonucu: ${isId} için taslak bağlama yazıldı; geçmiş notu düşülmedi: ${olay.mesaj}`);
     }
   } catch (hata) {
     console.error(`boltSonucu: ${isId} aşama geçişi başarısız:`, hata);

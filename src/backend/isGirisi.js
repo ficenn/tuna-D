@@ -120,6 +120,28 @@ function terminKontrol(deger) {
   return s; // Wix "Date" alanı: 'YYYY-MM-DD' metni
 }
 
+// Sorumlu: işi kimin yapacağı (isteğe bağlı, serbest metin; ör. "Fatoş",
+// "Tuna", "Cici"). Bir masada birden çok kişi çalışan işletmeler için
+// (tuna:D); tek kişilik işletmede boş kalır. Yaşam döngüsü alanı değildir,
+// Düzenle'den değişir. (Karar: 2026-10-25)
+const SORUMLU_SINIRI = 60;
+function sorumluKontrol(deger) {
+  const s = String(deger ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length > SORUMLU_SINIRI) throw new Error(`Sorumlu çok uzun (en fazla ${SORUMLU_SINIRI} karakter).`);
+  return s || null;
+}
+
+// Formda öneri listesi: şimdiye kadar kullanılmış sorumlu adları.
+export async function sorumluListesi() {
+  const sonuc = await wixData.query('IsKayitlari').isNotEmpty('sorumlu').limit(1000).find({ suppressAuth: true });
+  const adlar = new Map();
+  for (const k of sonuc.items) {
+    const ad = String(k.sorumlu || '').trim();
+    if (ad && !adlar.has(ad.toLocaleLowerCase('tr-TR'))) adlar.set(ad.toLocaleLowerCase('tr-TR'), ad);
+  }
+  return [...adlar.values()].sort((a, b) => a.localeCompare(b, 'tr'));
+}
+
 // Formdan gelen müşteri bilgisini temizler; boş alanları atar.
 function musteriBilgisi(ham) {
   const sonuc = {};
@@ -181,6 +203,7 @@ export function girdiyiDogrula(girdi) {
     kapsam: metin(g.kapsam, UZUNLUK.uzun, 'Kapsam'),
     notlar: metin(g.notlar, UZUNLUK.uzun, 'Notlar'),
     termin: terminKontrol(g.termin),
+    sorumlu: sorumluKontrol(g.sorumlu),
     baslangicDuragi,
     musteriId,
     musteriBilgileri
@@ -212,6 +235,7 @@ function kisaYolGirdisi(kategori, g) {
     kapsam: aciliyetli ? metin(g.kapsam, UZUNLUK.uzun, 'Kapsam') : '',
     notlar: metin(g.notlar, UZUNLUK.uzun, 'Notlar'),
     termin: terminKontrol(g.termin),
+    sorumlu: sorumluKontrol(g.sorumlu),
     kisaYol: true
   };
 }
@@ -331,6 +355,7 @@ async function kisaYolKaydet(v, aktor) {
     description: v.aciklama,
     termin: v.termin,
     aciliyet: v.aciliyet,
+    sorumlu: v.sorumlu || null,
     atananMasa: masa,
     ...(v.bagliIs ? { bagliIs: v.bagliIs } : {}),
     ...kisaYolIlkKayitAlanlari(aktor, not, masa)
@@ -383,6 +408,7 @@ export async function isGirisiKaydet(girdi, aktor) {
       musteri: musteri._id,
       termin: v.termin,
       aciliyet: v.aciliyet,
+      sorumlu: v.sorumlu || null,
       ...ilkKayitAlanlari(aktor, girisNotuOlustur(v, musteri.name, yeniMusteri, degisiklikler))
     }));
   } catch (hata) {
@@ -439,7 +465,7 @@ export async function isGirisiKaydet(girdi, aktor) {
 // ne değiştiği yazılarak eklenir (Süleyman). KN başvuruları düzenlenmez.
 const DUZENLEME_ETIKETLERI = {
   description: 'Açıklama', termin: 'Bitiş tarihi', aciliyet: 'Aciliyet', modul: 'Modül',
-  musteri: 'Müşteri', kapsam: 'Kapsam', girisNotu: 'Not'
+  musteri: 'Müşteri', kapsam: 'Kapsam', girisNotu: 'Not', sorumlu: 'Sorumlu'
 };
 
 function kisalt(s) {
@@ -462,7 +488,7 @@ export async function isGuncelle(isId, girdi, aktor) {
   const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
   if (!aciklama) throw new Error('Açıklama boş bırakılamaz.');
 
-  const yeniKayit = { description: aciklama, termin: terminKontrol(g.termin) };
+  const yeniKayit = { description: aciklama, termin: terminKontrol(g.termin), sorumlu: sorumluKontrol(g.sorumlu) };
   if (kategori === 'A' || kategori === 'B' || kategori === 'D') {
     const aciliyet = String(g.aciliyet || 'normal').trim();
     if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');

@@ -15,7 +15,8 @@ import { currentMember } from 'wix-members-backend';
 import wixData from 'wix-data';
 import { gecisYap, durakIslemi, asamaEtiketi } from './suleyman';
 import { bagliIsAc } from './isGirisi';
-import { BAGLI_ISLER } from './rota';
+import { BAGLI_ISLER, ILK_DURAK } from './rota';
+import { yzTaslagiIste } from './yzCagir';
 
 // Bağlı işleri açar; açılamayanlar uyarı olur (ana işlem geri alınmaz).
 async function bagliIsleriAc(liste, anaIsId, aktor) {
@@ -99,6 +100,26 @@ export const durakIslemiYap = webMethod(
     const ek = sonuc.bagliIsAcilabilir
       ? await bagliIsleriAc([['arge', s.argeNotu], ['referans', s.referansNotu]], isId, aktor)
       : { bagliIsler: [], uyarilar: [] };
+
+    // KN işi Durum Fotoğrafı'na girdi (kişi rumuzuyla yazdı): YZ taslağını iste.
+    // Elle girilen işlerde form cevabı olmadığı için istenmez.
+    if (sonuc.degisti && sonuc.asama === ILK_DURAK) {
+      const yz = await yzTaslagiIste(String(isId), aktor);
+      if (yz.mesaj) (yz.basarili ? (ek.bilgiler = [yz.mesaj]) : ek.uyarilar.push(yz.mesaj));
+    }
     return { ...sonuc, durakAdi: asamaEtiketi(sonuc.asama), ...ek };
+  }
+);
+
+// Durum Fotoğrafı'nda YZ taslağını (yeniden) iste: taslak gelmediyse ya da
+// başarısız olduysa panelden.
+export const yzTaslagiYenidenIste = webMethod(
+  Permissions.Admin,
+  async (isId) => {
+    if (!isId) throw new Error('İş ID eksik.');
+    const aktor = { tur: 'insan', kim: await istekYapan() };
+    const s = await yzTaslagiIste(String(isId), aktor, true);
+    if (!s.basarili) throw new Error(s.mesaj || 'YZ taslağı istenemedi.');
+    return s;
   }
 );
