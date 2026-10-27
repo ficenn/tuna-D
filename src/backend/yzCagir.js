@@ -59,6 +59,6 @@ export async function yzTaslagiIste(isId, aktor, zorla = false) {
   } catch (hata) {
     console.error(`yzCagir: ${isId} YZ taslağı istenemedi:`, hata);
     try { await yzOlayiKaydet(String(isId), 'yz_basarisiz', `İstek gönderilemedi: ${hata.message}`, { tur: 'sistem', kim: 'HAP' }); } catch (e) { /* kayıt da olmazsa yalnızca log */ }
-    return { basarili: false, mesaj: 'YZ taslağı istenemedi; detaydan yeniden isteyebilirsiniz.' };
+    return { basarili: false, mesaj: `YZ taslağı istenemedi (${hata.message}); detaydan yeniden isteyebilirsiniz.` };
   }
 }

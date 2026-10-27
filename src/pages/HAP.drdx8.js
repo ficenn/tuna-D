@@ -110,7 +110,11 @@ const ISLEYICILER = {
   ),
 
   yzTekrar: (m) => islem(
-    () => yzTaslagiYenidenIste(m.isId),
+    async () => {
+      const s = await yzTaslagiYenidenIste(m.isId);
+      if (!s.basarili) throw new Error(s.mesaj || 'YZ taslağı istenemedi.');
+      return s;
+    },
     (s) => `${m.isId}: ${s.mesaj}`
   ),
 
