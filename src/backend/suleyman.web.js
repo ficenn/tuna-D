@@ -118,8 +118,9 @@ export const yzTaslagiYenidenIste = webMethod(
   async (isId) => {
     if (!isId) throw new Error('İş ID eksik.');
     const aktor = { tur: 'insan', kim: await istekYapan() };
-    const s = await yzTaslagiIste(String(isId), aktor, true);
-    if (!s.basarili) throw new Error(s.mesaj || 'YZ taslağı istenemedi.');
-    return s;
+    // Başarısızlıkta hata fırlatmıyoruz: Wix yayındaki sitede fırlatılan
+    // hatanın metnini gizliyor ("Unable to handle the request"). Sebep
+    // { basarili: false, mesaj } ile panele döner.
+    return yzTaslagiIste(String(isId), aktor, true);
   }
 );
