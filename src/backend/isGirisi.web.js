@@ -1,7 +1,7 @@
 // İş Girişi — sayfadan çağrılan fonksiyonlar (yalnızca site yöneticileri).
 
 import { Permissions, webMethod } from 'wix-web-module';
-import { hapKorumali, hapKorumaliIlk } from './hapYetki';
+import { hapYetkisiVar, hapYetkisiGerekli } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import {
   KATEGORILER,
@@ -29,7 +29,8 @@ async function istekYapan() {
 }
 
 // Formu doldurmak için gereken listeler.
-export const isGirisiSecenekleri = webMethod(Permissions.SiteMember, hapKorumaliIlk(async () => {
+export const isGirisiSecenekleri = webMethod(Permissions.SiteMember, async () => {
+  if (!(await hapYetkisiVar())) return { yetkiYok: true }; // HAP Ekibi rolü yoksa
   return {
     kategoriler: KATEGORILER,
     kaynaklar: KAYNAKLAR,
@@ -39,14 +40,16 @@ export const isGirisiSecenekleri = webMethod(Permissions.SiteMember, hapKorumali
     musteriler: await musterileriListele(),
     sorumlular: await sorumluListesi() // "Sorumlu" alanının önerileri
   };
-}));
+});
 
 // "Yeni müşteri" penceresinden müşteri kaydı.
-export const yeniMusteriKaydet = webMethod(Permissions.SiteMember, hapKorumali(async (bilgiler) => {
+export const yeniMusteriKaydet = webMethod(Permissions.SiteMember, async (bilgiler) => {
+  await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
   return musteriKaydet(bilgiler);
-}));
+});
 
-export const isGirisiniKaydet = webMethod(Permissions.SiteMember, hapKorumali(async (girdi) => {
+export const isGirisiniKaydet = webMethod(Permissions.SiteMember, async (girdi) => {
+  await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
   const aktor = { tur: 'insan', kim: await istekYapan() };
   const sonuc = await isGirisiKaydet(girdi, aktor);
   return {
@@ -54,10 +57,11 @@ export const isGirisiniKaydet = webMethod(Permissions.SiteMember, hapKorumali(as
     asamaEtiketi: asamaEtiketi(sonuc.asama),
     durumEtiketi: durumEtiketi(sonuc.asama, sonuc.durum)
   };
-}));
+});
 
 // Kontrol Paneli → İş Detayı → "Düzenle".
-export const isiGuncelle = webMethod(Permissions.SiteMember, hapKorumali(async (isId, girdi) => {
+export const isiGuncelle = webMethod(Permissions.SiteMember, async (isId, girdi) => {
+  await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
   const aktor = { tur: 'insan', kim: await istekYapan() };
   return isGuncelle(isId, girdi, aktor);
-}));
+});

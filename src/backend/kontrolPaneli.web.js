@@ -2,7 +2,7 @@
 // rolündeki üyeler; bkz. hapYetki.js). İşi ilerleten işlemler suleyman.web.js'tedir.
 
 import { Permissions, webMethod } from 'wix-web-module';
-import { hapKorumali, hapKorumaliIlk } from './hapYetki';
+import { hapYetkisiVar, hapYetkisiGerekli } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import { panelVerisiHazirla, isDetayiHazirla } from './kontrolPaneli';
 
@@ -16,11 +16,13 @@ async function kullaniciAdi() {
   }
 }
 
-export const panelVerisi = webMethod(Permissions.SiteMember, hapKorumaliIlk(async () => {
+export const panelVerisi = webMethod(Permissions.SiteMember, async () => {
+  if (!(await hapYetkisiVar())) return { yetkiYok: true }; // HAP Ekibi rolü yoksa
   const [veri, ad] = await Promise.all([panelVerisiHazirla(), kullaniciAdi()]);
   return { ...veri, kullanici: ad };
-}));
+});
 
-export const isDetayi = webMethod(Permissions.SiteMember, hapKorumali(async (isId) => {
+export const isDetayi = webMethod(Permissions.SiteMember, async (isId) => {
+  await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
   return isDetayiHazirla(isId);
-}));
+});
