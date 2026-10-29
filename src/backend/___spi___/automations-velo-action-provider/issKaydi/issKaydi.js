@@ -4,8 +4,9 @@ import { ilkKayitAlanlari, gecisYap } from '../../../suleyman';
 
 // KN formunda kişisel bilgi sorulmaz (2026-10-23 kararı): ad, işletme adı,
 // konum, e-posta yok. Kişi kendine bir rumuz seçer; Durum Fotoğrafı'nı
-// almak için bu rumuzu WhatsApp'tan yazar. Formdaki soru başlığı:
-const RUMUZ_SORUSU = 'Kendine bir rumuz seç';
+// almak için bu rumuzu WhatsApp'tan yazar. Formlardaki soru başlıkları
+// (TR form ve EN Checkpoint formu; ilk eşleşen kullanılır):
+const RUMUZ_SORULARI = ['Kendine bir rumuz seç', 'Choose a nickname for yourself'];
 
 // KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır,
 // baştaki soru numarası ("14. ") atılır ve büyük/küçük harf duyarsız (Türkçe
@@ -29,8 +30,8 @@ export const invoke = async ({ payload }) => {
 
   // Rumuz: İş Kaydı'nda ayrı alan (panelde aranır, WhatsApp'ta eşleştirilir).
   // Tam cevaplar yine yalnızca IsBaglamlari.answers içinde kalır.
-  const rumuz = knCevabi(answers, RUMUZ_SORUSU).slice(0, 100);
-  if (!rumuz) console.warn(`issKaydi: '${RUMUZ_SORUSU}' cevabı boş geldi; iş rumuzsuz açılıyor.`);
+  const rumuz = (RUMUZ_SORULARI.map((s) => knCevabi(answers, s)).find(Boolean) || '').slice(0, 100);
+  if (!rumuz) console.warn(`issKaydi: rumuz cevabı boş geldi (${RUMUZ_SORULARI.join(' / ')}); iş rumuzsuz açılıyor.`);
 
   let isId;
 
