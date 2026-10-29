@@ -55,10 +55,13 @@ function sayfaAdresi() {
   return wixLocationFrontend.baseUrl.replace(/\/$/, '') + (yol ? '/' + yol : '');
 }
 
+// HAP yalnızca "HAP Ekibi" rolündeki üyelere açık (bkz. backend/hapYetki.js).
+const YETKI_YOK = 'Yetki yok: sağ üstteki "Giriş" ile üye hesabınızla oturum açın. Hesabınızda "HAP Ekibi" rolü olmalı.';
+
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
   if (/permission|NotAuthorized|unauthori[sz]ed/i.test(m) || (hata && /NotAuthorized/.test(hata.name || ''))) {
-    return 'Yetki yok: bu sayfayı site yöneticisi olarak giriş yapmışken açın.';
+    return YETKI_YOK;
   }
   return m;
 }
@@ -82,6 +85,10 @@ function forma(mesaj) {
 async function panelVerisiGonder() {
   try {
     const veri = await panelVerisi();
+    if (veri && veri.yetkiYok) {
+      panele({ tip: 'panelHata', hata: YETKI_YOK });
+      return;
+    }
     panele({ tip: 'panelVerisi', veri });
   } catch (hata) {
     console.error('Kontrol Paneli verisi yüklenemedi:', hata);
@@ -202,7 +209,12 @@ const ISLEYICILER = {
 const FORM_ISLEYICILERI = {
   async hazir() {
     try {
-      forma({ tip: 'secenekler', veri: await isGirisiSecenekleri() });
+      const veri = await isGirisiSecenekleri();
+      if (veri && veri.yetkiYok) {
+        forma({ tip: 'yuklemeHatasi', hata: YETKI_YOK });
+        return;
+      }
+      forma({ tip: 'secenekler', veri });
     } catch (hata) {
       console.error('İş Girişi seçenekleri yüklenemedi:', hata);
       forma({ tip: 'yuklemeHatasi', hata: hataMetni(hata) });
