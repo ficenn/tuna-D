@@ -11,9 +11,10 @@ const RUMUZ_SORULARI = ['Kendine bir rumuz seç', 'Choose a nickname for yoursel
 // KN form cevaplarından soru başlığına göre değer okur. Başlıklar kırpılır,
 // baştaki soru numarası ("14. ") atılır ve büyük/küçük harf duyarsız (Türkçe
 // kurallarıyla) karşılaştırılır; formda soruların yeri değişse ya da başlığın
-// sonuna boşluk eklense de eşleşme bozulmasın.
+// herhangi bir yerine boşluk ya da noktalama (. , : ? ! " ' …) eklense de eşleşme
+// bozulmasın: noktalama işaretleri karşılaştırmada yok sayılır.
 function knCevabi(answers, soruBasligi) {
-  const normallestir = (metin) => String(metin).trim().replace(/^\d+\s*[.)-]\s*/, '').replace(/\s+/g, ' ').toLocaleLowerCase('tr-TR');
+  const normallestir = (metin) => String(metin).trim().replace(/^\d+\s*[.)-]\s*/, '').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('tr-TR');
   const aranan = normallestir(soruBasligi);
   for (const [anahtar, deger] of Object.entries(answers || {})) {
     if (normallestir(anahtar) === aranan) {
