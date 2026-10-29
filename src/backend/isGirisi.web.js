@@ -6,7 +6,7 @@ import {
   KATEGORILER,
   KAYNAKLAR,
   ACILIYETLER,
-  PAZARLAMA_MODULLERI,
+  B_MODUL_SECENEKLERI,
   BASLANGIC_SECENEKLERI,
   musterileriListele,
   sorumluListesi,
@@ -33,7 +33,7 @@ export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
     kategoriler: KATEGORILER,
     kaynaklar: KAYNAKLAR,
     aciliyetler: ACILIYETLER,
-    moduller: PAZARLAMA_MODULLERI, // formda yalnızca B'nin modülleri seçilir
+    moduller: B_MODUL_SECENEKLERI, // B için: Masa SK / İçerik / Görünürlük
     baslangicDuraklari: BASLANGIC_SECENEKLERI, // A işi nereden başlasın
     musteriler: await musterileriListele(),
     sorumlular: await sorumluListesi() // "Sorumlu" alanının önerileri

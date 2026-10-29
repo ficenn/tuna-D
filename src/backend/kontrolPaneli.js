@@ -361,7 +361,7 @@ export async function isDetayiHazirla(isId) {
       aciklama: k.description || '',
       termin: ozet.termin || '',
       aciliyet: k.aciliyet || 'normal',
-      modul: k.modul || '',
+      modul: k.modul || (k.kategori === 'B' ? 'masa' : ''), // B'de modülsüz = "Masa SK"
       musteriId: k.musteri || '',
       kapsam: b?.kapsam || '',
       notlar: b?.girisNotu || '',

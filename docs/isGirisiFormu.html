@@ -419,7 +419,7 @@
   function onKontrol(g) {
     if (!g.kategori) return 'Kategori seçin.';
     if (g.kategori === 'A' && !g.musteri.id) return 'Müşteri seçin. Kayıtlı değilse “Yeni müşteri ekle” ile kaydedin.';
-    if (g.kategori === 'B' && !g.modul) return 'Modülü seçin (İçerik / Görünürlük).';
+    if (g.kategori === 'B' && !g.modul) return 'Seçin: Masa SK, İçerik ya da Görünürlük.';
     if (!g.aciklama) return g.kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?';
     if (g.kategori === 'A' && !g.kaynak) return 'İşin nereden geldiğini (kaynak) seçin.';
     return null;
