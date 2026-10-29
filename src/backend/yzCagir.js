@@ -16,6 +16,12 @@ const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 const SECRET_ADI = 'BOLT_WEBHOOK_SECRET';
 const BOLT_URL = 'https://hap-backend.netlify.app/.netlify/functions/hap-intake';
 
+// Formun dili (İş Kaydı'ndaki "dil"): YZ taslağı bu dilde yazılır. Yalnızca EN/TR.
+async function dilBul(isId) {
+  const k = await wixData.query('IsKayitlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
+  return k.items[0] && k.items[0].dil === 'EN' ? 'EN' : 'TR';
+}
+
 async function baglamBul(isId) {
   const b = await wixData.query('IsBaglamlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
   return b.items[0] || null;
@@ -48,10 +54,11 @@ export async function yzTaslagiIste(isId, aktor, zorla = false) {
     const secretSonuc = await elevatedGetSecretValue(SECRET_ADI);
     const secret = typeof secretSonuc === 'string' ? secretSonuc : secretSonuc?.value;
     if (!secret) throw new Error('BOLT_WEBHOOK_SECRET boş veya okunamadı.');
+    const dil = await dilBul(isId);
     const yanit = await fetch(BOLT_URL, {
       method: 'post',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ isId: String(isId), answers: baglam.answers })
+      body: JSON.stringify({ isId: String(isId), answers: baglam.answers, language: dil })
     });
     if (!yanit.ok) throw new Error(`hap-intake ${yanit.status}`);
     await yzOlayiKaydet(String(isId), 'yz_istendi', null, aktor);
