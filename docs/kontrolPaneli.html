@@ -861,7 +861,8 @@ window.HAP = { secenekler: null };
 
   // ---------- Paylaş ----------
   // Bağlantı yalnızca HAP'e yönetici olarak giriş yapmış kişide açılır.
-  // Paylaşılan metinde yalnızca İş ID, başlık ve bağlantı var; not, kapsam, müşteri bilgisi yok.
+  // WhatsApp düğmesi kaldırıldı (29 Eki): Wix'in sandbox çerçevesinden açılan sekme
+  // api.whatsapp.com tarafından reddediliyor (ERR_BLOCKED_BY_RESPONSE). Bağlantı kopyalanıp yapıştırılır.
   function isBaglantisi(isId) { return sayfaAdresi ? sayfaAdresi + '?is=' + encodeURIComponent(isId) : ''; }
   function paylasMesaji(metin) {
     var m = $('paylasMesaj'); if (!m) return;
@@ -888,11 +889,6 @@ window.HAP = { secenekler: null };
       kb.addEventListener('click', function () { kopyala(link); });
       satir.appendChild(kb);
     }
-    var metin = d.isId + ' · ' + (d.baslik || '') + (link ? '\n' + link : '');
-    var wa = el('a', 'metin-dugme', '💬 WhatsApp\'ta paylaş');
-    wa.href = 'https://wa.me/?text=' + encodeURIComponent(metin);
-    wa.target = '_blank'; wa.rel = 'noopener';
-    satir.appendChild(wa);
     var pm = el('span', 'paylas-mesaj'); pm.id = 'paylasMesaj'; pm.setAttribute('role', 'status');
     satir.appendChild(pm);
     ust.appendChild(satir);
