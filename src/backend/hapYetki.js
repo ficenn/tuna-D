@@ -32,21 +32,8 @@ export async function hapYetkisiGerekli() {
   }
 }
 
-// Web fonksiyonunun gövdesini sarar: önce rol kontrolü, sonra asıl iş.
-// Kullanım (.web.js içinde): webMethod(Permissions.SiteMember, hapKorumali(async (...) => {...}))
-export function hapKorumali(fonksiyon) {
-  return async (...argumanlar) => {
-    await hapYetkisiGerekli();
-    return fonksiyon(...argumanlar);
-  };
-}
-
-// Sayfanın ilk çağrıları için yumuşak sürüm: rolü yoksa hata yerine
-// { yetkiYok: true } döner (canlı sitede Wix hata metnini gizlediği için
-// sayfa açık bir mesaj gösterebilsin diye).
-export function hapKorumaliIlk(fonksiyon) {
-  return async (...argumanlar) => {
-    if (!(await hapYetkisiVar())) return { yetkiYok: true };
-    return fonksiyon(...argumanlar);
-  };
-}
+// Kullanım (.web.js içinde) — Wix web modülleri webMethod(İzin, async (...) => {...})
+// kalıbını doğrudan görmek ister; sarmalayıcı fonksiyon tanınmaz. Bu yüzden kontrol
+// her fonksiyonun ilk satırındadır:
+//   webMethod(Permissions.SiteMember, async (...) => { await hapYetkisiGerekli(); ... })
+//   İlk yükleme (panelVerisi, isGirisiSecenekleri): if (!(await hapYetkisiVar())) return { yetkiYok: true };

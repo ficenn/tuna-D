@@ -11,7 +11,7 @@
 //                           Pazarlama'ya bağlı iş açar.
 
 import { Permissions, webMethod } from 'wix-web-module';
-import { hapKorumali } from './hapYetki';
+import { hapYetkisiGerekli } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import wixData from 'wix-data';
 import { gecisYap, durakIslemi, asamaEtiketi } from './suleyman';
@@ -47,8 +47,9 @@ async function istekYapan() {
   }
 }
 
-export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember, hapKorumali(
+export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember,
   async (isId, gerekce) => {
+    await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
     const temizGerekce = String(gerekce || '').trim();
     if (!isId) throw new Error('İş ID eksik.');
     if (!temizGerekce) throw new Error('Gerekçe zorunlu: Giriş neden YZ analizi olmadan tamamlanıyor?');
@@ -62,12 +63,13 @@ export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember, hapKorum
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
     return sonuc;
   }
-));
+);
 
 // Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge): "Yapıldı" — işi kapatır.
 // D işinde isteğe bağlı cozumNotu: çözüm / iyileştirme Pazarlama'ya gider.
-export const takipYapildi = webMethod(Permissions.SiteMember, hapKorumali(
+export const takipYapildi = webMethod(Permissions.SiteMember,
   async (isId, secenek) => {
+    await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
     if (!isId) throw new Error('İş ID eksik.');
     const aktor = { tur: 'insan', kim: await istekYapan() };
     const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor);
@@ -80,13 +82,14 @@ export const takipYapildi = webMethod(Permissions.SiteMember, hapKorumali(
     }
     return { ...sonuc, ...ek };
   }
-));
+);
 
 // Ticari (A) iş: durak işlemi.
 // secenek: { not, tarih (takip için), hedef (İleri atla), argeNotu, referansNotu (Kurulum kapanışı) }
 // Döner: Süleyman'ın sonucu + bagliIsler: [{ tur, isId }] + uyarilar: []
-export const durakIslemiYap = webMethod(Permissions.SiteMember, hapKorumali(
+export const durakIslemiYap = webMethod(Permissions.SiteMember,
   async (isId, islem, secenek) => {
+    await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
     if (!isId) throw new Error('İş ID eksik.');
     const s = secenek || {};
     const aktor = { tur: 'insan', kim: await istekYapan() };
@@ -107,12 +110,13 @@ export const durakIslemiYap = webMethod(Permissions.SiteMember, hapKorumali(
     }
     return { ...sonuc, durakAdi: asamaEtiketi(sonuc.asama), ...ek };
   }
-));
+);
 
 // Durum Fotoğrafı'nda YZ taslağını (yeniden) iste: taslak gelmediyse ya da
 // başarısız olduysa panelden.
-export const yzTaslagiYenidenIste = webMethod(Permissions.SiteMember, hapKorumali(
+export const yzTaslagiYenidenIste = webMethod(Permissions.SiteMember,
   async (isId) => {
+    await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
     if (!isId) throw new Error('İş ID eksik.');
     const aktor = { tur: 'insan', kim: await istekYapan() };
     // Başarısızlıkta hata fırlatmıyoruz: Wix yayındaki sitede fırlatılan
@@ -120,4 +124,4 @@ export const yzTaslagiYenidenIste = webMethod(Permissions.SiteMember, hapKorumal
     // { basarili: false, mesaj } ile panele döner.
     return yzTaslagiIste(String(isId), aktor, true);
   }
-));
+);
