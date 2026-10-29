@@ -193,7 +193,10 @@
   .detay-bos { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; color: var(--soluk); padding: 40px 14px; }
   .detay-ust { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
   .detay-ust .id { font-size: 22px; font-weight: 700; }
-  .detay-baslik { font-size: 15px; font-weight: 600; margin: 2px 0 10px; }
+  .detay-baslik { font-size: 15px; font-weight: 600; margin: 2px 0 6px; }
+  .paylas-satir { display: flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; margin: 0 0 10px; font-size: 13px; }
+  .paylas-satir .metin-dugme { font-size: 13px; text-decoration: none; }
+  .paylas-satir .paylas-mesaj { color: var(--soluk); font-size: 12.5px; }
   .bilgi-izgara { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 10px 0; border-top: 1px solid var(--cizgi); }
   .bilgi-izgara div span { display: block; font-size: 12px; color: var(--soluk); }
   .bilgi-izgara div { word-break: break-word; }
@@ -355,6 +358,7 @@ window.HAP = { secenekler: null };
   var AYLAR = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   var GUNLER = ['P', 'S', 'Ç', 'P', 'C', 'C', 'P'];
   var veri = null, acikDetay = null, sonDetay = null, veriGeldi = false;
+  var sayfaAdresi = null;   // HAP sayfasının adresi; iş bağlantısı = sayfaAdresi + '?is=' + isId (sayfa kodundan gelir)
   var sonIslem = null;   // { isId, metin }: başarılı işlemden sonra detayda bir kez gösterilir
   // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'arsiv' (yapılmış / kapanmış işler)
   var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '' };
@@ -661,7 +665,7 @@ window.HAP = { secenekler: null };
       if (v.musteriId && !musteriler[v.musteriId]) musteriler[v.musteriId] = (d.musteriBilgisi && d.musteriBilgisi.ad) || 'Mevcut müşteri';
       g.musteriId = secim(musteriler, v.musteriId, 'Seçin…'); alan(f, 'Müşteri', g.musteriId, true);
     }
-    if (v.kategori === 'B') { g.modul = secim(sec.moduller || { icerik: 'İçerik', gorunurluk: 'Görünürlük' }, v.modul, 'Seçin…'); alan(f, 'Modül', g.modul, true); }
+    if (v.kategori === 'B') { g.modul = secim(sec.moduller || { masa: 'Masa SK', icerik: 'İçerik', gorunurluk: 'Görünürlük' }, v.modul, 'Seçin…'); alan(f, 'Modül', g.modul, true); }
     g.aciklama = el('textarea'); g.aciklama.maxLength = 5000; g.aciklama.value = v.aciklama; alan(f, 'Açıklama', g.aciklama, true);
     if (v.kategori !== 'C') { g.kapsam = el('textarea'); g.kapsam.maxLength = 5000; g.kapsam.value = v.kapsam; alan(f, 'Kapsam', g.kapsam); }
     g.notlar = el('textarea'); g.notlar.maxLength = 5000; g.notlar.value = v.notlar; alan(f, 'Not', g.notlar);
@@ -855,6 +859,45 @@ window.HAP = { secenekler: null };
   $('detayIcerik').addEventListener('input', solmaGuncelle);
   window.addEventListener('resize', solmaGuncelle);
 
+  // ---------- Paylaş ----------
+  // Bağlantı yalnızca HAP'e yönetici olarak giriş yapmış kişide açılır.
+  // Paylaşılan metinde yalnızca İş ID, başlık ve bağlantı var; not, kapsam, müşteri bilgisi yok.
+  function isBaglantisi(isId) { return sayfaAdresi ? sayfaAdresi + '?is=' + encodeURIComponent(isId) : ''; }
+  function paylasMesaji(metin) {
+    var m = $('paylasMesaj'); if (!m) return;
+    m.textContent = metin || '';
+    clearTimeout(window._paylasZamani);
+    if (metin) window._paylasZamani = setTimeout(function () { if ($('paylasMesaj')) $('paylasMesaj').textContent = ''; }, 3000);
+  }
+  function kopyala(metin) {
+    // Önce panelin kendisi dener; Wix çerçevesi izin vermezse sayfa kodu kopyalar.
+    function sayfayaSor() { gonder({ tip: 'kopyala', metin: metin }); }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(metin).then(function () { paylasMesaji('Kopyalandı ✓'); }, sayfayaSor);
+        return;
+      }
+    } catch (e) { /* aşağıda sayfa kodu dener */ }
+    sayfayaSor();
+  }
+  function paylasCiz(ust, d) {
+    var satir = el('div', 'paylas-satir');
+    var link = isBaglantisi(d.isId);
+    if (link) {
+      var kb = el('button', 'metin-dugme', '🔗 Bağlantıyı kopyala'); kb.type = 'button';
+      kb.addEventListener('click', function () { kopyala(link); });
+      satir.appendChild(kb);
+    }
+    var metin = d.isId + ' · ' + (d.baslik || '') + (link ? '\n' + link : '');
+    var wa = el('a', 'metin-dugme', '💬 WhatsApp\'ta paylaş');
+    wa.href = 'https://wa.me/?text=' + encodeURIComponent(metin);
+    wa.target = '_blank'; wa.rel = 'noopener';
+    satir.appendChild(wa);
+    var pm = el('span', 'paylas-mesaj'); pm.id = 'paylasMesaj'; pm.setAttribute('role', 'status');
+    satir.appendChild(pm);
+    ust.appendChild(satir);
+  }
+
   function detayiCiz(d) {
     sonDetay = d;
     var ic = $('detayIcerik'); ic.innerHTML = '';
@@ -864,6 +907,7 @@ window.HAP = { secenekler: null };
     if (d.aciliyet === 'acil' && d.acik) ust.appendChild(el('span', 'etiket e-acil', 'Acil'));
     ic.appendChild(ust);
     ic.appendChild(el('div', 'detay-baslik', d.baslik));
+    paylasCiz(ic, d);
 
     if (d.islemler.indexOf('yapildi') !== -1) {
       var cozumTa = null;
@@ -999,7 +1043,14 @@ window.HAP = { secenekler: null };
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent) return;
     var m = e.data || {};
-    if (m.tip === 'secenekler') {
+    if (m.tip === 'sayfaAdresi') {
+      sayfaAdresi = m.adres || null;
+      if (sonDetay && $('detayIcerik')) detayiCiz(sonDetay);   // adres sonradan geldiyse bağlantı düğmesi görünsün
+    } else if (m.tip === 'isAc') {
+      if (m.isId) detayAc(m.isId);   // ?is=000123 bağlantısıyla gelindi
+    } else if (m.tip === 'kopyalaSonuc') {
+      paylasMesaji(m.basarili ? 'Kopyalandı ✓' : 'Kopyalanamadı.');
+    } else if (m.tip === 'secenekler') {
       window.HAP.secenekler = m.veri || null;   // Düzenle formu için (müşteriler, modüller, ...)
     } else if (m.tip === 'panelVerisi') {
       if (!veriGeldi) gonder({ tip: 'panelSecenekleri' });

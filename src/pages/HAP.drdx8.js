@@ -16,10 +16,14 @@
 //   panel → sayfa: { tip: 'panelSecenekleri' }                   → Düzenle için seçenekleri gönder
 //   panel → sayfa: { tip: 'yeniIs' }                             → formu aç ve oraya kaydır
 //   panel → sayfa: { tip: 'panelBasinaKaydir' }                  → panelin başına kaydır
+//   panel → sayfa: { tip: 'kopyala', metin }                     → panoya kopyala (panel kendisi yapamazsa)
 //   sayfa → panel: { tip: 'panelVerisi', veri } / { tip: 'panelHata', hata }
 //   sayfa → panel: { tip: 'isDetayiSonuc', isId, basarili, veri | hata }
 //   sayfa → panel: { tip: 'islemSonuc', basarili, mesaj | hata }
 //   sayfa → panel: { tip: 'secenekler', veri }
+//   sayfa → panel: { tip: 'sayfaAdresi', adres }                 → iş bağlantıları bu adresle kurulur
+//   sayfa → panel: { tip: 'isAc', isId }                         → sayfa ?is=000123 ile açıldıysa o işi aç
+//   sayfa → panel: { tip: 'kopyalaSonuc', basarili }
 //
 // Yeni İş Kaydı formu:
 //   form → sayfa: { tip: 'hazir' }                 → seçenekleri gönder
@@ -34,13 +38,22 @@
 
 import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
+import wixLocationFrontend from 'wix-location-frontend';
+import wixWindowFrontend from 'wix-window-frontend';
 import { asama1YzOlmadanTamamla, takipYapildi, durakIslemiYap, yzTaslagiYenidenIste } from 'backend/suleyman.web';
 
 const PANEL = '#kontrolPaneli';
 const DURAK_MESAJLARI = { basla: 'çalışmaya başlandı', beklet: 'beklemeye alındı', devamEt: 'beklemeden çıktı', iptal: 'iptal edildi' };
 const FORM = '#isGirisiFormu';
+let acilacakIs = null;   // sayfa ?is=000123 ile açıldıysa; panel hazır olunca bir kez açılır
 let panelVar = false;
 let formVar = false;
+
+// Bu sayfanın sorgusuz adresi, ör. https://site.com/hap
+function sayfaAdresi() {
+  const yol = (wixLocationFrontend.path || []).map(encodeURIComponent).join('/');
+  return wixLocationFrontend.baseUrl.replace(/\/$/, '') + (yol ? '/' + yol : '');
+}
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
@@ -89,7 +102,14 @@ async function islem(fonksiyon, basariMetni) {
 }
 
 const ISLEYICILER = {
-  panelHazir: () => panelVerisiGonder(),
+  async panelHazir() {
+    panele({ tip: 'sayfaAdresi', adres: sayfaAdresi() });
+    await panelVerisiGonder();
+    if (acilacakIs) {
+      panele({ tip: 'isAc', isId: acilacakIs });
+      acilacakIs = null;
+    }
+  },
   panelYenile: () => panelVerisiGonder(),
 
   async isDetayi(m) {
@@ -162,6 +182,16 @@ const ISLEYICILER = {
     }
   },
 
+  async kopyala(m) {
+    try {
+      await wixWindowFrontend.copyToClipboard(String(m.metin || ''));
+      panele({ tip: 'kopyalaSonuc', basarili: true });
+    } catch (hata) {
+      console.error('Kopyalanamadı:', hata);
+      panele({ tip: 'kopyalaSonuc', basarili: false });
+    }
+  },
+
   async yeniIs() {
     if (!formVar) return;
     await $w(FORM).expand();
@@ -210,6 +240,8 @@ const FORM_ISLEYICILERI = {
 
 $w.onReady(function () {
   panelVar = varMi(PANEL);
+  const istenen = String((wixLocationFrontend.query || {}).is || '').trim();
+  if (/^\d{1,10}$/.test(istenen)) acilacakIs = istenen.padStart(6, '0');
   formVar = varMi(FORM);
   if (!panelVar) console.error(`Kontrol Paneli: sayfada ${PANEL} ID'li bir "Embed HTML" öğesi yok.`);
   if (!formVar) console.error(`Yeni İş Kaydı: sayfada ${FORM} ID'li bir "Embed HTML" öğesi yok.`);

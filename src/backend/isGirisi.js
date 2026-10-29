@@ -57,6 +57,20 @@ export const MODULLER = {
 // Formda seçilebilen modüller: yalnızca B (Pazarlama). D'nin tek modülü
 // vardır (Ürün Geliştirme) ve kendiliğinden atanır.
 export const PAZARLAMA_MODULLERI = { icerik: MODULLER.icerik, gorunurluk: MODULLER.gorunurluk };
+// B işi bir modüle gitmek zorunda değil: "masa yönetir, modül yürütür".
+// Masanın kendi SK işi (strateji, ölçüm, hazırlık…) "Masa SK" seçilerek
+// modülsüz kaydedilir; kayıtta modul = null. "masa" yalnızca formdaki
+// seçeneğin değeridir, veritabanına yazılmaz.
+export const MASA_ISI = 'masa';
+export const B_MODUL_SECENEKLERI = { [MASA_ISI]: 'Masa SK', ...PAZARLAMA_MODULLERI };
+
+// B formundan gelen seçimi kayıt değerine çevirir: "masa" → null, modül → anahtarı.
+function bModulu(secim) {
+  const m = String(secim || '').trim();
+  if (m === MASA_ISI) return null;
+  if (!PAZARLAMA_MODULLERI[m]) throw new Error('Seçin: Masa SK, İçerik ya da Görünürlük.');
+  return m;
+}
 const D_MODULU = 'urun_gelistirme';
 
 // İşin geldiği kanal. Otomatik kanallar (KN) kendi değerini yazar;
@@ -217,8 +231,7 @@ function kisaYolGirdisi(kategori, g) {
 
   let modul = null;
   if (kategori === 'B') {
-    modul = String(g.modul || '').trim();
-    if (!PAZARLAMA_MODULLERI[modul]) throw new Error('Pazarlama işinin modülünü seçin (İçerik / Görünürlük).');
+    modul = bModulu(g.modul);
   }
   if (kategori === 'D') modul = D_MODULU;
 
@@ -495,9 +508,7 @@ export async function isGuncelle(isId, girdi, aktor) {
     yeniKayit.aciliyet = aciliyet;
   }
   if (kategori === 'B') {
-    const modul = String(g.modul || '').trim();
-    if (!PAZARLAMA_MODULLERI[modul]) throw new Error('Modülü seçin (İçerik / Görünürlük).');
-    yeniKayit.modul = modul;
+    yeniKayit.modul = bModulu(g.modul);
   }
   const musteriAdlari = {};
   if (kategori === 'A') {
@@ -531,7 +542,7 @@ export async function isGuncelle(isId, girdi, aktor) {
       kayitDegisen[alan] = deger;
       let o = oncekiMetin, y = deger;
       if (alan === 'aciliyet') { o = ACILIYETLER[o] || o; y = ACILIYETLER[y]; }
-      if (alan === 'modul') { o = MODULLER[o] || o; y = MODULLER[y]; }
+      if (alan === 'modul') { o = MODULLER[o] || o || 'Masa SK'; y = MODULLER[y] || 'Masa SK'; }
       if (alan === 'musteri') { o = musteriAdlari[o] || o; y = musteriAdlari[y] || y; }
       notlar.push(`${DUZENLEME_ETIKETLERI[alan]}: "${kisalt(o)}" → "${kisalt(y)}"`);
     }
