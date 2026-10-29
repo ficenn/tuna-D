@@ -184,6 +184,7 @@
         <div class="butonlar">
           <button type="submit" class="dugme" id="kaydet" disabled>İşi kaydet</button>
           <button type="button" class="dugme ikincil" id="vazgec">Vazgeç</button>
+          <button type="button" class="dugme ikincil" id="paneleDon" title="Form açık kalır; girdikleriniz silinmez.">↑ Panele dön</button>
         </div>
         <div id="mesaj" class="mesaj islem-mesaj" role="status" aria-live="polite"></div>
       </form>
@@ -435,6 +436,9 @@
     return ['aciklama', 'kapsam', 'notlar', 'termin', 'musteriAra'].some(function (id) { return $(id).value.trim() !== ''; });
   }
   function vazgecSifirla() { clearTimeout(vazgecOnay); vazgecOnay = null; $('vazgec').textContent = 'Vazgeç'; }
+  // Panele dön: formu kapatmadan ve temizlemeden panelin başına kaydırır.
+  $('paneleDon').addEventListener('click', function () { gonder({ tip: 'paneleDon' }); });
+
   $('vazgec').addEventListener('click', function () {
     if (formDoluMu() && !vazgecOnay) {
       $('vazgec').textContent = 'Girilenler silinsin mi? Tekrar bas';

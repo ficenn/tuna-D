@@ -30,6 +30,7 @@
 //   form → sayfa: { tip: 'kaydet', girdi }         → işi kaydet (sonra panel yenilenir)
 //   form → sayfa: { tip: 'musteriEkle', bilgiler } → yeni müşteriyi kaydet
 //   form → sayfa: { tip: 'vazgec' }                → formu kapat, panele dön
+//   form → sayfa: { tip: 'paneleDon' }             → form açık kalır, panelin başına kaydır
 //   sayfa → form: { tip: 'secenekler', veri } / { tip: 'yuklemeHatasi', hata }
 //   sayfa → form: { tip: 'sonuc', basarili, veri | hata }
 //   sayfa → form: { tip: 'musteriEklendi', basarili, musteri | hata }
@@ -207,6 +208,10 @@ const ISLEYICILER = {
 };
 
 const FORM_ISLEYICILERI = {
+  paneleDon() {
+    if (panelVar) $w(PANEL).scrollTo();
+  },
+
   async hazir() {
     try {
       const veri = await isGirisiSecenekleri();
