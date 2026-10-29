@@ -1,6 +1,7 @@
 // İş Girişi — sayfadan çağrılan fonksiyonlar (yalnızca site yöneticileri).
 
 import { Permissions, webMethod } from 'wix-web-module';
+import { hapKorumali, hapKorumaliIlk } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import {
   KATEGORILER,
@@ -28,7 +29,7 @@ async function istekYapan() {
 }
 
 // Formu doldurmak için gereken listeler.
-export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
+export const isGirisiSecenekleri = webMethod(Permissions.SiteMember, hapKorumaliIlk(async () => {
   return {
     kategoriler: KATEGORILER,
     kaynaklar: KAYNAKLAR,
@@ -38,14 +39,14 @@ export const isGirisiSecenekleri = webMethod(Permissions.Admin, async () => {
     musteriler: await musterileriListele(),
     sorumlular: await sorumluListesi() // "Sorumlu" alanının önerileri
   };
-});
+}));
 
 // "Yeni müşteri" penceresinden müşteri kaydı.
-export const yeniMusteriKaydet = webMethod(Permissions.Admin, async (bilgiler) => {
+export const yeniMusteriKaydet = webMethod(Permissions.SiteMember, hapKorumali(async (bilgiler) => {
   return musteriKaydet(bilgiler);
-});
+}));
 
-export const isGirisiniKaydet = webMethod(Permissions.Admin, async (girdi) => {
+export const isGirisiniKaydet = webMethod(Permissions.SiteMember, hapKorumali(async (girdi) => {
   const aktor = { tur: 'insan', kim: await istekYapan() };
   const sonuc = await isGirisiKaydet(girdi, aktor);
   return {
@@ -53,10 +54,10 @@ export const isGirisiniKaydet = webMethod(Permissions.Admin, async (girdi) => {
     asamaEtiketi: asamaEtiketi(sonuc.asama),
     durumEtiketi: durumEtiketi(sonuc.asama, sonuc.durum)
   };
-});
+}));
 
 // Kontrol Paneli → İş Detayı → "Düzenle".
-export const isiGuncelle = webMethod(Permissions.Admin, async (isId, girdi) => {
+export const isiGuncelle = webMethod(Permissions.SiteMember, hapKorumali(async (isId, girdi) => {
   const aktor = { tur: 'insan', kim: await istekYapan() };
   return isGuncelle(isId, girdi, aktor);
-});
+}));

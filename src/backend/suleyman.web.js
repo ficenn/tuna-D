@@ -11,6 +11,7 @@
 //                           Pazarlama'ya bağlı iş açar.
 
 import { Permissions, webMethod } from 'wix-web-module';
+import { hapKorumali } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import wixData from 'wix-data';
 import { gecisYap, durakIslemi, asamaEtiketi } from './suleyman';
@@ -46,8 +47,7 @@ async function istekYapan() {
   }
 }
 
-export const asama1YzOlmadanTamamla = webMethod(
-  Permissions.Admin,
+export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember, hapKorumali(
   async (isId, gerekce) => {
     const temizGerekce = String(gerekce || '').trim();
     if (!isId) throw new Error('İş ID eksik.');
@@ -62,12 +62,11 @@ export const asama1YzOlmadanTamamla = webMethod(
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
     return sonuc;
   }
-);
+));
 
 // Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge): "Yapıldı" — işi kapatır.
 // D işinde isteğe bağlı cozumNotu: çözüm / iyileştirme Pazarlama'ya gider.
-export const takipYapildi = webMethod(
-  Permissions.Admin,
+export const takipYapildi = webMethod(Permissions.SiteMember, hapKorumali(
   async (isId, secenek) => {
     if (!isId) throw new Error('İş ID eksik.');
     const aktor = { tur: 'insan', kim: await istekYapan() };
@@ -81,13 +80,12 @@ export const takipYapildi = webMethod(
     }
     return { ...sonuc, ...ek };
   }
-);
+));
 
 // Ticari (A) iş: durak işlemi.
 // secenek: { not, tarih (takip için), hedef (İleri atla), argeNotu, referansNotu (Kurulum kapanışı) }
 // Döner: Süleyman'ın sonucu + bagliIsler: [{ tur, isId }] + uyarilar: []
-export const durakIslemiYap = webMethod(
-  Permissions.Admin,
+export const durakIslemiYap = webMethod(Permissions.SiteMember, hapKorumali(
   async (isId, islem, secenek) => {
     if (!isId) throw new Error('İş ID eksik.');
     const s = secenek || {};
@@ -109,12 +107,11 @@ export const durakIslemiYap = webMethod(
     }
     return { ...sonuc, durakAdi: asamaEtiketi(sonuc.asama), ...ek };
   }
-);
+));
 
 // Durum Fotoğrafı'nda YZ taslağını (yeniden) iste: taslak gelmediyse ya da
 // başarısız olduysa panelden.
-export const yzTaslagiYenidenIste = webMethod(
-  Permissions.Admin,
+export const yzTaslagiYenidenIste = webMethod(Permissions.SiteMember, hapKorumali(
   async (isId) => {
     if (!isId) throw new Error('İş ID eksik.');
     const aktor = { tur: 'insan', kim: await istekYapan() };
@@ -123,4 +120,4 @@ export const yzTaslagiYenidenIste = webMethod(
     // { basarili: false, mesaj } ile panele döner.
     return yzTaslagiIste(String(isId), aktor, true);
   }
-);
+));

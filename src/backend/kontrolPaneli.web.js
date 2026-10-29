@@ -1,7 +1,8 @@
-// Kontrol Paneli — sayfadan çağrılan okuma fonksiyonları (yalnızca site
-// yöneticileri). İşi ilerleten işlemler suleyman.web.js'tedir.
+// Kontrol Paneli — sayfadan çağrılan okuma fonksiyonları (yalnızca "HAP Ekibi"
+// rolündeki üyeler; bkz. hapYetki.js). İşi ilerleten işlemler suleyman.web.js'tedir.
 
 import { Permissions, webMethod } from 'wix-web-module';
+import { hapKorumali, hapKorumaliIlk } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import { panelVerisiHazirla, isDetayiHazirla } from './kontrolPaneli';
 
@@ -15,11 +16,11 @@ async function kullaniciAdi() {
   }
 }
 
-export const panelVerisi = webMethod(Permissions.Admin, async () => {
+export const panelVerisi = webMethod(Permissions.SiteMember, hapKorumaliIlk(async () => {
   const [veri, ad] = await Promise.all([panelVerisiHazirla(), kullaniciAdi()]);
   return { ...veri, kullanici: ad };
-});
+}));
 
-export const isDetayi = webMethod(Permissions.Admin, async (isId) => {
+export const isDetayi = webMethod(Permissions.SiteMember, hapKorumali(async (isId) => {
   return isDetayiHazirla(isId);
-});
+}));
