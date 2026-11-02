@@ -665,7 +665,7 @@ window.HAP = { secenekler: null };
       if (v.musteriId && !musteriler[v.musteriId]) musteriler[v.musteriId] = (d.musteriBilgisi && d.musteriBilgisi.ad) || 'Mevcut müşteri';
       g.musteriId = secim(musteriler, v.musteriId, 'Seçin…'); alan(f, 'Müşteri', g.musteriId, true);
     }
-    if (v.kategori === 'B') { g.modul = secim(sec.moduller || { masa: 'Masa SK', icerik: 'İçerik', gorunurluk: 'Görünürlük' }, v.modul, 'Seçin…'); alan(f, 'Modül', g.modul, true); }
+    if (v.kategori === 'B') { g.modul = secim(sec.moduller || { masa: 'Masa yönetimi', icerik: 'İçerik', gorunurluk: 'Görünürlük' }, v.modul, 'Seçin…'); alan(f, 'Modül', g.modul, true); }
     g.aciklama = el('textarea'); g.aciklama.maxLength = 5000; g.aciklama.value = v.aciklama; alan(f, 'Açıklama', g.aciklama, true);
     if (v.kategori !== 'C') { g.kapsam = el('textarea'); g.kapsam.maxLength = 5000; g.kapsam.value = v.kapsam; alan(f, 'Kapsam', g.kapsam); }
     g.notlar = el('textarea'); g.notlar.maxLength = 5000; g.notlar.value = v.notlar; alan(f, 'Not', g.notlar);
