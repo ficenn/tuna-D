@@ -62,13 +62,13 @@ export const PAZARLAMA_MODULLERI = { icerik: MODULLER.icerik, gorunurluk: MODULL
 // modülsüz kaydedilir; kayıtta modul = null. "masa" yalnızca formdaki
 // seçeneğin değeridir, veritabanına yazılmaz.
 export const MASA_ISI = 'masa';
-export const B_MODUL_SECENEKLERI = { [MASA_ISI]: 'Masa SK', ...PAZARLAMA_MODULLERI };
+export const B_MODUL_SECENEKLERI = { [MASA_ISI]: 'Masa yönetimi', ...PAZARLAMA_MODULLERI };
 
 // B formundan gelen seçimi kayıt değerine çevirir: "masa" → null, modül → anahtarı.
 function bModulu(secim) {
   const m = String(secim || '').trim();
   if (m === MASA_ISI) return null;
-  if (!PAZARLAMA_MODULLERI[m]) throw new Error('Seçin: Masa SK, İçerik ya da Görünürlük.');
+  if (!PAZARLAMA_MODULLERI[m]) throw new Error('Seçin: Masa yönetimi, İçerik ya da Görünürlük.');
   return m;
 }
 const D_MODULU = 'urun_gelistirme';
@@ -542,7 +542,7 @@ export async function isGuncelle(isId, girdi, aktor) {
       kayitDegisen[alan] = deger;
       let o = oncekiMetin, y = deger;
       if (alan === 'aciliyet') { o = ACILIYETLER[o] || o; y = ACILIYETLER[y]; }
-      if (alan === 'modul') { o = MODULLER[o] || o || 'Masa SK'; y = MODULLER[y] || 'Masa SK'; }
+      if (alan === 'modul') { o = MODULLER[o] || o || 'Masa yönetimi'; y = MODULLER[y] || 'Masa yönetimi'; }
       if (alan === 'musteri') { o = musteriAdlari[o] || o; y = musteriAdlari[y] || y; }
       notlar.push(`${DUZENLEME_ETIKETLERI[alan]}: "${kisalt(o)}" → "${kisalt(y)}"`);
     }
