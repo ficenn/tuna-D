@@ -23,7 +23,11 @@
 //     Kısa yol: Yapılacak → Yapıldı. Tekrar etmez.
 //   D Ar-Ge: Ürün masasının işi (Ürün Geliştirme modülü). Müşteri yok.
 //     Kısa yol. Çoğunlukla kurulum sonrası test notlarından açılır (bağlı iş).
-// B, C ve D'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
+//   Y Yönetim: bütün işletmeyi ilgilendiren iş (karar, yön, kural). Müşteri
+//     yok, masası yok (Yönetim bir masa değil; ileride "Yönetim katı" olarak
+//     tasarlanacak, 2026-11-10). Kısa yol, ama kapanırken "ne çıktı, neden"
+//     notu zorunlu. C'den farkı: C aksarsa yalnızca kendine zarar verir.
+// B, C, D ve Y'de kaynak her zaman "İç ihtiyaç"tır; formda sorulmaz.
 
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
@@ -39,11 +43,15 @@ export const KATEGORILER = {
   A: 'A – Ticari / Ücretli İş',
   B: 'B – Pazarlama',
   C: 'C – Yapılacaklar',
-  D: 'D – Ar-Ge'
+  D: 'D – Ar-Ge',
+  Y: 'Y – Yönetim'
 };
 
 // Kısa yoldan (Yapılacak → Yapıldı) giden kategoriler.
-export const KISA_YOL_KATEGORILERI = ['B', 'C', 'D'];
+export const KISA_YOL_KATEGORILERI = ['B', 'C', 'D', 'Y'];
+
+// Kapanırken "ne çıktı, neden" notu zorunlu olan kategoriler.
+export const KAPANIS_NOTU_ZORUNLU = ['Y'];
 
 // B işleri Pazarlama masasının, D işleri Ürün masasının kendi işidir.
 const KATEGORI_MASASI = { B: 'pazarlama', D: 'urun' };
@@ -224,7 +232,7 @@ export function girdiyiDogrula(girdi) {
   };
 }
 
-// B, C ve D: müşteri yok, kaynak her zaman iç ihtiyaç.
+// B, C, D ve Y: müşteri yok, kaynak her zaman iç ihtiyaç.
 function kisaYolGirdisi(kategori, g) {
   const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
   if (!aciklama) throw new Error(kategori === 'C' ? 'Ne yapılacak? Açıklama zorunlu.' : 'Açıklama zorunlu: iş ne?');
@@ -235,7 +243,7 @@ function kisaYolGirdisi(kategori, g) {
   }
   if (kategori === 'D') modul = D_MODULU;
 
-  const aciliyetli = kategori === 'B' || kategori === 'D';
+  const aciliyetli = kategori === 'B' || kategori === 'D' || kategori === 'Y';
   const aciliyet = aciliyetli ? String(g.aciliyet || 'normal').trim() : 'normal';
   if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
 
@@ -502,7 +510,7 @@ export async function isGuncelle(isId, girdi, aktor) {
   if (!aciklama) throw new Error('Açıklama boş bırakılamaz.');
 
   const yeniKayit = { description: aciklama, termin: terminKontrol(g.termin), sorumlu: sorumluKontrol(g.sorumlu) };
-  if (kategori === 'A' || kategori === 'B' || kategori === 'D') {
+  if (kategori === 'A' || kategori === 'B' || kategori === 'D' || kategori === 'Y') {
     const aciliyet = String(g.aciliyet || 'normal').trim();
     if (!ACILIYETLER[aciliyet]) throw new Error('Aciliyet geçersiz.');
     yeniKayit.aciliyet = aciliyet;

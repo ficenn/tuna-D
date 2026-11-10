@@ -1,7 +1,8 @@
 // Süleyman — insan tarafından tetiklenen geçişler (yalnızca site yöneticileri).
 //
 //   asama1YzOlmadanTamamla  YZ analizi gelmeyen KN işini Giriş'ten çıkarır.
-//   takipYapildi            Kısa yol işi (B, C, D) "Yapıldı".
+//   takipYapildi            Kısa yol işi (B, C, D, Y) "Yapıldı". Y (Yönetim)
+//                           işinde "ne çıktı, neden" notu zorunlu; geçmişe yazılır.
 //   durakIslemiYap          Ticari (A) işin durağındaki karar ve işlemler
 //                           (Başla, Beklet, Devam, İptal, Takip yapıldı,
 //                           evet / hayır çıkışları, İleri atla). Kurulum "İyi çalışıyor"
@@ -15,7 +16,7 @@ import { hapYetkisiGerekli } from './hapYetki';
 import { currentMember } from 'wix-members-backend';
 import wixData from 'wix-data';
 import { gecisYap, durakIslemi, asamaEtiketi } from './suleyman';
-import { bagliIsAc } from './isGirisi';
+import { bagliIsAc, KAPANIS_NOTU_ZORUNLU } from './isGirisi';
 import { BAGLI_ISLER, ILK_DURAK } from './rota';
 import { yzTaslagiIste } from './yzCagir';
 
@@ -65,20 +66,32 @@ export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember,
   }
 );
 
-// Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge): "Yapıldı" — işi kapatır.
+// Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge, Y Yönetim): "Yapıldı" — işi kapatır.
 // D işinde isteğe bağlı cozumNotu: çözüm / iyileştirme Pazarlama'ya gider.
+// Y işinde kapanisNotu zorunlu ("ne çıktı, neden"): geçmişe kapanış notu olarak yazılır.
+const KAPANIS_NOTU_SINIRI = 2000;
+
 export const takipYapildi = webMethod(Permissions.SiteMember,
   async (isId, secenek) => {
     await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
     if (!isId) throw new Error('İş ID eksik.');
+    const k = await wixData.query('IsKayitlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
+    const kategori = k.items[0] ? k.items[0].kategori : null;
+
+    let kapanisNotu = null;
+    if (KAPANIS_NOTU_ZORUNLU.includes(kategori)) {
+      kapanisNotu = String((secenek && secenek.kapanisNotu) || '').replace(/\s+/g, ' ').trim();
+      if (!kapanisNotu) throw new Error('Yönetim işi notsuz kapanmaz: ne çıktı, neden? Bir cümle yazın.');
+      if (kapanisNotu.length > KAPANIS_NOTU_SINIRI) throw new Error(`Not çok uzun (en fazla ${KAPANIS_NOTU_SINIRI} karakter).`);
+    }
+
     const aktor = { tur: 'insan', kim: await istekYapan() };
-    const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor);
+    const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor, kapanisNotu ? `Ne çıktı: ${kapanisNotu}` : undefined);
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
     let ek = { bagliIsler: [], uyarilar: [] };
     const cozum = secenek && secenek.cozumNotu;
-    if (sonuc.degisti && String(cozum || '').trim()) {
-      const k = await wixData.query('IsKayitlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
-      if (k.items[0] && k.items[0].kategori === 'D') ek = await bagliIsleriAc([['cozum', cozum]], isId, aktor);
+    if (sonuc.degisti && String(cozum || '').trim() && kategori === 'D') {
+      ek = await bagliIsleriAc([['cozum', cozum]], isId, aktor);
     }
     return { ...sonuc, ...ek };
   }

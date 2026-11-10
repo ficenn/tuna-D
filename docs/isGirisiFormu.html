@@ -126,6 +126,7 @@
           <select id="kategori" required></select>
         </label>
 
+        <p class="ipucu" id="yonetimIpucu" hidden>Yönetim işi bütün işletmeyi ilgilendirir (karar, yön, kural). Yalnızca kendine dokunan bir hatırlatmaysa “C – Yapılacaklar”ı seçin. Kapanırken “ne çıktı, neden” notu istenir.</p>
         <div id="isAlanlari">
           <fieldset id="musteriAlani">
             <legend>Müşteri</legend>
@@ -370,11 +371,13 @@
   // ---- İş formu ----
   // Kategoriye göre alanlar: A müşteri + kaynak; B modül; C sade yapılacak;
   // D Ar-Ge (Ürün masası; modülü kendiliğinden Ürün Geliştirme).
+  // Y Yönetim: bütün işletmeyi ilgilendiren iş; masası yok, kapanırken not zorunlu.
   var KATEGORI_METNI = {
     A: { baslik: 'Ticari iş', aciklama: 'İş ne? Tek cümleyle başlayın.', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
     B: { baslik: 'Pazarlama işi', aciklama: 'Ne üretilecek / yapılacak? ör. LinkedIn içerik serisi', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
     C: { baslik: 'Yapılacak', aciklama: 'Ne yapılacak? ör. Kargo gönderilecek', tarih: 'Tarih', buton: 'Yapılacaklara ekle' },
-    D: { baslik: 'Ar-Ge işi', aciklama: 'Ürün için ne geliştirilecek / incelenecek?', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' }
+    D: { baslik: 'Ar-Ge işi', aciklama: 'Ürün için ne geliştirilecek / incelenecek?', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' },
+    Y: { baslik: 'Yönetim işi', aciklama: 'Hangi karar / yön / kural? ör. Altyapı kararı', tarih: 'Bitiş tarihi', buton: 'İşi kaydet' }
   };
   function kategoriDegisti() {
     var k = $('kategori').value;
@@ -386,6 +389,7 @@
     $('modulAlani').hidden = k !== 'B';
     $('kapsamAlani').hidden = k === 'C';
     $('aciliyetAlani').hidden = k === 'C';
+    $('yonetimIpucu').hidden = k !== 'Y';
     $('isBaslik').textContent = m.baslik;
     $('aciklama').placeholder = m.aciklama;
     $('terminEtiket').textContent = m.tarih;
