@@ -507,6 +507,13 @@
       } else {
         mesajGoster('mesaj', 'hata', d.hata || 'Kaydedilemedi.');
       }
+    } else if (d.tip === 'taslak') {
+      // Masa sayfasından gelen öneri (Masa YZ'si "Masa yönetimi işi yap"): alanlar
+      // doldurulur, kayıt yine insanın "Kaydet"iyle olur (tek kapı).
+      if (d.kategori && $('kategori').querySelector('option[value="' + d.kategori + '"]')) { $('kategori').value = d.kategori; kategoriDegisti(); }
+      if (d.modul && $('modul').querySelector('option[value="' + d.modul + '"]')) $('modul').value = d.modul;
+      if (d.aciklama) $('aciklama').value = String(d.aciklama).slice(0, 5000);
+      mesajGoster('mesaj', 'bilgi', 'Masadan gelen öneri forma yazıldı. Bakıp kaydedin.');
     } else if (d.tip === 'yuklemeHatasi') {
       secenekGeldi = true;
       mesajGoster('mesaj', 'hata', d.hata || 'Form yüklenemedi.');

@@ -18,6 +18,7 @@ import wixData from 'wix-data';
 import { gecisYap, yzHatasiKaydet, yzOlayiKaydet } from './suleyman';
 import { secrets } from 'wix-secrets-backend.v2';
 import { elevate } from 'wix-auth';
+import { masaYzSonucuKaydet } from './yzMasa';
 
 const elevatedGetSecretValue = elevate(secrets.getSecretValue);
 
@@ -130,4 +131,41 @@ export async function post_boltSonucu(request) {
   }
 
   return ok({ body: { basarili: true } });
+}
+
+// --- Masa YZ'si sonucu (2026-11-10) ---
+//
+// Netlify hap-masa-yz-background → POST /_functions/masaYzSonucu
+// Gövde: { istekId, metin, kararOnerisi, isOnerisi, girdiToken, ciktiToken }
+//     ya da { istekId, hata: true, neden, girdiToken?, ciktiToken? }
+// Yetki boltSonucu ile aynı sır (BOLT_WEBHOOK_SECRET). Sonuç YzMesajlari'na
+// yazılır; sayfa oradan alır (yzMasa.js).
+export async function post_masaYzSonucu(request) {
+  let beklenenSecret;
+  try {
+    const sonuc = await elevatedGetSecretValue(SECRET_ADI);
+    beklenenSecret = typeof sonuc === 'string' ? sonuc : sonuc?.value;
+  } catch (hata) {
+    console.error('masaYzSonucu: secret okunamadı:', hata);
+    return serverError({ body: { hata: 'Sunucu yapılandırma hatası.' } });
+  }
+  if (!beklenenSecret) return serverError({ body: { hata: 'Sunucu yapılandırma hatası.' } });
+  if (request.headers['authorization'] !== `Bearer ${beklenenSecret}`) {
+    console.warn('masaYzSonucu: yetkisiz istek reddedildi.');
+    return badRequest({ body: { hata: 'Yetkisiz.' } });
+  }
+  let govde;
+  try {
+    govde = await request.body.json();
+  } catch (hata) {
+    return badRequest({ body: { hata: 'Geçersiz JSON.' } });
+  }
+  if (!govde || !govde.istekId) return badRequest({ body: { hata: 'istekId eksik.' } });
+  try {
+    const sonuc = await masaYzSonucuKaydet(govde);
+    return ok({ body: { basarili: true, ...sonuc } });
+  } catch (hata) {
+    console.error('masaYzSonucu: kaydedilemedi:', hata);
+    return serverError({ body: { hata: 'Kaydedilemedi.' } });
+  }
 }
