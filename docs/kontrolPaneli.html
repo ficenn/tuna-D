@@ -57,6 +57,13 @@
   .dugme.ikincil:hover { background: var(--ana-acik); }
   .dugme:disabled { opacity: .55; cursor: wait; }
   .metin-dugme { border: none; background: none; color: var(--ana); font-weight: 600; padding: 4px 2px; }
+  /* Geri bildirim penceresi (10 Kasım) */
+  #geriBildirimPencere { border: 1px solid var(--cizgi, #ddd); border-radius: 14px; padding: 18px; width: min(520px, calc(100% - 32px)); background: var(--kart, #fff); color: inherit; }
+  #geriBildirimPencere::backdrop { background: rgba(20, 30, 28, .35); }
+  #geriBildirimPencere h2 { margin: 0 0 6px; font-size: 18px; }
+  #geriBildirimPencere p { margin: 0 0 10px; font-size: 13.5px; color: var(--soluk, #666); }
+  #geriBildirimPencere textarea { width: 100%; min-height: 120px; font: inherit; font-size: 14px; padding: 9px 11px; border: 1px solid var(--cizgi, #ddd); border-radius: 8px; box-sizing: border-box; resize: vertical; }
+  #geriBildirimPencere .satir { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
   .masa-gecis { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13.5px; color: var(--soluk); }
 
   /* Izgaralar */
@@ -295,6 +302,7 @@
       <button type="button" class="metin-dugme" data-masa="gorunurluk">Görünürlük</button>
     </nav>
     <div class="ust-dugmeler">
+      <button type="button" class="dugme ikincil" id="geriBildirimAc" title="Takıldığın, eksik ya da yanlış bulduğun her şey">Geri bildirim</button>
       <button type="button" class="dugme ikincil" id="yenile">Yenile</button>
       <button type="button" class="dugme" id="yeniIs">+ Yeni İş</button>
     </div>
@@ -359,6 +367,14 @@
   </div>
 </div>
 
+<dialog id="geriBildirimPencere" aria-labelledby="gbBaslik">
+  <form method="dialog" id="geriBildirimForm">
+    <h2 id="gbBaslik">Geri bildirim</h2>
+    <p>Takıldığın, eksik ya da yanlış bulduğun, aklına gelen her şey. "Kontrol Paneli"nde yazıldığı kendiliğinden eklenir.</p>
+    <textarea id="gbMetin" maxlength="4000" required aria-label="Geri bildirim"></textarea>
+    <div class="satir"><button type="submit" class="dugme" id="gbKaydet">Kaydet</button><button type="button" class="dugme ikincil" id="gbVazgec">Vazgeç</button><span id="gbMesaj" style="font-size:13px"></span></div>
+  </form>
+</dialog>
 <script>
 // Düzenle formunun seçenekleri (müşteriler, modüller, aciliyetler); sayfa kodundan gelir.
 window.HAP = { secenekler: null };
@@ -1073,6 +1089,17 @@ window.HAP = { secenekler: null };
     b.addEventListener('click', function () { gonder({ tip: 'masaAc', masa: b.getAttribute('data-masa') }); });
   });
 
+  // Geri bildirim (10 Kasım): sayfa kodu backend'e yazar, sonucu 'geriBildirimSonuc' ile döner.
+  $('geriBildirimAc').addEventListener('click', function () { $('gbMetin').value = ''; $('gbMesaj').textContent = ''; $('gbKaydet').disabled = false; $('geriBildirimPencere').showModal(); $('gbMetin').focus(); });
+  $('gbVazgec').addEventListener('click', function () { $('geriBildirimPencere').close(); });
+  $('geriBildirimForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var metin = $('gbMetin').value.trim();
+    if (!metin) return;
+    $('gbKaydet').disabled = true; $('gbMesaj').textContent = 'Kaydediliyor…';
+    gonder({ tip: 'geriBildirim', metin: metin });
+  });
+
   // ---------- Sayfa kodundan gelen mesajlar ----------
   window.addEventListener('message', function (e) {
     if (e.source !== window.parent) return;
@@ -1098,6 +1125,14 @@ window.HAP = { secenekler: null };
       if (m.isId !== acikDetay) return;
       if (m.basarili) detayiCiz(m.veri);
       else { var ic = $('detayIcerik'); ic.innerHTML = ''; ic.appendChild(el('div', 'mesaj hata', m.hata || 'İş açılamadı.')); }
+    } else if (m.tip === 'geriBildirimSonuc') {
+      $('gbKaydet').disabled = false;
+      if (m.basarili) {
+        $('geriBildirimPencere').close();
+        mesaj('genelMesaj', 'tamam', 'Geri bildirim kaydedildi. Teşekkürler!');
+      } else {
+        $('gbMesaj').textContent = m.hata || 'Kaydedilemedi.';
+      }
     } else if (m.tip === 'islemSonuc') {
       ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet', 'yzTekrarBtn'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
       [].forEach.call(document.querySelectorAll('.durak-btn'), function (b) { b.disabled = false; });
