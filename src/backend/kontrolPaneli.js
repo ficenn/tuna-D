@@ -20,7 +20,7 @@ import {
   DURAKLAR, CIKISLAR, GIRIS_DURAGI, SONUC_DURAGI, TAKIP_DURAGI, TAKIP_PLANI_GUN,
   TALEP_DURAGI, TALEP_BEKLEME_GUN
 } from './rota';
-import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER } from './isGirisi';
+import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER, KAPANIS_NOTU_ZORUNLU } from './isGirisi';
 
 const IS = 'IsKayitlari';
 const BAGLAM = 'IsBaglamlari';
@@ -35,7 +35,7 @@ export const ESIKLER = {
 
 const KAPALI_DURUMLAR = ['tamamlandi', 'iptal'];
 
-const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Yapılacaklar', D: 'Ar-Ge' };
+const KATEGORI_KISA = { A: 'Ticari', B: 'Pazarlama', C: 'Yapılacaklar', D: 'Ar-Ge', Y: 'Yönetim' };
 
 const ISLEM_ETIKETLERI = {
   kayit_olusturuldu: 'Kayıt oluşturuldu',
@@ -104,7 +104,7 @@ function baslik(k) {
   return '(açıklama yok)';
 }
 
-async function musteriAdlari(idler) {
+export async function musteriAdlari(idler) {
   const benzersiz = [...new Set(idler.filter(Boolean))];
   if (!benzersiz.length) return {};
   const sonuc = await wixData
@@ -117,7 +117,8 @@ async function musteriAdlari(idler) {
   return harita;
 }
 
-function satir(k, musteriler, simdi = new Date()) {
+// Masa sayfaları da aynı satırı kullanır (masaSayfasi.js).
+export function satir(k, musteriler, simdi = new Date()) {
   const yer = mevcutDurum(k);
   const kisaYol = yer.asama === KISA_YOL_ASAMASI;
   const asama = yer.asama;
@@ -131,6 +132,7 @@ function satir(k, musteriler, simdi = new Date()) {
   if (!musteri && k.kategori === 'B') musteri = 'Pazarlama masası';
   if (!musteri && k.kategori === 'C') musteri = 'İşletme';
   if (!musteri && k.kategori === 'D') musteri = 'Ürün masası';
+  if (!musteri && k.kategori === 'Y') musteri = 'Yönetim';
 
   return {
     isId: k.isId,
@@ -141,6 +143,7 @@ function satir(k, musteriler, simdi = new Date()) {
     kategori: k.kategori ? (KATEGORILER[k.kategori] || k.kategori) : (kategoriKod === 'KN' ? 'Kontrol Noktası' : null),
     kategoriKisa: KATEGORI_KISA[k.kategori] || (kategoriKod === 'KN' ? 'KN' : '—'),
     modul: k.modul ? (MODULLER[k.modul] || k.modul) : null,
+    modulKod: k.modul || null,
     kisaYol,
     asama,
     asamaEtiketi: sonuc ? sonucEtiketi(sonuc) : asamaEtiketi(asama),
@@ -300,6 +303,8 @@ export async function isDetayiHazirla(isId) {
   if (ozet.asama === KISA_YOL_ASAMASI && ozet.durum === 'sirada') islemler.push('yapildi');
   // Ar-Ge işi kapanırken çözüm Pazarlama'ya not olarak gönderilebilir.
   if (islemler.includes('yapildi') && k.kategori === 'D') islemler.push('cozumNotu');
+  // Yönetim işi "ne çıktı, neden" notu yazılmadan kapanmaz.
+  if (islemler.includes('yapildi') && KAPANIS_NOTU_ZORUNLU.includes(k.kategori)) islemler.push('kapanisNotu');
 
   // KN işi Durum Fotoğrafı'nda: YZ taslağının durumu (taslak kişi rumuzuyla
   // yazınca istenir). Gelmediyse ya da başarısızsa yeniden istenebilir.
@@ -369,8 +374,12 @@ export async function isDetayiHazirla(isId) {
     };
   }
 
-  // Masa: işin atandığı masa (masa sayfaları gelince bağlantı olacak).
+  // Masa: işin atandığı masa. masaSayfasi: işin göründüğü masa sayfası
+  // (B → modülü ya da Pazarlama; Y → Yönetim); panel oraya bağlantı verir.
   let masa = null;
+  let masaSayfasi = null;
+  if (k.kategori === 'B') masaSayfasi = k.modul === 'icerik' || k.modul === 'gorunurluk' ? k.modul : 'pazarlama';
+  if (k.kategori === 'Y') masaSayfasi = 'yonetim';
   if (k.atananMasa) {
     let ad = null;
     try {
@@ -395,6 +404,7 @@ export async function isDetayiHazirla(isId) {
     islemler,
     duzenleme,
     masa,
+    masaSayfasi,
     durak,
     bagliIsler,
     yzDurumu

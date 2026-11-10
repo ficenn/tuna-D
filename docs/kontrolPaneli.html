@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  HAP — Kontrol Paneli (v4: Ticari işlerde duraklar, D – Ar-Ge).
+  HAP — Kontrol Paneli (v5: Y – Yönetim kategorisi).
   Bu dosyanın TAMAMI, HAP sayfasındaki "Embed HTML" öğesine yapıştırılır.
   Öğenin ID'si: kontrolPaneli · Yükseklik: 1130 px.
   Yeni İş Kaydı formu ayrı kutudadır (isGirisiFormu, docs/isGirisiFormu.html),
@@ -57,6 +57,7 @@
   .dugme.ikincil:hover { background: var(--ana-acik); }
   .dugme:disabled { opacity: .55; cursor: wait; }
   .metin-dugme { border: none; background: none; color: var(--ana); font-weight: 600; padding: 4px 2px; }
+  .masa-gecis { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13.5px; color: var(--soluk); }
 
   /* Izgaralar */
   .ust-izgara { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .95fr); gap: 14px; margin-bottom: 14px; }
@@ -113,6 +114,7 @@
   .harf.k-B { background: var(--mor-z); color: var(--mor); }
   .harf.k-C { background: var(--yesil-z); color: var(--yesil); }
   .harf.k-D { background: var(--mavi-z); color: var(--ana-koyu); }
+  .harf.k-Y { background: var(--yakin-z); color: var(--yakin); }
   .harf.k-KN { background: var(--turuncu-z); color: var(--turuncu); font-size: 11px; }
   .harf.k-x { background: var(--gri-z); color: var(--gri); }
 
@@ -285,6 +287,13 @@
       <h1 id="selam">Merhaba 👋</h1>
       <p id="tarihMetni"></p>
     </div>
+    <nav class="masa-gecis" aria-label="Masa sayfaları">
+      <span>Masalar:</span>
+      <button type="button" class="metin-dugme" data-masa="yonetim">Yönetim</button>
+      <button type="button" class="metin-dugme" data-masa="pazarlama">Pazarlama</button>
+      <button type="button" class="metin-dugme" data-masa="icerik">İçerik</button>
+      <button type="button" class="metin-dugme" data-masa="gorunurluk">Görünürlük</button>
+    </nav>
     <div class="ust-dugmeler">
       <button type="button" class="dugme ikincil" id="yenile">Yenile</button>
       <button type="button" class="dugme" id="yeniIs">+ Yeni İş</button>
@@ -324,6 +333,7 @@
         <button type="button" class="cip" data-kapsam="B">Pazarlama</button>
         <button type="button" class="cip" data-kapsam="C">Yapılacaklar</button>
         <button type="button" class="cip" data-kapsam="D">Ar-Ge</button>
+        <button type="button" class="cip" data-kapsam="Y">Yönetim</button>
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
@@ -360,7 +370,7 @@ window.HAP = { secenekler: null };
   var veri = null, acikDetay = null, sonDetay = null, veriGeldi = false;
   var sayfaAdresi = null;   // HAP sayfasının adresi; iş bağlantısı = sayfaAdresi + '?is=' + isId (sayfa kodundan gelir)
   var sonIslem = null;   // { isId, metin }: başarılı işlemden sonra detayda bir kez gösterilir
-  // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'arsiv' (yapılmış / kapanmış işler)
+  // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'Y' | 'arsiv' (yapılmış / kapanmış işler)
   var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '' };
   var sayfa = 1, takvimAy = null;
   var $ = function (id) { return document.getElementById(id); };
@@ -390,7 +400,7 @@ window.HAP = { secenekler: null };
     return d.toLocaleString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
   }
   function harf(kod) {
-    var k = kod === 'A' || kod === 'B' || kod === 'C' || kod === 'D' || kod === 'KN' ? kod : 'x';
+    var k = kod === 'A' || kod === 'B' || kod === 'C' || kod === 'D' || kod === 'Y' || kod === 'KN' ? kod : 'x';
     return el('span', 'harf k-' + k, k === 'x' ? '•' : kod);
   }
   // Olumsuz sonuçla kapanan ticari iş "Kapandı" (gri) görünür; "Tamamlandı" yalnızca iş sonuçlandıysa.
@@ -557,7 +567,7 @@ window.HAP = { secenekler: null };
     return sirala(veri.isler.filter(function (i) {
       if (arsiv ? i.acik : !i.acik) return false;
       if (filtre.kapsam === 'A') { if (i.kategoriKod !== 'A' && i.kategoriKod !== 'KN') return false; }
-      else if (['B', 'C', 'D'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
+      else if (['B', 'C', 'D', 'Y'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
       if (filtre.gun && i.termin !== filtre.gun) return false;
       if (filtre.idler && filtre.idler.indexOf(i.isId) === -1) return false;
       if (q && [i.isId, i.baslik, i.musteri, i.rumuz, i.sorumlu, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
@@ -913,10 +923,26 @@ window.HAP = { secenekler: null };
         cozumTa = el('textarea'); cozumTa.id = 'cozumNotu'; cozumTa.maxLength = 5000; cozumTa.placeholder = 'ör. Takvim artık telefonda iki kat hızlı açılıyor.';
         cz.appendChild(cozumTa); ic.appendChild(cz);
       }
+      // Yönetim (Y) işi "ne çıktı, neden" notu yazılmadan kapanmaz.
+      var kapanisTa = null;
+      if (d.islemler.indexOf('kapanisNotu') !== -1) {
+        var kn = el('div', 'islem-kutu durak');
+        kn.appendChild(el('div', 'kucuk', 'Ne çıktı, neden? Bir cümle yeter. Yönetim işi bu not olmadan kapanmaz; not işin geçmişine yazılır.'));
+        kapanisTa = el('textarea'); kapanisTa.id = 'kapanisNotu'; kapanisTa.maxLength = 2000; kapanisTa.placeholder = 'ör. Pilotta Wix\'te kalıyoruz; Türkiye sunucusu ücretli lansmandan önce, çünkü bütçe ayda 500 TL.';
+        kn.appendChild(kapanisTa); ic.appendChild(kn);
+      }
       var y = el('div', 'islem-kutu yapildi');
       y.appendChild(el('span', null, 'Bitti mi? İşaretleyin, arşive geçsin.'));
       var yb = el('button', 'dugme', '✓ Yapıldı'); yb.type = 'button'; yb.id = 'yapildiBtn';
-      yb.addEventListener('click', function () { yb.disabled = true; gonder({ tip: 'yapildi', isId: d.isId, cozumNotu: cozumTa ? cozumTa.value.trim() : '' }); });
+      if (kapanisTa) {
+        yb.disabled = true;
+        kapanisTa.addEventListener('input', function () { yb.disabled = !kapanisTa.value.trim(); });
+      }
+      yb.addEventListener('click', function () {
+        if (kapanisTa && !kapanisTa.value.trim()) return;
+        yb.disabled = true;
+        gonder({ tip: 'yapildi', isId: d.isId, cozumNotu: cozumTa ? cozumTa.value.trim() : '', kapanisNotu: kapanisTa ? kapanisTa.value.trim() : '' });
+      });
       y.appendChild(yb); ic.appendChild(y);
       var ym = el('div', 'mesaj'); ym.id = 'islemMesaj'; ym.setAttribute('role', 'status'); ic.appendChild(ym);
     }
@@ -966,9 +992,16 @@ window.HAP = { secenekler: null };
     bilgi(iz, d.kategoriKod === 'C' ? 'Tarih' : 'Bitiş tarihi', d.termin ? tarihTR(d.termin) : null);
     bilgi(iz, d.kisaYol ? 'Liste' : 'Durak', d.kisaYol ? (d.acik ? 'Yapılacaklar listesi' : 'Arşiv') : yerMetni(d));
     if (d.musteriBilgisi) bilgi(iz, 'Kategori', d.kategori);
-    // Masa: masa sayfaları eklenince burası bağlantı olacak.
-    if (d.masa) bilgi(iz, 'Masa', [d.masa.ad, d.modul].filter(Boolean).join(' · '), 'Masa sayfası yakında');
-    else if (d.modul) bilgi(iz, 'Modül', d.modul);
+    // Masa: işin göründüğü masa sayfasına bağlantı (Y işleri: Yönetim sayfası).
+    var masaMetni = d.masa ? [d.masa.ad, d.modul].filter(Boolean).join(' · ') : (d.kategoriKod === 'Y' ? 'Yönetim' : d.modul);
+    if (masaMetni) {
+      bilgi(iz, d.masa || d.kategoriKod === 'Y' ? 'Masa' : 'Modül', masaMetni);
+      if (d.masaSayfasi) {
+        var ms = el('button', 'metin-dugme', 'Masa sayfasına git →'); ms.type = 'button';
+        ms.addEventListener('click', function () { gonder({ tip: 'masaAc', masa: d.masaSayfasi }); });
+        iz.lastChild.appendChild(ms);
+      }
+    }
     if (d.kategoriKod !== 'C') bilgi(iz, 'Aciliyet', d.aciliyetEtiketi);
     if (d.sorumlu || d.duzenleme) bilgi(iz, 'Sorumlu', d.sorumlu);
     if (d.sonrakiTakip) bilgi(iz, 'Sonraki takip', tarihTR(d.sonrakiTakip));
@@ -1034,6 +1067,11 @@ window.HAP = { secenekler: null };
     $('detayIcerik').scrollTop = 0;
     setTimeout(solmaGuncelle, 0);
   }
+
+  // Masa sayfalarına geçiş (sayfa kodu paneli kapatıp masa sayfasını açar).
+  [].forEach.call(document.querySelectorAll('.masa-gecis [data-masa]'), function (b) {
+    b.addEventListener('click', function () { gonder({ tip: 'masaAc', masa: b.getAttribute('data-masa') }); });
+  });
 
   // ---------- Sayfa kodundan gelen mesajlar ----------
   window.addEventListener('message', function (e) {
