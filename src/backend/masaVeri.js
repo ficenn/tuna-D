@@ -170,7 +170,20 @@ export async function yzKullanimEkle({ istek = 0, girdiToken = 0, ciktiToken = 0
 //   Uyarı   : yolunun yarısından fazlası
 //   Kırmızı : daha azı (müşterisiz işletme kırmızı alarmdadır)
 
-export const TEMPO_ETIKETLERI = { sakin: 'Sakin', uyari: 'Uyarı', kirmizi: 'Kırmızı Alarm' };
+// Uyarı biçimi (Fatoş, 10 Kasım): Kırmızı Alarm panik değil, gömülü çalışır:
+// ekranda alarm yazmaz, YZ işleri önerir ve sıraya koyar.
+export const TEMPO_ETIKETLERI = { sakin: 'Yolunda', uyari: 'Dikkat', kirmizi: 'Öncelik: müşteri akışı', hazirlik: 'Hazırlık evresi' };
+
+// Evre (Fatoş, 10 Kasım; Yönetim kararı, acil yolla):
+//   hazirlik  HAP bitene kadar. Öncelik müşteri bulmak değil HAP'ı bitirmek:
+//             tempo alarm vermez, kurulum sayısı yalnızca bilgi olarak görünür;
+//             ölçü strateji hedefleridir (anket, KN).
+//   olcum     Eşik / Hedef ile tempo. Eşik atlanınca Hedef'e (Eşik + 4) hemen
+//             geçilmez: 3 ay üst üste her ay Eşik aşılırsa Hedef evresi başlar.
+export const EVRELER = { hazirlik: 'Hazırlık', olcum: 'Ölçüm' };
+// Pazarlama stratejisi Kasım–Ocak (Fatoş, 27 Ekim): Aralık'a kadar 30 anket,
+// Ocak'a kadar 10 KN formu. Dönem başı 1 Kasım.
+export const STRATEJI = { baslangic: '2026-11-01', anketHedef: 30, anketSon: 'Aralık', knHedef: 10, knSon: 'Ocak' };
 
 function ayGunSayisi(ay) {
   const [y, m] = ay.split('-').map(Number);
@@ -203,32 +216,49 @@ export function tempoDurumu(sayi, esik, gecenOran) {
 
 export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const a = (await ayarGetir('tempo')) || {};
+  const evre = EVRELER[a.evre] ? a.evre : 'olcum';
   const esik = Number(a.esik) > 0 ? Number(a.esik) : 4;
   const hedef = Number(a.hedef) > 0 ? Number(a.hedef) : 7;
   const birim = a.birim || 'kurulum';
   const kaynak = a.kaynak || 'kurulum';
   const ay = ayKodu(simdi);
   const gecen = oncekiAy(ay);
-  let buAy = 0;
-  let gecenAy = 0;
+  // Son 3 tamamlanmış ay (Hedef'e geçiş kuralı için).
+  const uc = [oncekiAy(ay), oncekiAy(oncekiAy(ay)), oncekiAy(oncekiAy(oncekiAy(ay)))];
+  const aylik = { [ay]: 0, [uc[0]]: 0, [uc[1]]: 0, [uc[2]]: 0 };
+  const isler = kayitlar || (await wixData.query(IS).isNotEmpty('asama').limit(1000).find(SA)).items;
   if (kaynak === 'elle') {
-    buAy = Number(a.elleDeger) || 0;
+    aylik[ay] = Number(a.elleDeger) || 0;
   } else {
-    const isler = kayitlar || (await wixData.query(IS).isNotEmpty('asama').limit(1000).find(SA)).items;
     for (const k of isler) {
       const g = kurulumaGirisGunu(k);
-      if (!g) continue;
-      if (g.startsWith(ay)) buAy++;
-      else if (g.startsWith(gecen)) gecenAy++;
+      if (g && aylik[g.slice(0, 7)] !== undefined) aylik[g.slice(0, 7)]++;
     }
   }
+  const buAy = aylik[ay];
+  const gecenAy = aylik[gecen];
+  const esikAsilanAy = uc.filter((m) => aylik[m] >= esik).length;
+  const hedefEvresi = evre === 'olcum' && esikAsilanAy === 3;
   const gun = Number(gunTR(simdi).slice(8, 10));
   const oran = gun / ayGunSayisi(ay);
-  const durum = tempoDurumu(buAy, esik, oran);
-  return {
-    durum, etiket: TEMPO_ETIKETLERI[durum], buAy, gecenAy, esik, hedef, birim, kaynak,
+  // Hazırlık evresinde alarm yok; ölçüm evresinde hedef evresine geçildiyse Hedef'e göre bakılır.
+  const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, hedefEvresi ? hedef : esik, oran);
+  const sonuc = {
+    durum, etiket: TEMPO_ETIKETLERI[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
+    esikAsilanAy, hedefEvresi,
     yon: buAy > gecenAy ? '↑' : buAy < gecenAy ? '↓' : '→'
   };
+  if (evre === 'hazirlik') sonuc.strateji = await stratejiOlcusu(isler);
+  return sonuc;
+}
+
+// Strateji ölçüsü: dönem başından beri anket cevabı (haftalık istatistikten)
+// ve gelen KN formu (Webhook işleri).
+export async function stratejiOlcusu(isler) {
+  const s = await wixData.query(ISTAT).ge('hafta', STRATEJI.baslangic).limit(100).find(SA);
+  const anket = s.items.reduce((t, x) => t + (Number(x.anket) || 0), 0);
+  const kn = isler.filter((k) => k.source === 'Webhook' && (tarihISO(k.tarih || k._createdDate) || '').slice(0, 10) >= STRATEJI.baslangic).length;
+  return { ...STRATEJI, anket, kn };
 }
 
 export async function tempoAyarla(alanlar, aktor) {
@@ -236,6 +266,7 @@ export async function tempoAyarla(alanlar, aktor) {
   const hedef = sayi(alanlar.hedef, 'Hedef');
   if (!esik || !hedef || hedef < esik) throw new Error('Eşik ve Hedef pozitif olmalı; Hedef Eşik\'ten küçük olamaz.');
   const yeni = { esik, hedef };
+  if (EVRELER[alanlar.evre]) yeni.evre = alanlar.evre;
   if (alanlar.elleDeger !== undefined) yeni.elleDeger = sayi(alanlar.elleDeger, 'Bu ayın değeri') || 0;
   await ayarYaz('tempo', yeni, aktor);
   return tempoHesapla();
@@ -560,4 +591,15 @@ export function isOzeti(satirlar, kayitlar, simdi = new Date()) {
     if (i >= 0) kapanan[i]++;
   }
   return { ay, ...ozet, haftalar, kapanan };
+}
+
+// --- Geri bildirim (Fatoş, 10 Kasım: "kullanım sırasında geri bildirim ekleme kutumuz") ---
+//
+// Sayfadaki "Geri bildirim" kutusundan yazılır; hangi sayfada yazıldığı kendiliğinden
+// eklenir. GeriBildirimler koleksiyonunda durur (yeni / ele alındı); CMS'ten okunur.
+export async function geriBildirimEkle(veri, aktor) {
+  const icerik = metin(veri.metin, 4000, 'Geri bildirim', true);
+  const sayfa = metin(veri.sayfa, 40, 'Sayfa') || null;
+  const k = await wixData.insert('GeriBildirimler', { metin: icerik, sayfa, kim: kim(aktor), durum: 'yeni', tarih: new Date() }, SA);
+  return { id: k._id };
 }

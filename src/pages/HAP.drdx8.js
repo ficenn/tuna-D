@@ -50,6 +50,7 @@
 //                   · diğerleri backend/masaSayfasi.web.js ISLEMLER (sonra veri yenilenir)
 //   masa → sayfa: { tip: 'yapildi', isId, kapanisNotu } → Süleyman: kısa yol "Yapıldı"
 //   panel → sayfa: { tip: 'masaAc', masa }             → masa sayfasını aç
+//   panel → sayfa: { tip: 'geriBildirim', metin }      → GeriBildirimler'e yaz; cevap { tip: 'geriBildirimSonuc', basarili, hata }
 //   sayfa → masa: { tip: 'masaVerisi', veri, dil } / { tip: 'masaHata', hata }
 //   sayfa → masa: { tip: 'islemSonuc', basarili, mesaj | hata }
 //
@@ -182,6 +183,16 @@ async function islem(fonksiyon, basariMetni) {
 }
 
 const ISLEYICILER = {
+  // Geri bildirim kutusu (panel): masa sayfalarındakiyle aynı yere yazılır.
+  async geriBildirim(m) {
+    try {
+      const s = await masaIslem('geriBildirim', { metin: m.metin, sayfa: 'kontrolPaneli' });
+      panele(s && s.hata ? { tip: 'geriBildirimSonuc', basarili: false, hata: s.hata } : { tip: 'geriBildirimSonuc', basarili: true });
+    } catch (hata) {
+      console.error('Geri bildirim kaydedilemedi:', hata);
+      panele({ tip: 'geriBildirimSonuc', basarili: false, hata: hataMetni(hata) });
+    }
+  },
   async panelHazir() {
     panele({ tip: 'sayfaAdresi', adres: sayfaAdresi() });
     if (gorunum === 'masa') return;   // masa görünümünde açıldı: veri panele dönünce yüklenir

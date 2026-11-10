@@ -30,7 +30,7 @@ import {
   tempoHesapla, kararlariGetir, igneleriGetir, icerikleriGetir, istatistikleriGetir, kanallariGetir,
   rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, HANE, KARAR_MASASI
 } from './masaVeri';
-import { YZ_SAYFALARI } from './yzMasa';
+import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -172,7 +172,7 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
   const kararMasasi = KARAR_MASASI[kod] || null;
 
   // Sayfaya göre ek veri (paralel).
-  const [tempo, kararlar, igneler, icerik, istatistik, kanallar, rehber, yz] = await Promise.all([
+  const [tempo, kararlar, igneler, icerik, istatistik, kanallar, rehber, yz, sabah] = await Promise.all([
     pazarlamaAilesi || kod === 'yonetim' ? tempoHesapla(simdi, kayitlar.items) : null,
     kararMasasi ? kararlariGetir(kararMasasi) : null,
     HANE[kod] ? igneleriGetir(kod) : [],
@@ -180,7 +180,8 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     pazarlamaAilesi ? istatistikleriGetir(6) : [],
     kod === 'gorunurluk' ? kanallariGetir() : [],
     rehberDurumu(kod),
-    yzDurumu(simdi)
+    yzDurumu(simdi),
+    sabahNotu(kod, simdi)
   ]);
 
   // Masaya yeni gelen, yönlendirilmemiş B işleri (Masa YZ'sinin kartı).
@@ -224,6 +225,7 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     yeniGelenler,
     rehber,
     yz,
+    sabahNotu: sabah,
     yzVar: !!YZ_SAYFALARI[kod],
     ilkAdimlar: ILK_ADIMLAR[kod] || [],
     menu: Object.entries(MASA_SAYFALARI).map(([k, t]) => ({ kod: k, ad: t.ad, tur: t.tur, ust: t.ust }))
