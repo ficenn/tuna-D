@@ -19,12 +19,18 @@
 // İş ekleme yok: tek kapı Kontrol Paneli (backlog, 2026-10-31).
 //
 // Metinler: amaç (Masalar.isi), masa kartı (Masalar.kart), tanıtım videosu
-// (Masalar.tanitimVideo). İngilizce sonra (21 Kasım sonrası): alanların
+// (Masalar.tanitimVideo) — sayfada "Masayı tanı" bölümü. İngilizce sonra (21 Kasım sonrası): alanların
 // _en ikizleri eklenir; bu dosyada dil yalnızca METIN_ALANLARI'ndan okunur.
 
 import wixData from 'wix-data';
 import { satir, musteriAdlari, bugunTR } from './kontrolPaneli';
 import { DURAKLAR } from './rota';
+import { gunEkle } from './suleyman';
+import {
+  tempoHesapla, kararlariGetir, igneleriGetir, icerikleriGetir, istatistikleriGetir, kanallariGetir,
+  rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, HANE, KARAR_MASASI
+} from './masaVeri';
+import { YZ_SAYFALARI } from './yzMasa';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -114,10 +120,19 @@ async function masaSatirlari() {
   return harita;
 }
 
-export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date()) {
+// Hafta seçimi ('YYYY-MM-DD', herhangi bir gün) → o haftanın Pazartesi'si.
+function haftaSec(istenen, bugun) {
+  const s = String(istenen || '').trim();
+  return haftaBasi(/^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) ? s : bugun);
+}
+
+export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), secenek = {}) {
   const tanim = MASA_SAYFALARI[kod];
   if (!tanim) throw new Error(`Bilinmeyen masa: ${kod}`);
   const alan = METIN_ALANLARI[dil] || METIN_ALANLARI.tr;
+  const bugun = bugunTR(simdi);
+  const hafta = haftaSec(secenek.hafta, bugun);
+  const pazarlamaAilesi = kod === 'pazarlama' || tanim.ust === 'pazarlama';
 
   const [kayitlar, masalar] = await Promise.all([
     wixData.query(IS).isNotEmpty('asama').descending('isId').limit(1000).find({ suppressAuth: true }),
@@ -135,17 +150,55 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date()) {
     const t = kapanisZamani(k);
     return t !== null && t >= sinir;
   }).map((k) => satir(k, musteriler, simdi)).filter((r) => haneyeAit(kod, r));
+  // Sayfada "bitti" görünen son kapananlar (sayfanın kendi işleri, en yeni 3).
+  const sonBitenler = kayitlar.items
+    .map((k) => ({ k, t: kapanisZamani(k) }))
+    .filter(({ k, t }) => t !== null && t >= sinir && sayfayaAit(kod, satir(k, musteriler, simdi)))
+    .sort((a, b) => b.t - a.t).slice(0, 3)
+    .map(({ k }) => satir(k, musteriler, simdi));
 
   const m = masalar[kod] || {};
-  const moduller = (tanim.moduller || []).map((mk) => ({
-    kod: mk,
-    ad: MASA_SAYFALARI[mk].ad,
-    acikIs: satirlar.filter((r) => r.acik && sayfayaAit(mk, r)).length
-  }));
+  const moduller = (tanim.moduller || []).map((mk) => {
+    const acik = satirlar.filter((r) => r.acik && sayfayaAit(mk, r)).sort(siralaTermin);
+    return {
+      kod: mk,
+      ad: MASA_SAYFALARI[mk].ad,
+      acikIs: acik.length,
+      siradaki: acik[0] ? { isId: acik[0].isId, baslik: acik[0].baslik, termin: acik[0].termin } : null
+    };
+  });
+
+  const haneSatirlari = satirlar.filter((r) => haneyeAit(kod, r));
+  const kararMasasi = KARAR_MASASI[kod] || null;
+
+  // Sayfaya göre ek veri (paralel).
+  const [tempo, kararlar, igneler, icerik, istatistik, kanallar, rehber, yz] = await Promise.all([
+    pazarlamaAilesi || kod === 'yonetim' ? tempoHesapla(simdi, kayitlar.items) : null,
+    kararMasasi ? kararlariGetir(kararMasasi) : null,
+    HANE[kod] ? igneleriGetir(kod) : [],
+    pazarlamaAilesi ? icerikleriGetir(hafta) : null,
+    pazarlamaAilesi ? istatistikleriGetir(6) : [],
+    kod === 'gorunurluk' ? kanallariGetir() : [],
+    rehberDurumu(kod),
+    yzDurumu(simdi)
+  ]);
+
+  // Masaya yeni gelen, yönlendirilmemiş B işleri (Masa YZ'sinin kartı).
+  const yeniGelenler = kod === 'pazarlama'
+    ? kayitlar.items.filter((k) => yeniGelenMi(k, simdi)).map((k) => satir(k, musteriler, simdi))
+    : [];
+
+  // Bu haftaya düşen modül işleri (yayın planındaki saha satırı için).
+  const haftaSonu = gunEkle(hafta, 6);
+  const haftaIsleri = pazarlamaAilesi
+    ? satirlar.filter((r) => r.acik && r.kategoriKod === 'B' && r.termin && r.termin >= hafta && r.termin <= haftaSonu)
+      .map((r) => ({ isId: r.isId, baslik: r.baslik, termin: r.termin, modulKod: r.modulKod }))
+    : [];
 
   return {
     olusturulma: simdi.toISOString(),
-    bugun: bugunTR(simdi),
+    bugun,
+    hafta,
     masa: {
       kod,
       ad: m.masaAdi || tanim.ad,
@@ -158,7 +211,20 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date()) {
     },
     isler,
     ticari,
+    sonBitenler,
     kapanan30: kapananlar.length,
+    ozet: isOzeti(haneSatirlari, kayitlar.items, simdi),
+    tempo,
+    kararlar,
+    igneler,
+    icerik,
+    istatistik,
+    kanallar,
+    haftaIsleri,
+    yeniGelenler,
+    rehber,
+    yz,
+    yzVar: !!YZ_SAYFALARI[kod],
     ilkAdimlar: ILK_ADIMLAR[kod] || [],
     menu: Object.entries(MASA_SAYFALARI).map(([k, t]) => ({ kod: k, ad: t.ad, tur: t.tur, ust: t.ust }))
   };
