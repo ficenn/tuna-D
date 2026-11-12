@@ -103,16 +103,22 @@ export const ACILIYETLER = {
   acil: 'Acil'
 };
 
-// Formdan gelebilecek müşteri alanları ve etiketleri (notes hariç).
+// Formdan gelebilecek müşteri alanları (KVKK kararı, 7 Kasım; formda 11 Kasım):
+// HAP'ta müşteri yalnızca bir koddur (M-001) ve isteğe bağlı, kimlik taşımayan
+// kısa bir etiket. Ad, iletişim, adres, vergi bilgisi yerel müşteri dosyasında
+// kalır; kodla eşleştirilir. Koleksiyondaki eski alanlar (contactName, email,
+// phone, address, taxNumber, taxOffice) artık ne yazılır ne gösterilir.
 export const MUSTERI_ALANLARI = {
-  name: 'Ad / Unvan',
-  contactName: 'İrtibat Kişisi',
-  email: 'E-posta',
-  phone: 'Telefon',
-  address: 'Adres',
-  taxNumber: 'Vergi No',
-  taxOffice: 'Vergi Dairesi'
+  name: 'Müşteri kodu',
+  etiket: 'Kısa etiket'
 };
+
+// Kod ya da etikette kimlik / iletişim izi var mı? (e-posta, telefon, TC no gibi
+// uzun rakam dizileri). Kesin değil; bariz olanı yakalar.
+export function kimlikIziVar(s) {
+  const t = String(s || '');
+  return /@/.test(t) || /(\d[\s-]?){7,}/.test(t);
+}
 // Not: Musteriler'deki invoiceInfo (Fatura Bilgileri) alanı formdan
 // kaldırıldı (gereksiz bulundu); koleksiyonda duruyor, kod ona dokunmuyor.
 
@@ -168,12 +174,11 @@ export async function sorumluListesi() {
 function musteriBilgisi(ham) {
   const sonuc = {};
   for (const alan of Object.keys(MUSTERI_ALANLARI)) {
-    const sinir = alan === 'address' ? 1000 : UZUNLUK.kisa;
-    const s = metin(ham?.[alan], sinir, MUSTERI_ALANLARI[alan]);
+    const s = metin(ham?.[alan], alan === 'name' ? 30 : 80, MUSTERI_ALANLARI[alan]);
     if (s) sonuc[alan] = s;
   }
-  if (sonuc.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sonuc.email)) {
-    throw new Error('Müşteri e-posta adresi geçersiz.');
+  if (Object.values(sonuc).some(kimlikIziVar)) {
+    throw new Error('Müşteri kodu ve etikete ad, telefon ya da e-posta yazılmaz; bunlar yerel müşteri dosyasında kalır.');
   }
   return sonuc;
 }
@@ -184,7 +189,7 @@ function musteriBilgisi(ham) {
 // {
 //   kategori: 'A',
 //   musteri: { id: '<Musteriler _id>' }  veya  { id: null }   (yeni müşteri)
-//   musteriBilgileri: { name, contactName, email, phone, address, taxNumber, taxOffice },
+//   musteriBilgileri: { name, etiket }   (KVKK: yalnızca kod + kısa etiket),
 //   aciklama, kapsam, notlar,
 //   termin: 'YYYY-MM-DD' | '',
 //   aciliyet: 'normal' | 'acil',
@@ -303,7 +308,7 @@ async function yeniMusteriOlustur(bilgiler) {
   const mevcut = await musterileriListele();
   const anahtar = adAnahtari(bilgiler.name);
   if (mevcut.some((m) => adAnahtari(m.name) === anahtar)) {
-    throw new Error(`"${bilgiler.name}" adında bir müşteri zaten var. Listeden seçin.`);
+    throw new Error(`"${bilgiler.name}" kodlu bir müşteri zaten var. Listeden seçin.`);
   }
   return wixData.insert(MUSTERI_KOLEKSIYONU, { ...bilgiler }, { suppressAuth: true });
 }
@@ -313,7 +318,7 @@ async function yeniMusteriOlustur(bilgiler) {
 // kayıt açılmaz.
 export async function musteriKaydet(ham) {
   const bilgiler = musteriBilgisi(ham);
-  if (!bilgiler.name) throw new Error('Müşterinin adı / unvanı zorunlu.');
+  if (!bilgiler.name) throw new Error('Müşteri kodu zorunlu (ör. M-001).');
   const m = await yeniMusteriOlustur(bilgiler);
   const o = { id: m._id };
   for (const alan of Object.keys(MUSTERI_ALANLARI)) o[alan] = m[alan] || '';

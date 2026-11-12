@@ -5,7 +5,7 @@
 //   masaSayfasiVerisi(kod, secenek)   sayfanın bütün verisi (secenek.hafta: takvim haftası)
 //   masaIslem(islem, veri)            kararlar, iğneler, içerik, istatistik, kanal, rehber,
 //                                     YZ ayarı, yeni işin yönlendirilmesi (ISLEMLER)
-//   masaYzSor(sayfa, soru, gecmis)    masa / modül YZ'sine soru (arka planda)
+//   masaYzSor(sayfa, soru, gecmis, hazir)  masa / modül YZ'sine soru (arka planda); hazir: { tur, … } düğme sorusu
 //   masaYzSonucu(istekId)             yanıt hazır mı?
 
 import { Permissions, webMethod } from 'wix-web-module';
@@ -66,10 +66,10 @@ export const masaIslem = webMethod(Permissions.SiteMember, async (islem, veri) =
   }
 });
 
-export const masaYzSor = webMethod(Permissions.SiteMember, async (sayfa, soru, gecmis) => {
+export const masaYzSor = webMethod(Permissions.SiteMember, async (sayfa, soru, gecmis, hazir) => {
   await hapYetkisiGerekli();
   try {
-    return await Y.masaYzSor(String(sayfa || ''), soru, gecmis, await aktor());
+    return await Y.masaYzSor(String(sayfa || ''), soru, gecmis, await aktor(), new Date(), hazir ? { hazir } : {});
   } catch (hata) {
     console.error('masaYzSor:', hata);
     return { hata: String(hata && hata.message || hata) };

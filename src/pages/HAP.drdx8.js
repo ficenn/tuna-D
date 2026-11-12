@@ -46,7 +46,7 @@
 //   masa → sayfa: { tip: 'yeniIs', taslak? }           → panele dön, iş formunu aç (tek kapı);
 //                                                         taslak { kategori, modul, aciklama } forma yazılır
 //   masa → sayfa: { tip: 'istek', id, islem, veri }    → masaIslem / YZ; cevap { tip: 'yanit', id, sonuc | hata }
-//                   islem 'yzSor' { sayfa, soru, gecmis } · 'yzSonuc' { istekId } · 'hafta' { hafta }
+//                   islem 'yzSor' { sayfa, soru | hazir, gecmis } · 'yzSonuc' { istekId } · 'hafta' { hafta }
 //                   · diğerleri backend/masaSayfasi.web.js ISLEMLER (sonra veri yenilenir)
 //   masa → sayfa: { tip: 'yapildi', isId, kapanisNotu } → Süleyman: kısa yol "Yapıldı"
 //   panel → sayfa: { tip: 'masaAc', masa }             → masa sayfasını aç
@@ -360,7 +360,7 @@ const MASA_ISLEYICILERI = {
     const v = m.veri || {};
     try {
       if (m.islem === 'yzSor') {
-        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || []);
+        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || [], v.hazir || null);
         cevap(s && s.hata ? { hata: s.hata } : { sonuc: s });
       } else if (m.islem === 'yzSonuc') {
         cevap({ sonuc: await masaYzSonucu(v.istekId) });
