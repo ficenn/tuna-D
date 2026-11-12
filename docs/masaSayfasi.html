@@ -928,7 +928,6 @@ button.git:hover{text-decoration:underline}
       yaziyor: 'Düşünüyor…',
       gelmedi: 'Yanıt gelmedi',
       bugunuYorumla: 'Bugünün durumuna bak',
-      yorumSorusu: "Masanın bugünkü durumuna bak. Önemli bir şey görüyorsan Ne gördüm / Neden önemli / Önerim diye söyle; her şey yolundaysa kısaca söyle.",
       masayaSor: 'Masaya sor ↗',
       rehberBaslik: 'Nereden başlasak?',
       ytBasla: 'YZ ile başla',
@@ -944,29 +943,25 @@ button.git:hover{text-decoration:underline}
       yzAd: "Masa YZ'si", yzAlt: "Masanın durumunu, kararlarını ve modüllerin işini okur. Önerir; kararı sen verirsin.",
       yer: "Masa YZ'sine sor: ör. bu haftanın içerikleri stratejiye uyuyor mu?",
       selamBos: 'Hoş geldin! Masa boş, kahve sıcak. Soldaki adımlardan birini seç, birlikte başlayalım. Çoğu kişi "kime sesleniyoruz?" sorusunda takılır; ben oradan başlamanı öneririm.',
-      rehber: { h2: 'Masan boş, ama yol belli', dip: "Her adım bir masa yönetimi işi olur. İşi Kontrol Paneli'nden gir, masa seni burada karşılar.",
-        adimlar: [['Kime sesleniyoruz?', 'Herkese seslenen kimseye ulaşmaz. Tek bir kişiyi tarif ederek başla.'], ['Farkımız ne?', 'Seni sen yapan şey. Vitrinin ilk cümlesi buradan çıkar.'], ['Hangi kanallar?', 'Her yerde olmak zorunda değilsin; iyi bakılan iki kanal yeter.'], ['İlk ayın temposu', 'Haftada kaç içerik, kaç kapı, kaç mesaj? Sayıyla yaz ki ölçebilelim.']] }
+      rehber: { h2: 'Masan boş, ama yol belli', dip: "Her adım bir masa yönetimi işi olur. İşi Kontrol Paneli'nden gir, masa seni burada karşılar." }
     },
     icerik: {
       isAlt: "HAP'taki İçerik işleri (B · Pazarlama · İçerik)",
       yzAd: "İçerik YZ'si", yzAlt: "Pazarlama masasının kararlarıyla çalışır. Dil ve Ton Rehberi'ne göre taslak yazar; yayımlamaz.",
       yer: 'ör. Salı kartına LinkedIn için daha uzun bir açıklama yaz',
       selamBos: 'Merhaba! İlk iş yazmak değil: aklına gelen yarım fikirleri havuza at, ben toparlarım. Sesini birlikte buluruz.',
-      rehber: { h2: 'Boş sayfa korkusuna yer yok', dip: 'Ne söyleneceğine Pazarlama masası karar verir; burası nasıl söyleneceğinin yeri.',
-        adimlar: [['Sesini bul', 'Nasıl konuşursun? Dil ve ton rehberine üç cümle yeter.'], ['Havuza ilk 5 fikir', 'Yarım fikir de fikirdir. Buraya at, kaybolmasın.'], ['İlk haftanın 3 içeriği', 'Mükemmel değil, gerçek olsun. Cumartesi birlikte yazarız.']] }
+      rehber: { h2: 'Boş sayfa korkusuna yer yok', dip: 'Ne söyleneceğine Pazarlama masası karar verir; burası nasıl söyleneceğinin yeri.' }
     },
     gorunurluk: {
       isAlt: "HAP'taki Görünürlük işleri (B · Pazarlama · Görünürlük)",
       yzAd: "Görünürlük YZ'si", yzAlt: 'Pazarlama masasının kararlarıyla çalışır. Yayın planını ve vitrini izler; yayımlamaz, mesaj göndermez.',
       yer: 'ör. Perşembe gönderisi için en iyi saat hangisi?',
       selamBos: 'Merhaba! Önce vitrine bakalım: biri seni bugün bulsa ne görür, birlikte bakalım.',
-      rehber: { h2: 'Önce vitrin, sonra yayın', dip: 'Yayını hep insan yapar; plan ve hatırlatma bizden.',
-        adimlar: [['Vitrinini düzenle', 'Biri seni bugün bulsa ne görür? Fotoğraf, bio, iletişim.'], ['Yayın günlerini seç', 'Haftada 3 gün, hep aynı günler: alışkanlık güven verir.'], ['Ölçmeye başla', 'Her hafta dört sayı: yayın, kaydetme, mesaj, form.']] }
+      rehber: { h2: 'Önce vitrin, sonra yayın', dip: 'Yayını hep insan yapar; plan ve hatırlatma bizden.' }
     },
     yonetim: {
       isAlt: 'Yönetim işleri (Y): bütün işletmeyi ilgilendiren kararlar',
-      rehber: { h2: 'İşletmenin beyni burada kurulur', dip: 'Yazdığın her şey ruh ve bellek katmanına geçer; ikinizin onayıyla değişir.',
-        adimlar: [['Neden varız?', "Tek cümle. Bütün YZ'ler bu cümleyle konuşur."], ['Eşik ve Hedef', 'Ayakta kalmak için ne lazım, hayalin ne? İkisi de rakam olsun.'], ['İlk karar', 'Bu ay neye evet, neye hayır diyoruz?'], ['Toplantı günü', 'Haftada bir, kısa. Gündemi Yönetici YZ hazırlar.']] }
+      rehber: { h2: 'İşletmenin beyni burada kurulur', dip: 'Yazdığın her şey ruh ve bellek katmanına geçer; ikinizin onayıyla değişir.' }
     }
   };
 
@@ -1092,15 +1087,16 @@ button.git:hover{text-decoration:underline}
 
   function rehberBlok(kod) {
     var r = SAYFA_METNI[kod].rehber;
+    var adimListesi = (VERI.ilkAdimlar || []).map(function (a) { return [a.ad, a.aciklama]; });
     var tamam = VERI.rehber || [];
     var yzVar = VERI.yzVar;
-    var adimlar = r.adimlar.map(function (a, i) {
+    var adimlar = adimListesi.map(function (a, i) {
       var no = String(i + 1), bitti = tamam.indexOf(no) >= 0;
       return '<li class="' + (bitti ? 'tamam' : '') + '"><span class="r-no">' + (bitti ? '✓' : no) + '</span><div><b>' + esc(a[0]) + '</b><span>' + esc(a[1]) + '</span></div>' +
         '<div class="ust-eylem">' + (yzVar ? '<button type="button" class="r-sor" data-rehber-sor="' + i + '">' + esc(T.ytBasla) + '</button>' : '') +
         '<button type="button" class="r-tik" data-rehber-tik="' + no + '" data-tamam="' + (bitti ? '0' : '1') + '">' + esc(bitti ? T.geriAl : T.tamam) + '</button></div></li>';
     }).join('');
-    var dolu = r.adimlar.map(function (_, i) { return '<i class="' + (tamam.indexOf(String(i + 1)) >= 0 ? 'dolu' : '') + '"></i>'; }).join('');
+    var dolu = adimListesi.map(function (_, i) { return '<i class="' + (tamam.indexOf(String(i + 1)) >= 0 ? 'dolu' : '') + '"></i>'; }).join('');
     return '<section class="blok rehber" aria-label="' + esc(T.rehberBaslik) + '" style="display:block">' +
       '<header><div><p class="el-yazi">' + esc(T.rehberBaslik) + '</p><h2>' + esc(r.h2) + '</h2></div><span class="r-ilerleme" aria-label="' + tamam.length + ' adım tamam">' + dolu + '</span></header>' +
       '<ol class="r-adimlar">' + adimlar + '</ol><p class="r-dip">' + esc(r.dip) + '</p></section>';
@@ -1145,7 +1141,7 @@ button.git:hover{text-decoration:underline}
     if (SOHBET[kod]) return SOHBET[kod];
     var m = SAYFA_METNI[kod], dizi = [];
     var bos = sayfaBosMu(kod);
-    dizi.push({ selam: true, rol: 'yz', kim: m.yzAd + (bos ? ' · ilk gün' : ''), metin: bos ? m.selamBos : selamMetni(kod), sistem: true, eylem: VERI.yz.etkin ? [{ et: T.bugunuYorumla, sor: T.yorumSorusu }] : null });
+    dizi.push({ selam: true, rol: 'yz', kim: m.yzAd + (bos ? ' · ilk gün' : ''), metin: bos ? m.selamBos : selamMetni(kod), sistem: true, eylem: VERI.yz.etkin ? [{ et: T.bugunuYorumla, hazir: { tur: 'gunDurumu' } }] : null });
     SOHBET[kod] = dizi;
     return dizi;
   }
@@ -1226,7 +1222,7 @@ button.git:hover{text-decoration:underline}
     var sohbet0 = sohbetDizisi(kod).filter(function (x) { return !(sabahlar.length && x.selam); });
     var dizi = yeniGelenMesajlari().concat(sabahlar, sohbet0);
     YZ_GORUNEN = dizi;
-    var sohbet = dizi.map(function (x, i) { return mesajHtml(x, i, kod); }).join('');
+    var sohbet = dizi.map(function (x, i) { return x.gizli ? '' : mesajHtml(x, i, kod); }).join('');
     if (!VERI.yz.etkin) sohbet += mesajHtml({ rol: 'yz', kim: m.yzAd, metin: T.yzKapali, tur: 'hesap', eylem: [{ et: 'Etkinleştir', yzAc: true }] }, 'k', kod).replace('data-mesaj="k"', 'data-yz-ac="1"');
     var ust = kod === 'pazarlama' ? '' : '<button type="button" class="karar-dugme" data-git-masa="pazarlama" title="Stratejik bir soru mu? Masa YZ\'sine taşır">' + esc(T.masayaSor) + '</button>';
     var sec = igneSecimi ? '<div class="igne-sec"><span>Nereye iğneleyelim?</span>' +
@@ -1452,20 +1448,26 @@ button.git:hover{text-decoration:underline}
   // ===== YZ sohbeti =====
   function sohbeteEkle(kod, m) { sohbetDizisi(kod).push(m); ciz(); var so = $('sohbet'); if (so) so.scrollTop = so.scrollHeight; }
 
-  function yzGonder(soru, kodVer) {
+  // hazir: düğme sorusu ({ tur, … }); metni backend kurar, ekranda yalnızca etiket (gizli) ve "Düşünüyor…".
+  function yzGonder(soru, kodVer, hazir, etiket) {
     var kod = kodVer || VERI.masa.kod;
     soru = String(soru || '').trim();
-    if (!soru || yzMesgul) return;
+    if ((!soru && !hazir) || yzMesgul) return;
     var m = SAYFA_METNI[kod];
     if (!VERI.yz.etkin) { sohbeteEkle(kod, { rol: 'yz', kim: m.yzAd, metin: T.yzKapali, tur: 'hesap', eylem: [{ et: 'Etkinleştir', yzAc: true }] }); return; }
     var dizi = sohbetDizisi(kod);
     var gecmis = dizi.filter(function (x) { return !x.sistem && !x.tur; }).slice(-8).map(function (x) { return { rol: x.rol, metin: x.metin }; });
-    if ($('yzSoru')) $('yzSoru').value = '';
-    sohbeteEkle(kod, { rol: 'ins', kim: (VERI.ben || 'Sen') + ' · ' + saat(), metin: soru });
+    if (hazir) {
+      // Düğme sorusu: sohbet geçmişinde etiketle durur, ekranda görünmez.
+      dizi.push({ rol: 'ins', metin: '(' + (etiket || 'Soru') + ')', gizli: true });
+    } else {
+      if ($('yzSoru')) $('yzSoru').value = '';
+      sohbeteEkle(kod, { rol: 'ins', kim: (VERI.ben || 'Sen') + ' · ' + saat(), metin: soru });
+    }
     var bekleyen = { rol: 'yz', kim: m.yzAd, metin: T.yaziyor, tur: 'yaziyor', sistem: true };
     sohbeteEkle(kod, bekleyen);
     yzMesgul = true; ciz();
-    istek('yzSor', { sayfa: kod, soru: soru, gecmis: gecmis }).then(function (s) {
+    istek('yzSor', { sayfa: kod, soru: soru, hazir: hazir || null, gecmis: gecmis }).then(function (s) {
       if (s.kapali || s.sinir) { if (s.yz) VERI.yz = s.yz; bitir({ rol: 'yz', kim: m.yzAd, metin: s.kapali ? T.yzKapali : T.yzSinir, tur: 'hesap' }); return; }
       bekle(s.istekId, Date.now());
     }).catch(function (h) { bitir({ rol: 'yz', kim: m.yzAd, metin: h.message, tur: 'hata-m', sistem: true }); });
@@ -1694,7 +1696,7 @@ button.git:hover{text-decoration:underline}
     if (d.icerikYayinda) { islemYap('icerikDurumu', { id: d.icerikYayinda, durum: 'yayinda' }, 'Yayında olarak işaretlendi.').then(function () { kapat('d-kart'); }); return; }
     if (d.icerikYz) {
       var c = icerikBul(d.icerikYz); kapat('d-kart');
-      if (c) yzGonder('"' + c.baslik + '" kartı için ' + c.kanal + ' açıklaması taslağı yaz. Kartın şu anki notu:\n' + (c.not || '(boş)'), 'icerik');
+      if (c) yzGonder(null, 'icerik', { tur: 'icerikTaslagi', id: c.id }, '"' + c.baslik + '" için taslak');
       return;
     }
     if (d.icerik) { icerikKarti(d.icerik); return; }
@@ -1702,8 +1704,8 @@ button.git:hover{text-decoration:underline}
     if (d.istat !== undefined) { istatFormu(d.istat || (['Cmt', 'Paz'].indexOf(gunAdi(VERI.bugun)) >= 0 ? buHafta() : gecenHafta())); return; }
     if (d.rehberTik) { islemYap('rehberAdimi', { sayfa: VERI.masa.kod, adim: d.rehberTik, tamam: d.tamam === '1' }); return; }
     if (d.rehberSor !== undefined) {
-      var a = SAYFA_METNI[VERI.masa.kod].rehber.adimlar[Number(d.rehberSor)];
-      yzGonder('Birlikte başlayalım: "' + a[0] + '" (' + a[1] + ') Bana sırayla sorular sorarak ilerle; önce tek bir soru sor.');
+      var a = (VERI.ilkAdimlar || [])[Number(d.rehberSor)];
+      if (a) yzGonder(null, null, { tur: 'rehber', adim: Number(d.rehberSor) }, 'İlk gün: ' + a.ad);
       return;
     }
     if (d.igneKaldir) { islemYap('igneKaldir', { id: d.igneKaldir }, 'Panodan kaldırıldı.'); return; }
@@ -1745,7 +1747,7 @@ button.git:hover{text-decoration:underline}
     var m = YZ_GORUNEN[i]; if (!m || !m.eylem) return;
     var e = m.eylem[j]; if (!e || e.kullanildi) return;
     var kod = VERI.masa.kod;
-    if (e.sor) { yzGonder(e.sor); return; }
+    if (e.hazir) { yzGonder(null, null, e.hazir, e.et); return; }
     if (e.yzAc) { yzAyarFormu(); return; }
     if (e.yon) { dugme.disabled = true; islemYap('isYonlendir', { hedef: e.yon[0], isId: e.yon[1] }, e.yon[1] + ': ' + e.et + '.'); return; }
     if (e.karar) {

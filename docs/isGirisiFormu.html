@@ -132,7 +132,7 @@
             <legend>Müşteri</legend>
             <span class="ad zorunlu" style="display:block;margin-bottom:3px;font-weight:500;font-size:13.5px">İşi sipariş eden müşteri</span>
             <div class="m-arama" id="aramaKutusu">
-              <input type="search" id="musteriAra" autocomplete="off" placeholder="Ad, kişi, telefon veya e-posta yazın…"
+              <input type="search" id="musteriAra" autocomplete="off" placeholder="Müşteri kodu (ör. M-001)"
                      role="combobox" aria-expanded="false" aria-controls="oneriler" aria-autocomplete="list">
               <ul class="oneriler" id="oneriler" role="listbox" hidden></ul>
             </div>
@@ -203,12 +203,10 @@
     <form id="musteriFormu" novalidate>
       <h2 id="pencereBaslik">Yeni müşteri</h2>
       <div class="ikili">
-        <label class="alan" style="grid-column: 1 / -1"><span class="ad zorunlu">Ad / Unvan</span><input type="text" id="m_name" maxlength="300"></label>
-        <label class="alan"><span class="ad">İrtibat kişisi</span><input type="text" id="m_contactName" maxlength="300"></label>
-        <label class="alan"><span class="ad">Telefon</span><input type="tel" id="m_phone" maxlength="300"></label>
-        <label class="alan"><span class="ad">E-posta</span><input type="email" id="m_email" maxlength="300"></label>
-        <label class="alan" style="grid-column: 1 / -1"><span class="ad">Adres</span><input type="text" id="m_address" maxlength="1000"></label>
+        <label class="alan"><span class="ad zorunlu">Müşteri kodu</span><input type="text" id="m_name" maxlength="30" placeholder="M-001" autocomplete="off"></label>
+        <label class="alan"><span class="ad">Kısa etiket (isteğe bağlı)</span><input type="text" id="m_etiket" maxlength="80" placeholder="ör. Buca, psikolog" autocomplete="off"></label>
       </div>
+      <p class="ipucu">HAP'ta müşteri yalnızca kodla tutulur. Ad, telefon ve e-posta yerel müşteri dosyanda kalır; kodla eşleştirirsin. Etikete de kimlik yazma.</p>
       <div class="butonlar">
         <button type="submit" class="dugme" id="musteriKaydet">Müşteriyi kaydet</button>
         <button type="button" class="dugme ikincil" id="musteriVazgec">Vazgeç</button>
@@ -220,7 +218,7 @@
 
 <script>
 (function () {
-  var MUSTERI_ALANLARI = ['name', 'contactName', 'email', 'phone', 'address'];
+  var MUSTERI_ALANLARI = ['name', 'etiket'];   // KVKK: kod + kısa etiket (11 Kasım)
   var musteriler = [];
   var secili = null;          // seçili müşteri nesnesi
   var aktifIndex = -1;        // klavye ile vurgulanan öneri
@@ -257,13 +255,20 @@
   }
 
   // ---- Müşteri arama ----
-  function detayMetni(m) { return [m.contactName, m.phone, m.email].filter(Boolean).join(' · '); }
+  function detayMetni(m) { return m.etiket || ''; }
+  function kimlikIziVar(s) { return /@/.test(s || '') || /(\d[\s-]?){7,}/.test(s || ''); }
+  // Sıradaki kod: kayıtlı M-### kodlarının en büyüğü + 1.
+  function sonrakiKod() {
+    var enBuyuk = 0;
+    musteriler.forEach(function (m) { var r = /^M-(\d+)$/i.exec(String(m.name || '').trim()); if (r) enBuyuk = Math.max(enBuyuk, Number(r[1])); });
+    return 'M-' + String(enBuyuk + 1).padStart(3, '0');
+  }
 
   function eslesenler(sorgu) {
     var q = kucult(sorgu);
     if (!q) return musteriler.slice(0, 8);
     return musteriler.filter(function (m) {
-      return [m.name, m.contactName, m.phone, m.email].some(function (v) { return kucult(v).indexOf(q) !== -1; });
+      return [m.name, m.etiket].some(function (v) { return kucult(v).indexOf(q) !== -1; });
     }).slice(0, 8);
   }
 
@@ -343,7 +348,8 @@
   function pencereAc(ad) {
     onerileriKapat();
     MUSTERI_ALANLARI.forEach(function (a) { $('m_' + a).value = ''; });
-    $('m_name').value = ad || '';
+    $('m_name').value = /^M-\d+$/i.test(ad || '') ? ad : sonrakiKod();
+    // Aramaya yazılan metin etikete taşınmaz: bir kişinin adı olabilir.
     mesajGoster('musteriMesaj', '', '');
     $('perde').hidden = false;
     $('m_name').focus({ preventScroll: true });
@@ -359,9 +365,9 @@
     if (musteriBekliyor) return;
     var bilgiler = {};
     MUSTERI_ALANLARI.forEach(function (a) { bilgiler[a] = $('m_' + a).value.trim(); });
-    if (!bilgiler.name) { mesajGoster('musteriMesaj', 'hata', 'Ad / Unvan zorunlu.'); return; }
-    if (bilgiler.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bilgiler.email)) {
-      mesajGoster('musteriMesaj', 'hata', 'E-posta adresi geçersiz.'); return;
+    if (!bilgiler.name) { mesajGoster('musteriMesaj', 'hata', 'Müşteri kodu zorunlu (ör. M-001).'); return; }
+    if (kimlikIziVar(bilgiler.name) || kimlikIziVar(bilgiler.etiket)) {
+      mesajGoster('musteriMesaj', 'hata', 'Koda ve etikete telefon ya da e-posta yazılmaz; bunlar yerel müşteri dosyasında kalır.'); return;
     }
     musteriBekliyor = true; $('musteriKaydet').disabled = true;
     mesajGoster('musteriMesaj', 'bilgi', 'Kaydediliyor…');

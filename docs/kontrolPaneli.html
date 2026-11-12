@@ -1000,7 +1000,7 @@ window.HAP = { secenekler: null };
     if (d.musteriBilgisi) {
       var mb = d.musteriBilgisi;
       bilgi(iz, mb.rumuz ? 'Rumuz' : mb.knBasvurusu ? 'Başvuran' : 'Müşteri', [mb.ad, mb.irtibat].filter(Boolean).join(' · '));
-      bilgi(iz, 'İletişim', mb.rumuz ? 'Kişi bize WhatsApp\'tan yazar' : [mb.telefon, mb.eposta].filter(Boolean).join(' · '));
+      bilgi(iz, 'İletişim', mb.rumuz ? 'Kişi bize WhatsApp\'tan yazar' : mb.yerel ? 'Yerel müşteri dosyasında (HAP\'ta tutulmaz)' : [mb.telefon, mb.eposta].filter(Boolean).join(' · '));
     } else {
       bilgi(iz, 'Kimin işi', d.musteri);
       bilgi(iz, 'Kategori', d.kategori);

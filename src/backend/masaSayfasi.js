@@ -47,10 +47,28 @@ export const MASA_SAYFALARI = {
 // Boş masa: "iş yok" demekle kalmaz, ilk adımları gösterir (taslaktaki
 // "İlk gün" rehberi, backlog 2026-10-31).
 export const ILK_ADIMLAR = {
-  yonetim: ['Neden varız?', 'Eşik ve Hedef', 'İlk karar', 'Toplantı günü'],
-  pazarlama: ['Kime sesleniyoruz?', 'Farkımız ne?', 'Hangi kanallar?', 'İlk ayın temposu'],
-  icerik: ['Sesini bul', 'Havuza ilk 5 fikir', 'İlk haftanın 3 içeriği'],
-  gorunurluk: ['Vitrinini düzenle', 'Yayın günlerini seç', 'Ölçmeye başla']
+  yonetim: [
+    { ad: 'Neden varız?', aciklama: "Tek cümle. Bütün YZ'ler bu cümleyle konuşur." },
+    { ad: 'Eşik ve Hedef', aciklama: 'Ayakta kalmak için ne lazım, hayalin ne? İkisi de rakam olsun.' },
+    { ad: 'İlk karar', aciklama: 'Bu ay neye evet, neye hayır diyoruz?' },
+    { ad: 'Toplantı günü', aciklama: 'Haftada bir, kısa. Gündemi Yönetici YZ hazırlar.' }
+  ],
+  pazarlama: [
+    { ad: 'Kime sesleniyoruz?', aciklama: 'Herkese seslenen kimseye ulaşmaz. Tek bir kişiyi tarif ederek başla.' },
+    { ad: 'Farkımız ne?', aciklama: 'Seni sen yapan şey. Vitrinin ilk cümlesi buradan çıkar.' },
+    { ad: 'Hangi kanallar?', aciklama: 'Her yerde olmak zorunda değilsin; iyi bakılan iki kanal yeter.' },
+    { ad: 'İlk ayın temposu', aciklama: 'Haftada kaç içerik, kaç kapı, kaç mesaj? Sayıyla yaz ki ölçebilelim.' }
+  ],
+  icerik: [
+    { ad: 'Sesini bul', aciklama: 'Nasıl konuşursun? Dil ve ton rehberine üç cümle yeter.' },
+    { ad: 'Havuza ilk 5 fikir', aciklama: 'Yarım fikir de fikirdir. Buraya at, kaybolmasın.' },
+    { ad: 'İlk haftanın 3 içeriği', aciklama: 'Mükemmel değil, gerçek olsun. Cumartesi birlikte yazarız.' }
+  ],
+  gorunurluk: [
+    { ad: 'Vitrinini düzenle', aciklama: 'Biri seni bugün bulsa ne görür? Fotoğraf, bio, iletişim.' },
+    { ad: 'Yayın günlerini seç', aciklama: 'Haftada 3 gün, hep aynı günler: alışkanlık güven verir.' },
+    { ad: 'Ölçmeye başla', aciklama: 'Her hafta dört sayı: yayın, kaydetme, mesaj, form.' }
+  ]
 };
 
 // Dil hazırlığı: şimdilik yalnızca 'tr'. EN gelince { tr: 'isi', en: 'isi_en' } gibi.

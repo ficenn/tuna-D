@@ -267,8 +267,8 @@ export async function isDetayiHazirla(isId) {
   if (k.musteri) {
     const m = await wixData.get(MUSTERI, k.musteri, { suppressAuth: true });
     if (m) {
-      musteri = { ad: m.name || '', irtibat: m.contactName || '', telefon: m.phone || '',
-        eposta: m.email || '', adres: m.address || '' };
+      // KVKK (7 / 11 Kasım): müşteri HAP'ta kod + kısa etiket; iletişim yerel dosyada.
+      musteri = { ad: m.name || '', irtibat: m.etiket || '', telefon: '', eposta: '', adres: '', yerel: true };
     }
   }
   // KN işlerinde müşteri kaydı yok; kişi rumuzuyla bilinir. (Eski kayıtlarda
