@@ -246,7 +246,7 @@ const ISLEYICILER = {
     (s) => {
       const parcalar = [`${m.isId}: ${s.etiket || DURAK_MESAJLARI[m.islem] || 'kaydedildi'}.`];
       if (s.sonuc) parcalar.push('İş kapandı, arşive geçti.');
-      else if ((m.islem === 'evet' || m.islem === 'hayir') && s.durakAdi) parcalar.push(`İş şimdi: ${s.durakAdi}.`);
+      else if ((m.islem === 'evet' || m.islem === 'hayir' || m.islem === 'iade') && s.durakAdi) parcalar.push(`İş şimdi: ${s.durakAdi}.`);
       (s.bagliIsler || []).forEach((b) => parcalar.push(`${b.ad} işi açıldı: ${b.isId}.`));
       (s.bilgiler || []).forEach((u) => parcalar.push(u));
       (s.uyarilar || []).forEach((u) => parcalar.push(u));

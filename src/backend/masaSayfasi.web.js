@@ -40,6 +40,7 @@ const ISLEMLER = {
   rehberAdimi: (v, a) => V.rehberAdimi(v.sayfa, v.adim, v.tamam, a),
   yzEtkinlestir: (v, a) => V.yzEtkinlestir(v.etkin, a),
   yzSiniri: (v, a) => V.yzSiniriAyarla(v.tl, a),
+  yzGunlukSiniri: (v, a) => V.yzGunlukSiniriAyarla(v.sayi, a),
   sabahNotu: (v, a) => Y.sabahNotuIste(String(v.sayfa || ''), a),
   geriBildirim: (v, a) => V.geriBildirimEkle(v, a),
   tempoAyarla: (v, a) => V.tempoAyarla(v, a),

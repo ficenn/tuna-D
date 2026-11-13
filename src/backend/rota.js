@@ -66,7 +66,10 @@ export const CIKISLAR = {
   },
   kurulum: {
     evet: { etiket: 'İyi çalışıyor, iş sonuçlandı', sonuc: 'sonuclandi', bagliIsler: true },
-    hayir: { etiket: 'Düzeltme gerekiyor', hedef: 'kurulum', notZorunlu: true, notIpucu: 'Ne düzeltilecek?' }
+    hayir: { etiket: 'Düzeltme gerekiyor', hedef: 'kurulum', notZorunlu: true, notIpucu: 'Ne düzeltilecek?' },
+    // Yönetim kararı (13 Kasım, Fatoş + Tuna): iade edilen kurulum Eşik'e sayılmaz;
+    // tempo net sayar (masaVeri.js → tempoHesapla).
+    iade: { etiket: 'Vazgeçti, para iade edildi', sonuc: 'iade_edildi', notZorunlu: true, notIpucu: 'Neden vazgeçti? (iade tutarı istersen)' }
   }
 };
 
@@ -74,7 +77,8 @@ export const SONUCLAR = {
   sonuclandi: 'İş sonuçlandı',
   yonlendirme_gerceklesmedi: 'Yönlendirme gerçekleşmedi',
   satis_gerceklesmedi: 'Satış gerçekleşmedi',
-  talep_gelmedi: 'Talep gelmedi'
+  talep_gelmedi: 'Talep gelmedi',
+  iade_edildi: 'Vazgeçti, iade edildi'
 };
 
 // Aday Takibi: Durum Fotoğrafı'ndan sonra kaçıncı günlerde yoklanır.

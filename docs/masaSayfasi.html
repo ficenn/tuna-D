@@ -871,6 +871,9 @@ button.git:hover{text-decoration:underline}
 .geri-bildirim{font:inherit;font-size:12.5px;font-weight:600;color:var(--soluk);background:none;border:1px dashed var(--cizgi);border-radius:999px;padding:5px 12px;cursor:pointer;justify-self:start;margin:4px 6px 0}
 .geri-bildirim:hover{color:var(--ana-koyu);border-color:var(--ana)}
 
+.yz-uyari{margin:0;padding:0 16px 6px;font-size:12px;color:var(--soluk)}
+.yz-alt-yazi{margin:0;padding:0 16px 10px;font-size:11px;color:var(--soluk)}
+
 </style>
 </head>
 <body>
@@ -925,6 +928,9 @@ button.git:hover{text-decoration:underline}
       gonder: 'Gönder', igne: 'İğnele',
       yzKapali: "YZ şu an kapalı. Etkinleştirince çalışmaya başlar; aylık sınırı aşınca kendiliğinden durur.",
       yzSinir: "Bu ayın YZ sınırı doldu. Sınırı menüden artırabilir ya da gelecek ayı bekleyebilirsin.",
+      yzGunluk: "Bugünlük soru sınırına geldin. Yarın kaldığımız yerden devam ederiz.",
+      yzUyari: "Hatırlatalım: burada bir yapay zekâ ile konuşuyorsun. Lütfen danışanlarına ya da başka kişilere ait bilgileri buraya yazma.",
+      yzAltYazi: "HAP YZ hata yapabilir; önemli konularda lütfen doğruluğunu kontrol et.",
       yaziyor: 'Düşünüyor…',
       gelmedi: 'Yanıt gelmedi',
       bugunuYorumla: 'Bugünün durumuna bak',
@@ -1231,10 +1237,12 @@ button.git:hover{text-decoration:underline}
     var k = VERI.yz;
     return '<section class="blok yz" aria-label="' + esc(m.yzAd) + '"><header><div><h2>' + esc(m.yzAd) + '</h2><p>' + esc(m.yzAlt) + '</p></div>' + ust + '</header>' +
       '<div class="sohbet" id="sohbet">' + sohbet + '</div>' + sec +
+      '<p class="yz-uyari">' + esc(T.yzUyari) + '</p>' +
       '<form class="yaz" id="yzForm"><label for="yzSoru" class="gizli">' + esc(m.yzAd) + '</label>' +
       '<textarea id="yzSoru" rows="3" maxlength="2000" placeholder="' + esc(m.yer) + ' (Enter gönderir, Shift+Enter yeni satır)"></textarea>' +
       '<button type="button" class="igne-dugme" id="igneDugme" title="Yazdığını ya da son YZ yanıtını iğneler">' + esc(T.igne) + '</button>' +
       '<button type="submit" id="gonderDugme"' + (yzMesgul ? ' disabled' : '') + '>' + esc(T.gonder) + '</button></form>' +
+      '<p class="yz-alt-yazi">' + esc(T.yzAltYazi) + '</p>' +
       '<p class="kucuk">' + esc(T.igneNot) + (k.etkin ? ' Bu ay ≈ ' + k.buAyTL.toLocaleString('tr-TR') + ' / ' + k.aylikSinirTL + ' TL.' : '') + '</p></section>';
   }
   var YZ_GORUNEN = [];
@@ -1468,7 +1476,7 @@ button.git:hover{text-decoration:underline}
     sohbeteEkle(kod, bekleyen);
     yzMesgul = true; ciz();
     istek('yzSor', { sayfa: kod, soru: soru, hazir: hazir || null, gecmis: gecmis }).then(function (s) {
-      if (s.kapali || s.sinir) { if (s.yz) VERI.yz = s.yz; bitir({ rol: 'yz', kim: m.yzAd, metin: s.kapali ? T.yzKapali : T.yzSinir, tur: 'hesap' }); return; }
+      if (s.kapali || s.sinir || s.gunlukSinir) { if (s.yz) VERI.yz = s.yz; bitir({ rol: 'yz', kim: m.yzAd, metin: s.kapali ? T.yzKapali : s.sinir ? T.yzSinir : T.yzGunluk, tur: 'hesap' }); return; }
       bekle(s.istekId, Date.now());
     }).catch(function (h) { bitir({ rol: 'yz', kim: m.yzAd, metin: h.message, tur: 'hata-m', sistem: true }); });
 
@@ -1506,15 +1514,18 @@ button.git:hover{text-decoration:underline}
     function satir(x, oneri) {
       var meta = [x.kaynakIs ? 'iş ' + x.kaynakIs : null, x.oneren ? 'öneren: ' + x.oneren : null, x.onaylayanlar.length ? 'onaylayan: ' + x.onaylayanlar.join(', ') : null, x.redNotu ? 'ret: ' + x.redNotu : null].filter(Boolean).join(' · ');
       var tarih = isoKisa(x.kararTarihi || x.tarih);
-      return '<li><details' + (oneri ? ' open' : '') + '><summary><time>' + esc(tarih) + '</time><b>' + esc(x.baslik) + (x.durum !== 'gecerli' && !oneri ? ' <span class="durum d-ileri">' + esc(x.durumEtiketi) + '</span>' : '') + '</b></summary><span>' + esc(x.aciklama || '') + (meta ? '<span class="meta">' + esc(meta) + '</span>' : '') + '</span></details>' +
-        (oneri ? '<div class="onay-satir"><span class="durum d-yakin">' + x.onaylayanlar.length + ' / ' + x.gerekenOnay + ' onay</span><span class="eylem"><button type="button" data-karar-onayla="' + esc(x.id) + '">Onayla</button><button type="button" class="ikincil" data-karar-reddet="' + esc(x.id) + '">Reddet</button></span></div>' : '') + '</li>';
+      var kaldirma = x.tur === 'kaldirma' && oneri ? '<span class="durum d-ileri">Kaldırma önerisi</span> ' : '';
+      var degistirme = x.oncekiKarar && oneri && x.tur !== 'kaldirma' ? '<span class="durum d-ileri">Değişiklik önerisi</span> ' : '';
+      var duzenle = x.durum === 'gecerli' && !oneri ? '<div class="onay-satir"><span class="eylem"><button type="button" class="ikincil" data-karar-degistir="' + esc(x.id) + '">Değiştir</button><button type="button" class="ikincil" data-karar-kaldir="' + esc(x.id) + '">Kaldır</button></span></div>' : '';
+      return '<li><details' + (oneri ? ' open' : '') + '><summary><time>' + esc(tarih) + '</time><b>' + kaldirma + degistirme + esc(x.baslik) + (x.durum !== 'gecerli' && !oneri ? ' <span class="durum d-ileri">' + esc(x.durumEtiketi) + '</span>' : '') + '</b></summary><span>' + esc(x.aciklama || '') + (meta ? '<span class="meta">' + esc(meta) + '</span>' : '') + '</span></details>' +
+        (oneri ? '<div class="onay-satir"><span class="durum d-yakin">' + x.onaylayanlar.length + ' / ' + x.gerekenOnay + ' onay</span><span class="eylem"><button type="button" data-karar-onayla="' + esc(x.id) + '">Onayla</button><button type="button" class="ikincil" data-karar-reddet="' + esc(x.id) + '">Reddet</button></span></div>' : duzenle) + '</li>';
     }
     var gecerli = k.gecerli.map(function (x) { return satir(x); }).join('');
     $('kararlarIc').innerHTML = '<header><div><h2>' + baslik + '</h2><p>Bağlamda kayıtlı. YZ\'ler her çalışmada bunları okur. Ayrıntı için karara tıkla.</p></div><div class="sag-ust"><span class="sayac">' + k.gecerli.length + ' geçerli</span><button type="button" class="kapat" data-kapat aria-label="Kapat">×</button></div></header>' +
       (k.oneriler.length ? '<p class="alt-baslik">Onay bekleyen öneriler' + (kod === 'yonetim' ? ' (Fatoş ve Tuna ikisi de onaylar)' : '') + '</p><ul class="karar-liste">' + k.oneriler.map(function (x) { return satir(x, true); }).join('') + '</ul>' : '') +
       (gecerli ? '<p class="alt-baslik">Geçerli</p><ul class="karar-liste">' + gecerli + '</ul>' : '<div class="bos" style="display:grid"><p style="margin:0">Bu masanın henüz kayıtlı kararı yok. Masa yönetimi işi kapanırken "Karar olarak kaydet" dersen burada görünür.</p></div>') +
       (k.arsiv.length ? '<details style="padding:0 16px 8px"><summary class="git" style="padding:8px 0">Arşivdeki ' + k.arsiv.length + ' eski kararı göster</summary><ul class="karar-liste" style="padding:0">' + k.arsiv.map(function (x) { return satir(x); }).join('') + '</ul></details>' : '') +
-      '<p class="kucuk" style="padding-top:8px">Kararlar silinmez; değişen karar yeni sürümle arşive geçer, reddedilen gerekçesiyle kalır. <button type="button" class="git" data-karar-yeni>+ Karar öner</button></p>';
+      '<p class="kucuk" style="padding-top:8px">Kararlar silinmez; değiştirilen ya da kaldırılan karar onaydan sonra arşive geçer, reddedilen gerekçesiyle kalır. YZ yalnızca geçerli kararları okur. <button type="button" class="git" data-karar-yeni>+ Karar öner</button></p>';
     ac('d-kararlar');
   }
 
@@ -1610,11 +1621,26 @@ button.git:hover{text-decoration:underline}
   }
   var yapildiBekleyen = null;
 
-  function kararOnerFormu(baslik, kaynak) {
+  function gecerliKarar(id) { return (VERI.kararlar ? VERI.kararlar.gecerli : []).filter(function (x) { return x.id === id; })[0] || null; }
+
+  function kararKaldirFormu(id) {
+    var x = gecerliKarar(id); if (!x) return;
     var kod = VERI.masa.kod;
-    formAc('Karar öner', alan('Karar (tek cümle)', girdi('baslik', baslik || '', 'text', ' maxlength="300" required'), true) +
-      alan('Açıklama / gerekçe', '<textarea name="aciklama" maxlength="4000"></textarea>', true) + alan('Kaynak iş (varsa)', girdi('kaynakIs', '', 'text', ' maxlength="10" placeholder="000031"')),
-      function (v) { v.masa = kod === 'yonetim' ? 'yonetim' : 'pazarlama'; if (kaynak) v.oneren = kaynak; return islemYap('kararOner', v, 'Öneri onaya düştü.').then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); }); });
+    formAc('Kararı kaldır', '<p class="tam ozet" style="margin:0">"' + esc(x.baslik) + '" kararı onaydan sonra arşive geçer; YZ artık okumaz. Silinmez.' + (kod === 'yonetim' ? ' Fatoş ve Tuna ikisi de onaylar.' : '') + '</p>' +
+      alan('Neden kaldırılıyor? (zorunlu)', '<textarea name="aciklama" maxlength="4000" required></textarea>', true),
+      function (v) {
+        return islemYap('kararOner', { masa: kod === 'yonetim' ? 'yonetim' : 'pazarlama', tur: 'kaldirma', oncekiKarar: id, baslik: ('Kaldırılsın: ' + x.baslik).slice(0, 300), aciklama: v.aciklama }, 'Kaldırma önerisi onaya düştü.')
+          .then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); });
+      });
+  }
+
+  function kararOnerFormu(baslik, kaynak, oncekiKarar) {
+    var kod = VERI.masa.kod;
+    var eski = oncekiKarar ? gecerliKarar(oncekiKarar) : null;
+    formAc(eski ? 'Kararı değiştir' : 'Karar öner', (eski ? '<p class="tam ozet" style="margin:0">Yeni hâli onaylanınca "' + esc(eski.baslik) + '" arşive geçer.</p>' : '') +
+      alan('Karar (tek cümle)', girdi('baslik', baslik || '', 'text', ' maxlength="300" required'), true) +
+      alan(eski ? 'Neden değişiyor? (isteğe bağlı)' : 'Açıklama / gerekçe', '<textarea name="aciklama" maxlength="4000"></textarea>', true) + alan('Kaynak iş (varsa)', girdi('kaynakIs', '', 'text', ' maxlength="10" placeholder="000031"')),
+      function (v) { v.masa = kod === 'yonetim' ? 'yonetim' : 'pazarlama'; if (kaynak) v.oneren = kaynak; if (eski) v.oncekiKarar = eski.id; return islemYap('kararOner', v, 'Öneri onaya düştü.').then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); }); });
   }
 
   function reddetFormu(id) {
@@ -1624,10 +1650,12 @@ button.git:hover{text-decoration:underline}
 
   function yzAyarFormu() {
     var y = VERI.yz;
-    formAc("Masa YZ'si", '<p class="tam ozet" style="margin:0">YZ etkinleştirilince sorulara yanıt verir. Her yanıtın tahmini maliyeti token sayısından hesaplanır; ay içinde sınıra ulaşınca kendiliğinden durur. Bu ay: ' + y.buAyIstek + ' istek, ≈ ' + y.buAyTL.toLocaleString('tr-TR') + ' TL.</p>' +
-      alan('Durum', secim('etkin', [['1', 'Açık'], ['0', 'Kapalı']], y.etkin ? '1' : '0')) + alan('Aylık sınır (TL)', girdi('tl', y.aylikSinirTL, 'number', ' min="10" max="500"')),
+    formAc("Masa YZ'si", '<p class="tam ozet" style="margin:0">YZ etkinleştirilince sorulara yanıt verir. Her yanıtın tahmini maliyeti token sayısından hesaplanır; ay içinde sınıra ulaşınca kendiliğinden durur. Bu ay: ' + y.buAyIstek + ' istek, ≈ ' + y.buAyTL.toLocaleString('tr-TR') + ' TL.' +
+      (y.ortGirdiToken ? ' İstek başına ortalama ≈ ' + y.ortGirdiToken.toLocaleString('tr-TR') + ' token okunuyor (en büyük ' + y.enBuyukGirdi.toLocaleString('tr-TR') + '); bu sayı aylar içinde hızla büyürse bağlam şişiyor demektir.' : '') + '</p>' +
+      alan('Durum', secim('etkin', [['1', 'Açık'], ['0', 'Kapalı']], y.etkin ? '1' : '0')) + alan('Aylık sınır (TL)', girdi('tl', y.aylikSinirTL, 'number', ' min="10" max="500"')) +
+      alan('Kişi başı günlük soru', girdi('gunluk', y.gunlukSinir || 40, 'number', ' min="5" max="500"')),
       function (v) {
-        return islemYap('yzSiniri', { tl: v.tl }).then(function () { return islemYap('yzEtkinlestir', { etkin: v.etkin === '1' }, v.etkin === '1' ? "Masa YZ'si açık." : "Masa YZ'si kapalı."); });
+        return islemYap('yzSiniri', { tl: v.tl }).then(function () { return islemYap('yzGunlukSiniri', { sayi: v.gunluk }); }).then(function () { return islemYap('yzEtkinlestir', { etkin: v.etkin === '1' }, v.etkin === '1' ? "Masa YZ'si açık." : "Masa YZ'si kapalı."); });
       });
   }
 
@@ -1681,6 +1709,8 @@ button.git:hover{text-decoration:underline}
     if (d.kararOnayla) { t.disabled = true; islemYap('kararOnayla', { id: d.kararOnayla }, 'Onaylandı.').then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); }, function () { t.disabled = false; }); return; }
     if (d.kararReddet) { reddetFormu(d.kararReddet); return; }
     if (t.hasAttribute('data-karar-yeni')) { kararOnerFormu(''); return; }
+    if (d.kararDegistir) { var dk = gecerliKarar(d.kararDegistir); if (dk) kararOnerFormu(dk.baslik, null, dk.id); return; }
+    if (d.kararKaldir) { kararKaldirFormu(d.kararKaldir); return; }
     if (d.modulAc) { modulDiyalogu(d.modulAc); return; }
     if (t.hasAttribute('data-tempo')) { tempoFormu(); return; }
     if (t.hasAttribute('data-geri-bildirim')) { geriBildirimFormu(); return; }
