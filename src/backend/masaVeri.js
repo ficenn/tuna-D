@@ -112,6 +112,10 @@ async function ayarYaz(id, alanlar, aktor) {
 // --- YZ ayarı ve kullanım ---
 
 export const YZ_VARSAYILAN_SINIR_TL = 100;
+// Kişi başı günlük soru sınırı (12-13 Kasım, Tuna ile): bir kişi, kötüye
+// kullanımla ya da takılan bir döngüyle aylık sınırı herkes için bitiremesin.
+// Günün ilk notu sayılmaz (kullanıcı istemiyor, sayfa açılınca geliyor).
+export const YZ_GUNLUK_KISI_VARSAYILAN = 40;
 
 export function ayKodu(simdi = new Date()) {
   return gunTR(simdi).slice(0, 7);
@@ -124,11 +128,26 @@ export async function yzKullanimi(simdi = new Date()) {
   return { ay, istek: k ? Number(k.istek) || 0 : 0, tahminiTL: k ? Number(k.tahminiTL) || 0 : 0, kayit: k || null };
 }
 
-export async function yzDurumu(simdi = new Date()) {
+function gunlukSayi(kayit, kisi, simdi) {
+  const g = kayit && kayit.gunluk;
+  if (!kisi || !g || g.gun !== gunTR(simdi) || !g.kisiler) return 0;
+  return Number(g.kisiler[kisi]) || 0;
+}
+
+export async function yzDurumu(simdi = new Date(), kisi = null) {
   const a = await ayarGetir('yz');
   const k = await yzKullanimi(simdi);
   const sinir = a && Number(a.aylikSinirTL) > 0 ? Number(a.aylikSinirTL) : YZ_VARSAYILAN_SINIR_TL;
+  const gunlukSinir = a && Number(a.gunlukKisiSiniri) > 0 ? Number(a.gunlukKisiSiniri) : YZ_GUNLUK_KISI_VARSAYILAN;
+  const bugunKisi = gunlukSayi(k.kayit, kisi, simdi);
+  const girdiToplam = k.kayit ? Number(k.kayit.girdiToken) || 0 : 0;
   return {
+    gunlukSinir,
+    bugunKisi,
+    gunlukDoldu: !!kisi && bugunKisi >= gunlukSinir,
+    // Bağlam büyümesi izi: istek başına ortalama ve en büyük girdi (token).
+    ortGirdiToken: k.istek ? Math.round(girdiToplam / k.istek) : 0,
+    enBuyukGirdi: k.kayit ? Number(k.kayit.enBuyukGirdi) || 0 : 0,
     etkin: !!(a && a.etkin),
     aylikSinirTL: sinir,
     buAyTL: Math.round(k.tahminiTL * 100) / 100,
@@ -143,6 +162,13 @@ export async function yzEtkinlestir(etkin, aktor) {
   return yzDurumu();
 }
 
+export async function yzGunlukSiniriAyarla(n, aktor) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 5 || v > 500) throw new Error('Günlük kişi sınırı 5 ile 500 soru arasında olmalı.');
+  await ayarYaz('yz', { gunlukKisiSiniri: Math.round(v) }, aktor);
+  return yzDurumu();
+}
+
 export async function yzSiniriAyarla(tl, aktor) {
   const n = Number(tl);
   if (!Number.isFinite(n) || n < 10 || n > 500) throw new Error('Aylık sınır 10 ile 500 TL arasında olmalı.');
@@ -151,9 +177,16 @@ export async function yzSiniriAyarla(tl, aktor) {
 }
 
 // Kullanım kaydı: istek sayısı istek anında, token ve TL yanıt gelince.
-export async function yzKullanimEkle({ istek = 0, girdiToken = 0, ciktiToken = 0, tl = 0 }, simdi = new Date()) {
+export async function yzKullanimEkle({ istek = 0, girdiToken = 0, ciktiToken = 0, tl = 0, kisi = null }, simdi = new Date()) {
   const k = await yzKullanimi(simdi);
   const satir = k.kayit || { ay: k.ay, istek: 0, girdiToken: 0, ciktiToken: 0, tahminiTL: 0 };
+  if (istek && kisi) {
+    const gun = gunTR(simdi);
+    const g = satir.gunluk && satir.gunluk.gun === gun ? satir.gunluk : { gun, kisiler: {} };
+    g.kisiler = { ...(g.kisiler || {}), [kisi]: (Number((g.kisiler || {})[kisi]) || 0) + istek };
+    satir.gunluk = g;
+  }
+  if (girdiToken > (Number(satir.enBuyukGirdi) || 0)) satir.enBuyukGirdi = girdiToken;
   satir.istek = (Number(satir.istek) || 0) + istek;
   satir.girdiToken = (Number(satir.girdiToken) || 0) + girdiToken;
   satir.ciktiToken = (Number(satir.ciktiToken) || 0) + ciktiToken;
@@ -195,6 +228,41 @@ function oncekiAy(ay) {
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
 }
 
+// --- İş penceresi (12-13 Kasım, Tuna ile) ---
+//
+// Sayfalar ve YZ eskiden tüm işleri tek sorguda okuyordu (en çok 1000 satır,
+// tempoda sırasız). İş sayısı 1000'i geçince sayılar sessizce bozulurdu.
+// Artık yalnızca gereken dilim okunur:
+//   - açık işler (tamamlanmamış, iptal edilmemiş), yaşı ne olursa olsun;
+//   - son pencerede güncellenmiş işler (kapanış, durak geçişi güncellemedir).
+// Pencere, tempo için bakılan en eski ayın (bu ay + önceki 3 ay) başıdır;
+// bu, "son 30 günde kapanan" listesini de kapsar. Kayıtlar silinmez ya da
+// gizlenmez: iş listesi ve iş no ile arama tüm kayıtları okumaya devam eder.
+// Pencere dışında düzeltilen eski bir iş _updatedDate'i ilerlediği için okunur
+// ama tempoya etkisi olmaz: tempo Kurulum'a giriş gününe göre sayar.
+export function isPenceresiBasi(simdi = new Date()) {
+  let ay = ayKodu(simdi);
+  for (let i = 0; i < 3; i++) ay = oncekiAy(ay);
+  return new Date(`${ay}-01T00:00:00+03:00`);
+}
+
+export async function isleriGetir(simdi = new Date(), { yalnizAcik = false } = {}) {
+  const acikQ = wixData.query(IS).isNotEmpty('asama').ne('status', 'tamamlandi').ne('status', 'iptal')
+    .descending('isId').limit(1000).find(SA);
+  const guncelQ = yalnizAcik ? null : wixData.query(IS).isNotEmpty('asama').ge('_updatedDate', isPenceresiBasi(simdi))
+    .descending('_updatedDate').limit(1000).find(SA);
+  const [acik, guncel] = await Promise.all([acikQ, guncelQ]);
+  const gorulen = new Set();
+  const hepsi = [];
+  for (const k of [...acik.items, ...(guncel ? guncel.items : [])]) {
+    const anahtar = k._id || k.isId;
+    if (gorulen.has(anahtar)) continue;
+    gorulen.add(anahtar);
+    hepsi.push(k);
+  }
+  return hepsi.sort((a, b) => String(b.isId || '').localeCompare(String(a.isId || '')));
+}
+
 // İşin Kurulum'a girdiği gün ('YYYY-MM-DD') ya da null.
 export function kurulumaGirisGunu(k) {
   const gecmis = Array.isArray(k.gecmis) ? k.gecmis : [];
@@ -226,11 +294,14 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   // Son 3 tamamlanmış ay (Hedef'e geçiş kuralı için).
   const uc = [oncekiAy(ay), oncekiAy(oncekiAy(ay)), oncekiAy(oncekiAy(oncekiAy(ay)))];
   const aylik = { [ay]: 0, [uc[0]]: 0, [uc[1]]: 0, [uc[2]]: 0 };
-  const isler = kayitlar || (await wixData.query(IS).isNotEmpty('asama').limit(1000).find(SA)).items;
+  const isler = kayitlar || (await isleriGetir(simdi));
   if (kaynak === 'elle') {
     aylik[ay] = Number(a.elleDeger) || 0;
   } else {
     for (const k of isler) {
+      // Net sayım (Yönetim kararı, 13 Kasım): iade edilen kurulum hiç sayılmaz,
+      // girdiği ayın sayısından da düşer.
+      if (k.sonuc === 'iade_edildi') continue;
       const g = kurulumaGirisGunu(k);
       if (g && aylik[g.slice(0, 7)] !== undefined) aylik[g.slice(0, 7)]++;
     }
@@ -281,7 +352,7 @@ function kararSatiri(k) {
     aciklama: k.aciklama || '',
     masa: k.masa,
     durum: k.durum,
-    durumEtiketi: KARAR_DURUMLARI[k.durum] || k.durum,
+    durumEtiketi: k.tur === 'kaldirma' && k.durum === 'arsiv' ? 'Kaldırma onaylandı' : (KARAR_DURUMLARI[k.durum] || k.durum),
     kaynakIs: k.kaynakIs || null,
     oneren: k.oneren || null,
     onaylayanlar: Array.isArray(k.onaylayanlar) ? k.onaylayanlar : [],
@@ -289,6 +360,7 @@ function kararSatiri(k) {
     tarih: tarihISO(k.tarih || k._createdDate),
     kararTarihi: tarihISO(k.kararTarihi),
     oncekiKarar: k.oncekiKarar || null,
+    tur: k.tur || 'karar',
     redNotu: k.redNotu || null
   };
 }
@@ -314,12 +386,20 @@ export async function kararOner(veri, aktor) {
   const masa = String(veri.masa || '').trim();
   if (!GEREKEN_ONAY[masa === 'yonetim' ? 'yonetim' : 'masa'] || !['pazarlama', 'yonetim'].includes(masa)) throw new Error('Masa geçersiz.');
   const baslik = metin(veri.baslik, KISA, 'Karar', true);
-  const aciklama = metin(veri.aciklama, UZUN, 'Açıklama');
+  const aciklama = metin(veri.aciklama, UZUN, 'Açıklama') || '';
   const kaynakIs = metin(veri.kaynakIs, 20, 'Kaynak iş') || null;
-  const oncekiKarar = veri.oncekiKarar ? (await kararBul(veri.oncekiKarar))._id : null;
+  const onceki = veri.oncekiKarar ? await kararBul(veri.oncekiKarar) : null;
+  const oncekiKarar = onceki ? onceki._id : null;
+  // Kaldırma önerisi (12-13 Kasım): yerine yeni karar gelmeden biten karar.
+  // Onaylanınca eski karar arşive geçer; önerinin kendisi de arşivde kalır,
+  // YZ'ye "geçerli karar" olarak gitmez.
+  const tur = veri.tur === 'kaldirma' ? 'kaldirma' : 'karar';
+  if (onceki && onceki.durum !== 'gecerli') throw new Error('Yalnızca geçerli bir karar değiştirilebilir ya da kaldırılabilir.');
+  if (tur === 'kaldirma' && !onceki) throw new Error('Kaldırılacak karar seçilmedi.');
+  if (tur === 'kaldirma' && !aciklama) throw new Error('Kaldırma gerekçesi zorunlu.');
   const katman = masa === 'yonetim' ? 'yonetim' : 'masa';
   const kayit = await wixData.insert(KARAR, {
-    masa, katman, baslik, aciklama, kaynakIs, oncekiKarar,
+    masa, katman, baslik, aciklama, kaynakIs, oncekiKarar, tur,
     durum: 'oneri',
     oneren: metin(veri.oneren, 120, 'Öneren') || kim(aktor),
     onaylayanlar: [],
@@ -338,7 +418,7 @@ export async function kararOnayla(id, aktor) {
   onaylayanlar.push(ad);
   const tamam = onaylayanlar.length >= (Number(k.gerekenOnay) || 1);
   const yeni = { ...k, onaylayanlar };
-  if (tamam) { yeni.durum = 'gecerli'; yeni.kararTarihi = new Date(); }
+  if (tamam) { yeni.durum = k.tur === 'kaldirma' ? 'arsiv' : 'gecerli'; yeni.kararTarihi = new Date(); }
   await wixData.update(KARAR, yeni, SA);
   if (tamam && k.oncekiKarar) {
     try {

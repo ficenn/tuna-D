@@ -28,7 +28,7 @@ import { DURAKLAR } from './rota';
 import { gunEkle } from './suleyman';
 import {
   tempoHesapla, kararlariGetir, igneleriGetir, icerikleriGetir, istatistikleriGetir, kanallariGetir,
-  rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, HANE, KARAR_MASASI
+  rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
 
@@ -153,7 +153,7 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
   const pazarlamaAilesi = kod === 'pazarlama' || tanim.ust === 'pazarlama';
 
   const [kayitlar, masalar] = await Promise.all([
-    wixData.query(IS).isNotEmpty('asama').descending('isId').limit(1000).find({ suppressAuth: true }),
+    isleriGetir(simdi).then((items) => ({ items })),
     masaSatirlari()
   ]);
   const musteriler = await musteriAdlari(kayitlar.items.map((k) => k.musteri));

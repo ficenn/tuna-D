@@ -829,7 +829,7 @@ window.HAP = { secenekler: null };
       if (tarihUyarisi(islem)) return;
       var not = ta.value.trim();
       if (NOT_ZORUNLU[islem] && !not) { mesaj('durakMesaj', 'hata', NOT_ZORUNLU[islem]); ta.focus(); return; }
-      var cikis = (islem === 'evet' || islem === 'hayir') ? dk.cikislar[islem] : null;
+      var cikis = (islem === 'evet' || islem === 'hayir' || islem === 'iade') ? dk.cikislar[islem] : null;
       if (cikis && cikis.notZorunlu && !not) { mesaj('durakMesaj', 'hata', 'Not zorunlu: ' + (cikis.notIpucu || cikis.etiket)); ta.focus(); return; }
       var secenek = { not: not };
       if (islem === 'takipYapildi' && tarih) secenek.tarih = tarih.value;
@@ -864,6 +864,7 @@ window.HAP = { secenekler: null };
     if (var_('takipYapildi')) dugme(butonlar, 'dugme ikincil', DURAK_DUGME.takipYapildi, 'takipYapildi', false);
     if (var_('evet')) dugme(butonlar, 'dugme', '✓ ' + dk.cikislar.evet.etiket, 'evet', true, dk.cikislar.evet.notIpucu);
     if (var_('hayir')) dugme(butonlar, 'dugme ikincil', '✕ ' + dk.cikislar.hayir.etiket, 'hayir', true, dk.cikislar.hayir.notIpucu);
+    if (var_('iade')) dugme(butonlar, 'dugme ikincil', '↩ ' + dk.cikislar.iade.etiket, 'iade', true, dk.cikislar.iade.notIpucu);
     if (!butonlar.children.length) butonlar.remove();
     if (atlaSec) dugme(atb, 'dugme ikincil', DURAK_DUGME.ileriAtla, 'ileriAtla', true, NOT_ZORUNLU.ileriAtla);
 

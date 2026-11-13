@@ -335,10 +335,10 @@ export async function gecisYap(isId, islem, aktor, not, simdi = new Date(), sece
 // secenek: { not, tarih, hedef }
 //
 // İzinsiz işlemde hata fırlatmaz: { basarili: false, sebep, mesaj } döner.
-export const DURAK_ISLEMLERI = ['basla', 'beklet', 'devamEt', 'iptal', 'takipYapildi', 'evet', 'hayir', 'ileriAtla'];
+export const DURAK_ISLEMLERI = ['basla', 'beklet', 'devamEt', 'iptal', 'takipYapildi', 'evet', 'hayir', 'iade', 'ileriAtla'];
 const ISLEM_GECMIS_ADLARI = {
   basla: 'durak_basladi', beklet: 'durak_bekletildi', devamEt: 'durak_devam',
-  iptal: 'is_iptal', takipYapildi: 'takip_yapildi', evet: 'durak_cikisi', hayir: 'durak_cikisi',
+  iptal: 'is_iptal', takipYapildi: 'takip_yapildi', evet: 'durak_cikisi', hayir: 'durak_cikisi', iade: 'durak_cikisi',
   ileriAtla: 'durak_atlandi'
 };
 
@@ -369,6 +369,7 @@ export function izinliDurakIslemleri(durum) {
   if (d !== 'beklemede') {
     if (cikis.evet) liste.push('evet');
     if (cikis.hayir) liste.push('hayir');
+    if (cikis.iade) liste.push('iade');
     if (ileriDuraklar(asama).length > 1) liste.push('ileriAtla');
   }
   liste.push('iptal');
