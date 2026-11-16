@@ -36,6 +36,8 @@ const ICERIK = 'Icerikler';
 const ISTAT = 'HaftalikIstatistik';
 const KANAL = 'Kanallar';
 const AYAR = 'HapAyarlari';
+// Aylık elle giriş (000035, 16 Kasım): ay ('YYYY-MM') | seans | gelir (net TL) | not | kim | guncelleme
+const AYLIK = 'AylikKayitlar';
 const KULLANIM = 'YzKullanim';
 const IS = 'IsKayitlari';
 
@@ -66,6 +68,14 @@ function sayi(deger, ad) {
   const n = Number(deger);
   if (!Number.isFinite(n) || n < 0 || n > 100000 || Math.floor(n) !== n) throw new Error(`${ad}: 0 ya da pozitif tam sayı girin.`);
   return n;
+}
+
+// TL tutarı: 0 ya da pozitif tam sayı (kuruş yok), en fazla 100 milyon.
+function tutar(deger, ad) {
+  if (deger === '' || deger === null || deger === undefined) return null;
+  const n = Number(String(deger).replace(/[.\s]/g, '').replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0 || n > 100000000) throw new Error(`${ad}: 0 ya da pozitif bir tutar girin.`);
+  return Math.round(n);
 }
 
 function ymdKontrol(deger, ad) {
@@ -277,6 +287,8 @@ export function kurulumaGirisGunu(k) {
 export function tempoDurumu(sayi, esik, gecenOran) {
   if (sayi >= esik) return 'sakin';
   const beklenen = esik * gecenOran;
+  // Ayın ilk günlerinde beklenen 1'in altındayken sıfır "geride" sayılmaz.
+  if (beklenen < 1) return 'sakin';
   if (sayi > 0 && sayi >= beklenen) return 'sakin';
   if (sayi > 0 && sayi >= beklenen / 2) return 'uyari';
   return 'kirmizi';
@@ -287,16 +299,19 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const evre = EVRELER[a.evre] ? a.evre : 'olcum';
   const esik = Number(a.esik) > 0 ? Number(a.esik) : 4;
   const hedef = Number(a.hedef) > 0 ? Number(a.hedef) : 7;
-  const birim = a.birim || 'kurulum';
-  const kaynak = a.kaynak || 'kurulum';
+  const kaynak = a.kaynak === 'elle' ? 'elle' : 'kurulum';
+  const birim = kaynak === 'elle' ? 'seans' : 'kurulum';
   const ay = ayKodu(simdi);
   const gecen = oncekiAy(ay);
   // Son 3 tamamlanmış ay (Hedef'e geçiş kuralı için).
   const uc = [oncekiAy(ay), oncekiAy(oncekiAy(ay)), oncekiAy(oncekiAy(oncekiAy(ay)))];
   const aylik = { [ay]: 0, [uc[0]]: 0, [uc[1]]: 0, [uc[2]]: 0 };
   const isler = kayitlar || (await isleriGetir(simdi));
+  let elle = null;
   if (kaynak === 'elle') {
-    aylik[ay] = Number(a.elleDeger) || 0;
+    const kayit = await aylikKayitlar([ay, ...uc]);
+    for (const m of Object.keys(aylik)) aylik[m] = kayit[m] ? kayit[m].seans : 0;
+    elle = { buAy: kayit[ay] || null, gecmis: uc.map((m) => kayit[m] || { ay: m, seans: null, gelir: null, not: '' }) };
   } else {
     for (const k of isler) {
       // Net sayım (Yönetim kararı, 13 Kasım): iade edilen kurulum hiç sayılmaz,
@@ -313,12 +328,28 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const gun = Number(gunTR(simdi).slice(8, 10));
   const oran = gun / ayGunSayisi(ay);
   // Hazırlık evresinde alarm yok; ölçüm evresinde hedef evresine geçildiyse Hedef'e göre bakılır.
-  const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, hedefEvresi ? hedef : esik, oran);
+  const olcut = hedefEvresi ? hedef : esik;
+  const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, olcut, oran);
   const sonuc = {
     durum, etiket: TEMPO_ETIKETLERI[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
-    esikAsilanAy, hedefEvresi,
+    esikAsilanAy, hedefEvresi, olcut,
+    // Bugüne kadar beklenen (gösterge çentiği için).
+    beklenen: Math.round(olcut * oran * 10) / 10,
     yon: buAy > gecenAy ? '↑' : buAy < gecenAy ? '↓' : '→'
   };
+  if (elle) {
+    const esikTL = Number(a.esikTL) > 0 ? Number(a.esikTL) : null;
+    const hedefTL = Number(a.hedefTL) > 0 ? Number(a.hedefTL) : null;
+    const gecenKayit = elle.gecmis[0];
+    sonuc.elle = elle;
+    sonuc.gelir = {
+      esikTL, hedefTL,
+      buAy: elle.buAy && elle.buAy.gelir !== null ? elle.buAy.gelir : null,
+      // T'nin örneği (16 Kasım): geçen ay seans Eşik'i tuttu ama net gelir TL Eşik'in altında kaldı.
+      gecenAyUyumsuz: Boolean(esikTL && gecenKayit.seans !== null && gecenKayit.gelir !== null &&
+        gecenKayit.seans >= esik && gecenKayit.gelir < esikTL)
+    };
+  }
   if (evre === 'hazirlik') sonuc.strateji = await stratejiOlcusu(isler);
   return sonuc;
 }
@@ -338,9 +369,60 @@ export async function tempoAyarla(alanlar, aktor) {
   if (!esik || !hedef || hedef < esik) throw new Error('Eşik ve Hedef pozitif olmalı; Hedef Eşik\'ten küçük olamaz.');
   const yeni = { esik, hedef };
   if (EVRELER[alanlar.evre]) yeni.evre = alanlar.evre;
-  if (alanlar.elleDeger !== undefined) yeni.elleDeger = sayi(alanlar.elleDeger, 'Bu ayın değeri') || 0;
+  if (alanlar.kaynak === 'elle' || alanlar.kaynak === 'kurulum') yeni.kaynak = alanlar.kaynak;
+  if (alanlar.esikTL !== undefined || alanlar.hedefTL !== undefined) {
+    const esikTL = tutar(alanlar.esikTL, 'Eşik (TL)');
+    const hedefTL = tutar(alanlar.hedefTL, 'Hedef (TL)');
+    if (esikTL && hedefTL && hedefTL < esikTL) throw new Error('Hedef (TL) Eşik (TL)\'den küçük olamaz.');
+    yeni.esikTL = esikTL || null;
+    yeni.hedefTL = hedefTL || null;
+  }
   await ayarYaz('tempo', yeni, aktor);
   return tempoHesapla();
+}
+
+// --- Aylık elle giriş (000035, 16 Kasım; Fatoş + Tuna) ---
+//
+// Psikoloğun HAP'ında tempo seans sayısıyla ölçülür; seans verisi HAP'a girmez,
+// psikolog ayın toplamını kendisi yazar. İsteğe bağlı net gelir (iade düşülmüş)
+// ve kısa not. Her ay tek satır; istenildiği kadar güncellenir (üstüne yazar).
+// Seans seans kayıt tutulmaz: o, danışan bazında cari olur ve psikologda kalır.
+
+function aylikSatiri(k) {
+  return {
+    ay: k.ay,
+    seans: Number.isFinite(Number(k.seans)) && k.seans !== null ? Number(k.seans) : null,
+    gelir: Number.isFinite(Number(k.gelir)) && k.gelir !== null && k.gelir !== undefined ? Number(k.gelir) : null,
+    not: k.not || '',
+    kim: k.kim || '',
+    guncelleme: tarihISO(k.guncelleme || k._updatedDate)
+  };
+}
+
+export async function aylikKayitlar(aylar) {
+  const r = await wixData.query(AYLIK).hasSome('ay', aylar).limit(50).find(SA);
+  const sonuc = {};
+  for (const k of r.items) sonuc[k.ay] = aylikSatiri(k);
+  return sonuc;
+}
+
+export async function aylikKayitYaz(veri, aktor, simdi = new Date()) {
+  const buAy = ayKodu(simdi);
+  // Bu ay ve geçmiş iki ay düzeltilebilir (geç gelen iade, unutulan ay sonu).
+  const izinli = [buAy, oncekiAy(buAy), oncekiAy(oncekiAy(buAy))];
+  const ay = veri.ay ? String(veri.ay) : buAy;
+  if (!izinli.includes(ay)) throw new Error('Yalnızca bu ay ve önceki iki ay güncellenebilir.');
+  const seans = sayi(veri.seans, 'Seans sayısı');
+  if (seans === null) throw new Error('Seans sayısını yaz (yoksa 0).');
+  const gelir = tutar(veri.gelir, 'Gelir');
+  const not = metin(veri.not, 200, 'Not') || '';
+  if (/@/.test(not) || /\d{7,}/.test(not.replace(/[\s-]/g, ''))) {
+    throw new Error('Nota iletişim bilgisi yazma lütfen; kısa bir açıklama yeter ("1 iade" gibi).');
+  }
+  const eski = (await wixData.query(AYLIK).eq('ay', ay).limit(1).find(SA)).items[0];
+  const satir = { ...(eski || { title: ay }), ay, seans, gelir, not, kim: kim(aktor), guncelleme: new Date() };
+  const kayit = eski ? await wixData.update(AYLIK, satir, SA) : await wixData.insert(AYLIK, satir, SA);
+  return aylikSatiri(kayit);
 }
 
 // --- Kararlar ---
