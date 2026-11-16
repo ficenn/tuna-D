@@ -41,6 +41,7 @@ const ISLEMLER = {
   yzEtkinlestir: (v, a) => V.yzEtkinlestir(v.etkin, a),
   yzSiniri: (v, a) => V.yzSiniriAyarla(v.tl, a),
   yzGunlukSiniri: (v, a) => V.yzGunlukSiniriAyarla(v.sayi, a),
+  aylikKayit: (v, a) => V.aylikKayitYaz(v, a),
   sabahNotu: (v, a) => Y.sabahNotuIste(String(v.sayfa || ''), a),
   geriBildirim: (v, a) => V.geriBildirimEkle(v, a),
   tempoAyarla: (v, a) => V.tempoAyarla(v, a),
