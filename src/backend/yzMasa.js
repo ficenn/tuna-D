@@ -50,25 +50,60 @@ export const YZ_SAYFALARI = {
 
 // --- Bağlam katmanları ---
 
+// Katman sahipliği (17 Kas): anayasa HAP'ındır, güncellemeler her sitede kendiliğinden
+// uygulanır. Ruh, masa ve modül metinleri işletmenindir: tohum yalnızca boşsa ya da
+// işletme metne hiç dokunmadıysa yazılır; dokunduysa yeni tohum "öneri" olarak bekler,
+// işletmenin metninin yerine geçmez. tuna:D profilinde metinlerin sahibi biziz.
+export const HAP_KATMANLARI = ['anayasa'];
+
 export async function katmanlariGetir(kodlar) {
-  const s = await wixData.query(KATMAN).hasSome('kod', kodlar).limit(100).find(SA);
-  // Her koddan en yüksek sürüm.
+  const s = await wixData.query(KATMAN).hasSome('kod', kodlar).limit(200).find(SA);
+  // Her koddan en yüksek sürüm (bekleyen öneriler sayılmaz).
   const enSon = {};
+  const tohumSeviye = {};
   for (const k of s.items) {
+    if (k.tohum) tohumSeviye[k.kod] = Math.max(tohumSeviye[k.kod] || 0, Number(k.tohumSurum) || 0);
+    if (k.oneri) continue;
     if (!enSon[k.kod] || (Number(k.surum) || 0) > (Number(enSon[k.kod].surum) || 0)) enSon[k.kod] = k;
   }
-  // Tohumdaki sürüm daha yeniyse (ya da hiç yoksa) yeni satır olarak yazılır;
-  // eski sürüm kayıtta kalır (anayasa 7: bağlam tarihli ve sürümlüdür).
-  // Hangi metinle tohumlanacağı kurulum profiline bağlı (17 Kas): ayar yoksa psikolog.
+  // Hangi metinle tohumlanacağı kurulum profiline bağlı: ayar yoksa psikolog.
   const kurulum = await ayarGetir('kurulum');
-  const tohum = tohumlar(kurulum && kurulum.profil);
+  const profil = kurulum && kurulum.profil;
+  const sahibiBiziz = (kod) => profil === 'tunad' || HAP_KATMANLARI.includes(kod);
+  const tohum = tohumlar(profil);
   for (const kod of kodlar) {
     const t = tohum.find((x) => x.kod === kod);
-    if (t && (!enSon[kod] || (Number(enSon[kod].surum) || 0) < t.surum)) {
-      enSon[kod] = await wixData.insert(KATMAN, { ...t }, SA);
+    if (!t) continue;
+    const son = enSon[kod];
+    if (!son) {
+      enSon[kod] = await wixData.insert(KATMAN, { ...t, tohum: true, tohumSurum: t.surum }, SA);
+      continue;
+    }
+    if (sahibiBiziz(kod)) {
+      // Eski davranış: tohum sürümü daha yüksekse yeni satır; eski sürüm kayıtta kalır.
+      if ((Number(son.surum) || 0) < t.surum) {
+        enSon[kod] = await wixData.insert(KATMAN, { ...t, tohum: true, tohumSurum: t.surum }, SA);
+      }
+      continue;
+    }
+    // İşletmenin katmanı: bu tohum daha önce (geçerli ya da öneri olarak) yazıldıysa dokunma.
+    if (t.surum <= (tohumSeviye[kod] || 0)) continue;
+    const yeniSurum = Math.max(t.surum, (Number(son.surum) || 0) + 1);
+    if (son.tohum) {
+      // İşletme metne dokunmamış: yeni tohum geçerli olur.
+      enSon[kod] = await wixData.insert(KATMAN, { ...t, surum: yeniSurum, tohum: true, tohumSurum: t.surum }, SA);
+    } else {
+      // İşletme metni düzenlemiş: yeni tohum öneri olarak bekler.
+      await wixData.insert(KATMAN, { ...t, surum: yeniSurum, tohum: true, tohumSurum: t.surum, oneri: true }, SA);
     }
   }
   return kodlar.filter((k) => enSon[k]).map((k) => enSon[k]);
+}
+
+// Bekleyen taslak önerileri (işletmenin düzenlediği katmanlar için gelen yeni HAP taslağı).
+export async function katmanOnerileri() {
+  const s = await wixData.query(KATMAN).eq('oneri', true).limit(100).find(SA);
+  return s.items.map((k) => ({ id: k._id, kod: k.kod, baslik: k.baslik, tohumSurum: k.tohumSurum, metin: k.metin }));
 }
 
 function kisaTarih(ymd) {
