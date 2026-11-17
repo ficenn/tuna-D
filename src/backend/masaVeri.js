@@ -109,7 +109,7 @@ function kim(aktor) {
   return String((aktor && aktor.kim) || 'HAP Ekibi').slice(0, 120);
 }
 
-async function ayarGetir(id) {
+export async function ayarGetir(id) {
   try { return await wixData.get(AYAR, id, SA); } catch (e) { return null; }
 }
 
