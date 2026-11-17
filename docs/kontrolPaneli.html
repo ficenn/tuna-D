@@ -196,7 +196,14 @@
     #isSatirlari tr { height: auto; }
     table { table-layout: auto; }
     td.ok { display: none; }
+    /* Telefon (17 Kas, Fatoş'un GB'si): satırlar blok olunca uzun başlık tek satırda
+       kalıp tabloyu ve sayfayı sağa itiyordu. Tablo ekran genişliğinde kalır, yazı kırılır. */
+    table, tbody, tbody tr, tbody td { display: block; width: 100%; max-width: 100%; min-width: 0; }
+    .is-hucre b, td.mk div, #isSatirlari td .kucuk { white-space: normal; overflow-wrap: anywhere; }
+    .tablo-alani { overflow-x: hidden; }
   }
+  /* Güvenlik ağı: hiçbir öğe sayfayı yatay kaydırmasın. */
+  html, body { max-width: 100%; overflow-x: hidden; }
 
   /* İş detayı */
   .detay-bos { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; color: var(--soluk); padding: 40px 14px; }
@@ -334,7 +341,7 @@
 
   <div class="alt-izgara">
     <section class="kart liste-kart" aria-labelledby="listeBaslik">
-      <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2 id="listeBaslik">Şimdi Çalışılacak İşler</h2><div class="kucuk" id="listeAlt">Seçtiğiniz işin detayını sağda görebilirsiniz.</div></div></div>
+      <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2 id="listeBaslik">Şimdi Çalışılacak İşler</h2><div class="kucuk" id="listeAlt">Bir işi seçince detayı açılır.</div></div></div>
       <div class="filtreler">
         <button type="button" class="cip secili" data-kapsam="tumu">Tümü</button>
         <button type="button" class="cip" data-kapsam="A">Ticari</button>
@@ -345,7 +352,7 @@
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
-        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş ID, başlık, müşteri veya rumuz ara…" aria-label="İşlerde ara"></label>
+        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş no, başlık, müşteri kodu…" aria-label="İşlerde ara"></label>
       </div>
       <div class="tablo-alani"><table>
         <thead><tr><th class="k-id"><button type="button" class="sirala" data-sirala="id">İş ID <span class="ok-sira" aria-hidden="true"></span></button></th><th>İş</th><th class="k-mk">Müşteri / Kaynak</th><th class="k-du">Durum</th><th class="k-bt"><button type="button" class="sirala" data-sirala="tarih">Bitiş tarihi <span class="ok-sira" aria-hidden="true"></span></button></th><th class="k-ok"></th></tr></thead>

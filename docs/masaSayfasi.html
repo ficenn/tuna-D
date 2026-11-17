@@ -1548,7 +1548,7 @@ button.git:hover{text-decoration:underline}
             if (r.isOnerisi) eylem.push({ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi });
             bitir({ rol: 'yz', kim: m.yzAd + ' · ' + saat(), metin: r.metin, eylem: eylem.length ? eylem : null });
           } else {
-            bitir({ rol: 'yz', kim: m.yzAd, metin: T.gelmedi + (r.neden ? ': ' + r.neden : '.'), tur: 'hata-m', sistem: true });
+            bitir({ rol: 'yz', kim: m.yzAd, metin: r.okunamadi ? r.neden : T.gelmedi + (r.neden ? ': ' + r.neden : '.'), tur: 'hata-m', sistem: true });
           }
         }).catch(function (h) { bitir({ rol: 'yz', kim: m.yzAd, metin: h.message, tur: 'hata-m', sistem: true }); });
       }, 2500);
