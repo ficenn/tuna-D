@@ -909,6 +909,8 @@ button.git:hover{text-decoration:underline}
 .tempo.uyari .nokta,.tempo.uyari .cubuk i{background:var(--tempo-sari)}
 .tempo.uyari .gosterge{color:var(--tempo-sari)}
 
+.sa-etiket{font-size:12px;color:var(--soluk);align-self:center;margin-right:4px}
+
 </style>
 </head>
 <body>
@@ -1227,7 +1229,7 @@ button.git:hover{text-decoration:underline}
     var sinif = 'mesaj ' + (m.rol === 'yz' ? 'yz-m' : 'ins-m') + (m.tur ? ' ' + m.tur : '');
     var eylem = '';
     if (m.eylem && m.eylem.length) {
-      eylem = '<div class="eylem kucuk-eylem">' + m.eylem.map(function (e, j) {
+      eylem = '<div class="eylem kucuk-eylem">' + (m.sistem ? '' : '<span class="sa-etiket">Sıradaki adım:</span>') + m.eylem.map(function (e, j) {
         return '<button type="button" class="' + (j ? 'ikincil' : '') + '" data-mesaj="' + i + '" data-eylem="' + j + '"' + (e.kullanildi ? ' disabled' : '') + '>' + esc(e.et) + '</button>';
       }).join('') + '</div>';
     }
@@ -1250,12 +1252,18 @@ button.git:hover{text-decoration:underline}
     });
   }
 
+  // YZ cevabının altında en fazla bir düğme: "Sıradaki adım" (Açık işler 39, Fatoş 14 Kas).
+  // YZ ikisini birden önerirse iş önerisi öne geçer; karar ayrıca masa kararlarından önerilebilir.
+  function siradakiAdim(kod, r) {
+    if (r.isOnerisi) return [{ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi }];
+    if (r.kararOnerisi) return [kod === 'pazarlama' ? { et: 'Karar önerisi olarak kaydet', karar: r.kararOnerisi } : { et: 'Masaya taşı', karar: r.kararOnerisi }];
+    return null;
+  }
+
   // Günün ilk notu: sayfa günün ilk açılışında ister; hazırsa veriyle gelir.
   var SABAH = {};   // sayfa → { bekliyor } | { mesaj }
   function notMesaji(kod, sn) {
-    var m = SAYFA_METNI[kod], ey = [];
-    if (sn.kararOnerisi) ey.push(kod === 'pazarlama' ? { et: 'Karar önerisi olarak kaydet', karar: sn.kararOnerisi } : { et: 'Masaya taşı', karar: sn.kararOnerisi });
-    if (sn.isOnerisi) ey.push({ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: sn.isOnerisi });
+    var m = SAYFA_METNI[kod], ey = siradakiAdim(kod, sn);
     return { rol: 'yz', kim: m.yzAd + ' · günün ilk notu' + (sn.saat ? ' · ' + sn.saat : ''), metin: sn.metin, eylem: ey.length ? ey : null, gunNotu: true };
   }
   function sabahMesajlari(kod) {
@@ -1328,7 +1336,8 @@ button.git:hover{text-decoration:underline}
   function modulCipleri() {
     return '<nav class="moduller" aria-label="Modüller">' + VERI.masa.moduller.map(function (md) {
       var s = md.siradaki;
-      var alt = md.acikIs + ' açık' + (s && s.termin ? ' · sıradaki ' + kisaTarih(s.termin) : '');
+      var ic = md.kod === 'icerik' && VERI.icerik ? VERI.icerik.icerikler.filter(function (c) { return c.durum === 'planlandi' && c.tarih >= VERI.bugun; })[0] : null;
+      var alt = md.acikIs + ' açık' + (ic ? ' · sıradaki içerik ' + kisaTarih(ic.tarih) : (s && s.termin ? ' · sıradaki iş ' + kisaTarih(s.termin) : ''));
       return '<button type="button" class="mod-cip ' + esc(md.kod) + '" data-modul-ac="' + esc(md.kod) + '"><b>' + esc(md.ad) + '</b><span>' + esc(alt) + '</span></button>';
     }).join('') + '</nav>';
   }
@@ -1547,9 +1556,7 @@ button.git:hover{text-decoration:underline}
         istek('yzSonuc', { istekId: istekId }).then(function (r) {
           if (r.durum === 'bekliyor' && Date.now() - bas < 130000) { bekle(istekId, bas); return; }
           if (r.durum === 'tamam') {
-            var eylem = [];
-            if (r.kararOnerisi) eylem.push(kod === 'pazarlama' ? { et: 'Karar önerisi olarak kaydet', karar: r.kararOnerisi } : { et: 'Masaya taşı', karar: r.kararOnerisi });
-            if (r.isOnerisi) eylem.push({ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi });
+            var eylem = siradakiAdim(kod, r);
             bitir({ rol: 'yz', kim: m.yzAd + ' · ' + saat(), metin: r.metin, eylem: eylem.length ? eylem : null });
           } else {
             bitir({ rol: 'yz', kim: m.yzAd, metin: r.okunamadi ? r.neden : T.gelmedi + (r.neden ? ': ' + r.neden : '.'), tur: 'hata-m', sistem: true });
