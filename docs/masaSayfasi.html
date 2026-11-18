@@ -855,6 +855,9 @@ button.git:hover{text-decoration:underline}
 .is .ust .sag-rozet{display:flex;gap:6px;align-items:center}
 .is .ust button{font:inherit;font-size:11.5px;font-weight:600;border:1px solid var(--cizgi);background:var(--kart);color:var(--ana-koyu);border-radius:999px;padding:1px 9px;cursor:pointer}
 .is .ust button:hover{background:var(--ana-acik)}
+.is .ust button.bitir{border-radius:8px;border:1.5px solid var(--ana);background:var(--ana-acik);padding:2px 10px;box-shadow:0 1px 0 var(--cizgi)}
+.is .ust button.bitir:hover{background:var(--ana);color:var(--kart)}
+.kart-uyari{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--ana-acik);font-size:13.5px;line-height:1.45}
 .liste{align-content:start}
 .yaz{flex-wrap:wrap}
 .yaz textarea{flex:1 1 100%;min-height:64px;max-height:150px;resize:none;font:inherit;font-size:14px;line-height:1.45;color:var(--metin);background:var(--zemin);border:1px solid var(--cizgi);border-radius:14px;padding:9px 12px}
@@ -950,6 +953,7 @@ button.git:hover{text-decoration:underline}
       girisNotu: "İşler Kontrol Paneli'nden girer; masaya gelen iş burada görünür.",
       isGirisi: 'İş girişi →',
       yapildi: 'Yapıldı',
+      bittiIsaretle: '✓ Bitti olarak işaretle',
       ac: 'Aç',
       kararlar: 'Masa kararları',
       onay: 'onay',
@@ -1065,7 +1069,7 @@ button.git:hover{text-decoration:underline}
     if (r.sorumlu) alt.push(r.sorumlu);
     if (r.kategoriKod === 'A' || r.kategoriKod === 'KN') alt.push(r.asamaEtiketi + ' · ' + r.durumEtiketi);
     var yapildi = r.kisaYol && r.acik && !secenek.saltOkunur
-      ? '<button type="button" data-yapildi="' + esc(r.isId) + '" title="Yapıldı olarak işaretle">' + esc(T.yapildi) + '</button>' : '';
+      ? '<button type="button" class="bitir" data-yapildi="' + esc(r.isId) + '">' + esc(T.bittiIsaretle) + '</button>' : '';
     return '<li class="is' + (r.acik ? '' : ' bitti') + '" data-is="' + esc(r.isId) + '" tabindex="0">' +
       '<div class="ust"><span>' + esc(r.isId) + (r.aciliyet === 'acil' ? ' · Acil' : '') + '</span><span class="sag-rozet">' +
       (r.acik ? terminRozet(r.termin) : '<span class="durum d-bitti">' + esc(T.yapildi) + '</span>') + yapildi + '</span></div>' +
@@ -1665,10 +1669,10 @@ button.git:hover{text-decoration:underline}
     var r = VERI.isler.filter(function (x) { return x.isId === isId; })[0]; if (!r) return;
     var y = r.kategoriKod === 'Y';
     var masaIsi = r.kategoriKod === 'B' && !r.modulKod && VERI.kararlar;
-    var alanlar = alan(y ? 'Ne çıktı, neden? (zorunlu)' : 'Ne çıktı? (isteğe bağlı, geçmişe yazılır)', '<textarea name="not" maxlength="2000"' + (y ? ' required' : '') + '></textarea>', true) +
+    var alanlar = alan(y ? 'Ne değişti, neyi iyileştirdi? (Yönetim işinde gerekli)' : 'Ne değişti? (isteğe bağlı, geçmişe yazılır)', '<textarea name="not" maxlength="2000"' + (y ? ' required' : '') + '></textarea>', true) +
       (masaIsi || y ? alan('Bu işten bir karar çıktıysa yaz (onaya düşer)', girdi('karar', '', 'text', ' maxlength="300" placeholder="ör. Anket çağrısı haftada bir gönderiyle sınırlı"'), true) : '');
     formAc(isId + ' · ' + r.baslik, alanlar, function (v) {
-      if (y && !String(v.not || '').trim()) return Promise.reject(new Error('Yönetim işi notsuz kapanmaz: ne çıktı, neden? Bir cümle yazın.'));
+      if (y && !String(v.not || '').trim()) return Promise.reject(new Error('Yönetim işi notsuz kapanmıyor: ne değişti, neyi iyileştirdi? Bir cümle yazman yeter.'));
       return new Promise(function (coz, red) {
         yapildiBekleyen = { coz: coz, red: red };
         gonder({ tip: 'yapildi', isId: isId, kapanisNotu: v.not || '' });
@@ -1807,8 +1811,18 @@ button.git:hover{text-decoration:underline}
     if (d.icerikSil) { if (window.confirm('Bu içerik silinsin mi? Geri alınamaz.')) { islemYap('icerikSil', { id: d.icerikSil }, 'Silindi.').then(function () { kapat('d-form'); }); } return; }
     if (d.icerikYayinda) { islemYap('icerikDurumu', { id: d.icerikYayinda, durum: 'yayinda' }, 'Yayında olarak işaretlendi.').then(function () { kapat('d-kart'); }); return; }
     if (d.icerikYz) {
-      var c = icerikBul(d.icerikYz); kapat('d-kart');
-      if (c) yzGonder(null, 'icerik', { tur: 'icerikTaslagi', id: c.id }, '"' + c.baslik + '" için taslak');
+      // YZ kapalıysa ya da sınır dolduysa kart açık kalır, nedeni kartta söylenir (18 Kas, Fatoş).
+      var c = icerikBul(d.icerikYz); if (!c) return;
+      var engel = !VERI.yz.etkin ? T.yzKapali : VERI.yz.sinirDoldu ? T.yzSinir : VERI.yz.gunlukDoldu ? T.yzGunluk : null;
+      if (engel) {
+        var eski = $('kartIc').querySelector('.kart-uyari'); if (eski) eski.remove();
+        var u = document.createElement('div'); u.className = 'kart-uyari'; u.setAttribute('role', 'status');
+        u.innerHTML = esc(engel) + (!VERI.yz.etkin ? ' <button type="button" class="git" data-yz-ac>YZ\'yi aç</button>' : '');
+        $('kartIc').appendChild(u);
+        return;
+      }
+      kapat('d-kart');
+      yzGonder(null, 'icerik', { tur: 'icerikTaslagi', id: c.id }, '"' + c.baslik + '" için taslak');
       return;
     }
     if (d.icerik) { icerikKarti(d.icerik); return; }

@@ -68,7 +68,7 @@ export const asama1YzOlmadanTamamla = webMethod(Permissions.SiteMember,
 
 // Kısa yol (B Pazarlama, C Yapılacaklar, D Ar-Ge, Y Yönetim): "Yapıldı" — işi kapatır.
 // D işinde isteğe bağlı cozumNotu: çözüm / iyileştirme Pazarlama'ya gider.
-// Y işinde kapanisNotu zorunlu ("ne çıktı, neden"): geçmişe kapanış notu olarak yazılır.
+// kapanisNotu: Y işinde zorunlu, ötekilerde isteğe bağlı ("ne değişti, neyi iyileştirdi"); geçmişe yazılır.
 const KAPANIS_NOTU_SINIRI = 2000;
 
 export const takipYapildi = webMethod(Permissions.SiteMember,
@@ -78,15 +78,17 @@ export const takipYapildi = webMethod(Permissions.SiteMember,
     const k = await wixData.query('IsKayitlari').eq('isId', String(isId)).limit(1).find({ suppressAuth: true });
     const kategori = k.items[0] ? k.items[0].kategori : null;
 
-    let kapanisNotu = null;
-    if (KAPANIS_NOTU_ZORUNLU.includes(kategori)) {
-      kapanisNotu = String((secenek && secenek.kapanisNotu) || '').replace(/\s+/g, ' ').trim();
-      if (!kapanisNotu) throw new Error('Yönetim işi notsuz kapanmaz: ne çıktı, neden? Bir cümle yazın.');
-      if (kapanisNotu.length > KAPANIS_NOTU_SINIRI) throw new Error(`Not çok uzun (en fazla ${KAPANIS_NOTU_SINIRI} karakter).`);
+    // Kapanış notu: Y işinde zorunlu, ötekilerde isteğe bağlı; yazıldıysa geçmişe girer
+    // (18 Kas: önceden Y dışındaki işlerde yazılan not kayboluyordu).
+    // Soru (Fatoş, 18 Kas): "Ne değişti, neyi iyileştirdi?" ("Ne çıktı?" tuhaf duruyordu).
+    const kapanisNotu = String((secenek && secenek.kapanisNotu) || '').replace(/\s+/g, ' ').trim() || null;
+    if (KAPANIS_NOTU_ZORUNLU.includes(kategori) && !kapanisNotu) {
+      throw new Error('Yönetim işi notsuz kapanmıyor: ne değişti, neyi iyileştirdi? Bir cümle yazman yeter.');
     }
+    if (kapanisNotu && kapanisNotu.length > KAPANIS_NOTU_SINIRI) throw new Error(`Not biraz uzun oldu (en fazla ${KAPANIS_NOTU_SINIRI} karakter).`);
 
     const aktor = { tur: 'insan', kim: await istekYapan() };
-    const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor, kapanisNotu ? `Ne çıktı: ${kapanisNotu}` : undefined);
+    const sonuc = await gecisYap(String(isId), 'takip_tamamlandi', aktor, kapanisNotu ? `Ne değişti: ${kapanisNotu}` : undefined);
     if (!sonuc.basarili) throw new Error(sonuc.mesaj);
     let ek = { bagliIsler: [], uyarilar: [] };
     const cozum = secenek && secenek.cozumNotu;
