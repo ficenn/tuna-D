@@ -255,6 +255,26 @@ export async function hazirSoru(sayfa, hazir) {
   return f(sayfa, hazir);
 }
 
+// Hitap (18 Kasım, T önerdi, Fatoş onayladı): YZ'ye yalnızca hesaptaki adın ilk
+// kelimesi gider (takma ad "Fatoş" ise o). Sohbette kendini başka adla tanıtan olursa
+// o ad kullanılır. Ad yalnızca harflerden oluşur; bilinmiyorsa isimle hitap edilmez.
+export function ilkAd(aktor) {
+  if (!aktor || aktor.tur !== 'insan') return null;
+  const kim = String(aktor.kim || '').trim();
+  if (kim.includes('@')) return null; // ad yoksa e-posta gelir; e-posta YZ'ye gitmez
+  const ilk = kim.split(/\s+/)[0] || '';
+  const temiz = ilk.replace(/[^\p{L}'-]/gu, '').slice(0, 30);
+  if (!temiz || temiz.toLocaleLowerCase('tr-TR') === 'hap') return null;
+  return temiz;
+}
+
+export function hitapSatiri(aktor) {
+  const ad = ilkAd(aktor);
+  return ad
+    ? `\n\nHitap: şu an yazan kişinin hesaptaki adı ${ad}. Ona adıyla hitap edebilirsin. Sohbette kendini başka bir adla tanıtırsa ("ben Aylin" gibi) o adı kullan. Başka kişilerin adlarını tekrar etme.`
+    : `\n\nHitap: kimin yazdığını bilmiyorsun; isimle hitap etme. Sohbette kendini tanıtırsa o adı kullan.`;
+}
+
 // İstek gönderir. Döner: { istekId } ya da { kapali | sinir } durumu.
 export async function masaYzSor(sayfa, soru, gecmis, aktor, simdi = new Date(), secenek = {}) {
   if (!YZ_SAYFALARI[sayfa]) throw new Error('Bu sayfanın YZ\'si yok.');
@@ -273,7 +293,7 @@ export async function masaYzSor(sayfa, soru, gecmis, aktor, simdi = new Date(), 
   const kayit = await wixData.insert(MESAJ, { sayfa, tur: secenek.tur || 'sohbet', durum: 'bekliyor', aktor: String(aktor && aktor.kim || ''), istekTarihi: simdi }, SA);
   const govde = {
     istekId: kayit._id,
-    sistem: sistemMetni(sayfa, katmanlar, durum2.metin, durum2.evre),
+    sistem: sistemMetni(sayfa, katmanlar, durum2.metin, durum2.evre) + hitapSatiri(aktor),
     mesajlar: [...gecmisTemizle(gecmis), { rol: 'user', metin: mesaj }]
   };
   try {

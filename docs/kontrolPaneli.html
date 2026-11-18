@@ -218,6 +218,8 @@
   .bilgi-izgara div { word-break: break-word; }
   .islem-kutu { border-radius: 10px; padding: 10px 12px; margin: 6px 0 10px; }
   .islem-kutu.yz { background: var(--turuncu-z); }
+  details.kapanis summary { cursor: pointer; font-weight: 600; font-size: 13.5px; }
+  details.kapanis[open] summary { margin-bottom: 6px; }
   .islem-kutu.yapildi { background: var(--yesil-z); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .islem-kutu.durak { background: var(--ana-acik); }
   .islem-kutu.kapali { background: var(--gri-z); }
@@ -947,23 +949,25 @@ window.HAP = { secenekler: null };
         cozumTa = el('textarea'); cozumTa.id = 'cozumNotu'; cozumTa.maxLength = 5000; cozumTa.placeholder = 'ör. Takvim artık telefonda iki kat hızlı açılıyor.';
         cz.appendChild(cozumTa); ic.appendChild(cz);
       }
-      // Yönetim (Y) işi "ne çıktı, neden" notu yazılmadan kapanmaz.
-      var kapanisTa = null;
+      // Yönetim (Y) işi kapanış notu olmadan kapanmaz (18 Kas, Fatoş): not alanı açılır-kapanır,
+      // "Yapıldı" hep basılabilir; not boşsa alan açılır ve nazikçe hatırlatılır.
+      var kapanisTa = null, kapanisKutu = null;
       if (d.islemler.indexOf('kapanisNotu') !== -1) {
-        var kn = el('div', 'islem-kutu durak');
-        kn.appendChild(el('div', 'kucuk', 'Ne çıktı, neden? Bir cümle yeter. Yönetim işi bu not olmadan kapanmaz; not işin geçmişine yazılır.'));
+        kapanisKutu = el('details', 'islem-kutu durak kapanis');
+        kapanisKutu.appendChild(el('summary', null, 'Kapanış notu: ne değişti, neyi iyileştirdi?'));
+        kapanisKutu.appendChild(el('div', 'kucuk', 'Yönetim işi bu not olmadan kapanmıyor. Bir cümle yeter; not işin geçmişine yazılır.'));
         kapanisTa = el('textarea'); kapanisTa.id = 'kapanisNotu'; kapanisTa.maxLength = 2000; kapanisTa.placeholder = 'ör. Pilotta Wix\'te kalıyoruz; Türkiye sunucusu ücretli lansmandan önce, çünkü bütçe ayda 500 TL.';
-        kn.appendChild(kapanisTa); ic.appendChild(kn);
+        kapanisKutu.appendChild(kapanisTa); ic.appendChild(kapanisKutu);
       }
       var y = el('div', 'islem-kutu yapildi');
-      y.appendChild(el('span', null, 'Bitti mi? İşaretleyin, arşive geçsin.'));
-      var yb = el('button', 'dugme', '✓ Yapıldı'); yb.type = 'button'; yb.id = 'yapildiBtn';
-      if (kapanisTa) {
-        yb.disabled = true;
-        kapanisTa.addEventListener('input', function () { yb.disabled = !kapanisTa.value.trim(); });
-      }
+      y.appendChild(el('span', null, 'Bitti mi? İşaretle, arşive geçsin.'));
+      var yb = el('button', 'dugme', '✓ Bitti olarak işaretle'); yb.type = 'button'; yb.id = 'yapildiBtn';
       yb.addEventListener('click', function () {
-        if (kapanisTa && !kapanisTa.value.trim()) return;
+        if (kapanisTa && !kapanisTa.value.trim()) {
+          kapanisKutu.open = true; kapanisTa.focus();
+          mesaj('islemMesaj', 'hata', 'Önce kısa bir kapanış notu yaz lütfen: ne değişti, neyi iyileştirdi?');
+          return;
+        }
         yb.disabled = true;
         gonder({ tip: 'yapildi', isId: d.isId, cozumNotu: cozumTa ? cozumTa.value.trim() : '', kapanisNotu: kapanisTa ? kapanisTa.value.trim() : '' });
       });
