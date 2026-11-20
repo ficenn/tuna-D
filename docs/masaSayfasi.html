@@ -1257,7 +1257,7 @@ button.git:hover{text-decoration:underline}
   function siradakiAdim(kod, r) {
     if (r.isOnerisi) return [{ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi }];
     if (r.kararOnerisi) return [kod === 'pazarlama' ? { et: 'Karar önerisi olarak kaydet', karar: r.kararOnerisi } : { et: 'Masaya taşı', karar: r.kararOnerisi }];
-    return null;
+    return []; // öneri yoksa boş dizi (null değil: çağıranlar .length okuyor; 18 Kas hatası)
   }
 
   // Günün ilk notu: sayfa günün ilk açılışında ister; hazırsa veriyle gelir.

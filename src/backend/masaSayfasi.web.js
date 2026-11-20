@@ -14,6 +14,7 @@ import { hapYetkisiVar, hapYetkisiGerekli } from './hapYetki';
 import { masaSayfasiHazirla } from './masaSayfasi';
 import * as V from './masaVeri';
 import * as Y from './yzMasa';
+import { talepleriIsle } from './isTalepleri';
 
 // Geçmişe ve kararlara yazılacak ad: profildeki takma ad, yoksa ad, yoksa e-posta.
 async function aktor() {
@@ -50,6 +51,7 @@ const ISLEMLER = {
 
 export const masaSayfasiVerisi = webMethod(Permissions.SiteMember, async (kod, secenek) => {
   if (!(await hapYetkisiVar())) return { yetkiYok: true }; // HAP Ekibi rolü yoksa
+  try { await talepleriIsle(); } catch (e) { console.error('isTalepleri:', e); } // HAP işi 000064: bekleyen iş talepleri önce açılır
   const veri = await masaSayfasiHazirla(String(kod || '').trim(), 'tr', new Date(), secenek || {});
   veri.ben = (await aktor()).kim;   // sohbette "sen" balonunun adı
   return veri;
