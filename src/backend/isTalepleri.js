@@ -25,7 +25,10 @@ export const KILIT = 'IsTalepKilitleri';
 const YARIM_KALDI_DK = 10;
 const SA = { suppressAuth: true };
 const IZINLI = ['B', 'C', 'D', 'Y'];
-const PARTI = 20;
+const PARTI = 10;          // saatlik çalışmada en fazla bu kadar talep
+export const SAYFA_PARTI = 3; // sayfa açılışında en fazla bu kadar (20 Kas: 22 talep birden Wix'in dakika sınırını aştı)
+// Geçici hata (Wix dakika sınırı, zaman aşımı): talep reddedilmez, kuyruğa geri döner.
+const GECICI = /WDE0014|quota|rate limit|timed? ?out|ETIMEDOUT|WDE0028/i;
 const KAYNAK_SINIRI = 80;
 
 // Tarih (2026-11-20) ve iş no (000046) kişisel veri değildir; kontrolden önce çıkar.
@@ -96,13 +99,20 @@ export async function talepIsle(talep) {
     await isaretle(guncel, { durum: 'acildi', isId: sonuc.isId, uyari: (sonuc.uyarilar || []).join(' ') || null, islenme: new Date() });
     return { id: guncel._id, isId: sonuc.isId };
   } catch (e) {
-    return reddet(String((e && e.message) || e).slice(0, 300));
+    const mesaj = String((e && e.message) || e);
+    if (GECICI.test(mesaj)) {
+      await isaretle(guncel, { durum: 'bekliyor' });
+      try { await wixData.remove(KILIT, guncel._id, SA); } catch (e2) { /* geç */ }
+      return { id: guncel._id, ertelendi: true };
+    }
+    return reddet(mesaj.slice(0, 300));
   }
 }
 
 // Bekleyen talepleri sırayla açar. Koleksiyon yoksa (ör. talep kapısı kurulmamış
 // sitede) sessizce geçer; sayfa açılışını asla bozmaz.
-export async function talepleriIsle(simdi = new Date()) {
+export async function talepleriIsle(simdi = new Date(), secenek = {}) {
+  const enFazla = Number(secenek.enFazla) || PARTI;
   // Yarıda kalmış talep (işlenirken hata ya da zaman aşımı) sonsuza dek "işleniyor"
   // kalmasın: 10 dakikadan eskiyse durumu söylenir; iş açıldıysa talep izinden bulunur.
   try {
@@ -118,14 +128,16 @@ export async function talepleriIsle(simdi = new Date()) {
   } catch (e) { /* koleksiyon yoksa geç */ }
   let bekleyen;
   try {
-    bekleyen = await wixData.query(TALEP).eq('durum', 'bekliyor').ascending('_createdDate').limit(PARTI).find(SA);
+    bekleyen = await wixData.query(TALEP).eq('durum', 'bekliyor').ascending('_createdDate').limit(enFazla).find(SA);
   } catch (e) {
     return { islenen: 0 };
   }
   const sonuclar = [];
   for (const t of bekleyen.items) {
     try {
-      sonuclar.push(await talepIsle(t));
+      const r = await talepIsle(t);
+      sonuclar.push(r);
+      if (r.ertelendi) break; // sınıra takıldık: kalanlar sonraki açılışta
     } catch (e) {
       console.error('isTalepleri: talep işlenemedi', t._id, e);
     }

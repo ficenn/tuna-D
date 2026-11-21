@@ -148,6 +148,9 @@
   .cip:hover { background: var(--ana-acik); }
   .cip.secili { background: var(--ana); border-color: var(--ana); color: #fff; }
   .cip.kapat::after { content: " ✕"; }
+  .cip-acil { color: var(--bugun); }
+  .cip-acil.secili { background: var(--bugun); border-color: var(--bugun); color: #fff; }
+  h2 .sayac { vertical-align: 2px; margin-left: 4px; background: var(--ana); }
   .ayrac { width: 1px; height: 20px; background: var(--cizgi); margin: 0 4px; }
   .arama { flex: 1 1 170px; min-width: 0; display: flex; align-items: center; gap: 6px; border: 1px solid var(--cizgi); border-radius: 10px; padding: 0 10px; background: #fff; }
   .arama input { border: none; outline: none; font: inherit; padding: 7px 0; width: 100%; background: none; color: var(--metin); }
@@ -343,7 +346,7 @@
 
   <div class="alt-izgara">
     <section class="kart liste-kart" aria-labelledby="listeBaslik">
-      <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2 id="listeBaslik">Şimdi Çalışılacak İşler</h2><div class="kucuk" id="listeAlt">Bir işi seçince detayı açılır.</div></div></div>
+      <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2><span id="listeBaslik">Şimdi Çalışılacak İşler</span> <span class="sayac" id="acikSayi" title="Açık iş sayısı" hidden></span></h2><div class="kucuk" id="listeAlt">Bir işi seçince detayı açılır.</div></div></div>
       <div class="filtreler">
         <button type="button" class="cip secili" data-kapsam="tumu">Tümü</button>
         <button type="button" class="cip" data-kapsam="A">Ticari</button>
@@ -352,6 +355,7 @@
         <button type="button" class="cip" data-kapsam="D">Ar-Ge</button>
         <button type="button" class="cip" data-kapsam="Y">Yönetim</button>
         <span class="ayrac" aria-hidden="true"></span>
+        <button type="button" class="cip cip-acil" id="acilFiltre" aria-pressed="false" title="Yalnız acil işleri göster">Acil <span id="acilSayi"></span></button>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
         <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş no, başlık, müşteri kodu…" aria-label="İşlerde ara"></label>
@@ -396,7 +400,7 @@ window.HAP = { secenekler: null };
   var sayfaAdresi = null;   // HAP sayfasının adresi; iş bağlantısı = sayfaAdresi + '?is=' + isId (sayfa kodundan gelir)
   var sonIslem = null;   // { isId, metin }: başarılı işlemden sonra detayda bir kez gösterilir
   // kapsam: 'tumu' (tüm açık işler) | 'A' | 'B' | 'C' | 'D' | 'Y' | 'arsiv' (yapılmış / kapanmış işler)
-  var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '' };
+  var filtre = { kapsam: 'tumu', metin: '', gun: null, idler: null, idEtiket: '', acil: false };
   var sayfa = 1, takvimAy = null;
   var $ = function (id) { return document.getElementById(id); };
   var SVG = 'http://www.w3.org/2000/svg';
@@ -539,12 +543,24 @@ window.HAP = { secenekler: null };
 
   function kapsamSec(k, ozeliKoru) {
     filtre.kapsam = k;
+    if (k === 'arsiv' && filtre.acil) acilKur(false);
     if (!ozeliKoru && (filtre.gun || filtre.idler)) { filtre.gun = null; filtre.idler = null; $('ozelFiltre').hidden = true; if (veri) takvimCiz(); }
     [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (x) { x.classList.toggle('secili', x.getAttribute('data-kapsam') === k); });
     $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Kapanan İşler' : 'Şimdi Çalışılacak İşler';
   }
   [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (b) {
     b.addEventListener('click', function () { kapsamSec(b.getAttribute('data-kapsam')); sayfa = 1; tabloyuCiz(); });
+  });
+  // Acil: kategori seçiminden bağımsız açılıp kapanır (Pazarlama + Acil gibi).
+  // Tarihsiz acil işler tarih sıralamasında alta düştüğü için kayboluyordu.
+  function acilKur(acik) {
+    filtre.acil = acik;
+    var b = $('acilFiltre'); b.classList.toggle('secili', acik); b.setAttribute('aria-pressed', acik ? 'true' : 'false');
+  }
+  $('acilFiltre').addEventListener('click', function () {
+    var yeni = !filtre.acil;
+    if (yeni && filtre.kapsam === 'arsiv') kapsamSec('tumu');
+    acilKur(yeni); sayfa = 1; tabloyuCiz();
   });
   $('ara').addEventListener('input', function () { filtre.metin = this.value; sayfa = 1; tabloyuCiz(); });
   $('oncekiSayfa').addEventListener('click', function () { if (sayfa > 1) { sayfa--; tabloyuCiz(); } });
@@ -593,6 +609,7 @@ window.HAP = { secenekler: null };
       if (arsiv ? i.acik : !i.acik) return false;
       if (filtre.kapsam === 'A') { if (i.kategoriKod !== 'A' && i.kategoriKod !== 'KN') return false; }
       else if (['B', 'C', 'D', 'Y'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
+      if (filtre.acil && i.aciliyet !== 'acil') return false;
       if (filtre.gun && i.termin !== filtre.gun) return false;
       if (filtre.idler && filtre.idler.indexOf(i.isId) === -1) return false;
       if (q && [i.isId, i.baslik, i.musteri, i.rumuz, i.sorumlu, i.kaynak, i.modul].every(function (v) { return kucult(v).indexOf(q) === -1; })) return false;
@@ -608,6 +625,7 @@ window.HAP = { secenekler: null };
     if (!veri.isler.length) { m = 'm-defter'; metin = 'Henüz iş yok. “+ Yeni İş” ile ilk işi ekleyin.'; }
     else if (filtre.kapsam === 'arsiv' && !filtre.metin) { m = 'm-kutu'; metin = 'Arşiv boş. Yapılan işler burada birikir.'; }
     else if (filtre.metin) { m = 'm-bitki'; metin = 'Aramaya uyan iş yok.'; }
+    else if (filtre.acil) { m = 'm-cay'; metin = 'Acil iş yok. Ne güzel.'; }
     else { m = 'm-cay'; metin = 'Burada iş yok. Keyfinize bakın.'; }
     ic.appendChild(motif(m, 46)); ic.appendChild(el('span', null, metin));
     td.appendChild(ic); tr.appendChild(td); govde.appendChild(tr);
@@ -615,6 +633,11 @@ window.HAP = { secenekler: null };
   function tabloyuCiz() {
     var govde = $('isSatirlari'); govde.innerHTML = '';
     var liste = filtrelenmis();
+    var acik = veri.isler.filter(function (i) { return i.acik; });
+    var acilSay = acik.filter(function (i) { return i.aciliyet === 'acil'; }).length;
+    $('acikSayi').textContent = acik.length; $('acikSayi').hidden = false;
+    $('acikSayi').title = acik.length + ' açık iş';
+    $('acilSayi').textContent = acilSay ? '· ' + acilSay : '';
     var sayfaSayisi = Math.max(1, Math.ceil(liste.length / SAYFA_BOYU));
     if (sayfa > sayfaSayisi) sayfa = sayfaSayisi;
     $('sayfaBilgi').textContent = 'Sayfa ' + sayfa + ' / ' + sayfaSayisi + ' · ' + liste.length + ' iş';
