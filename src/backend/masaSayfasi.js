@@ -31,6 +31,7 @@ import {
   rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
+import { profilKurallari } from './profil';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -145,6 +146,9 @@ function haftaSec(istenen, bugun) {
 }
 
 export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), secenek = {}) {
+  // Kurulum profili (000090): kapalı sayfa istenirse ilk açık sayfa gelir.
+  const acikSayfalar = (await profilKurallari()).sayfalar;
+  if (!acikSayfalar.includes(kod)) kod = acikSayfalar[0];
   const tanim = MASA_SAYFALARI[kod];
   if (!tanim) throw new Error(`Bilinmeyen masa: ${kod}`);
   const alan = METIN_ALANLARI[dil] || METIN_ALANLARI.tr;
@@ -246,6 +250,6 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     sabahNotu: sabah,
     yzVar: !!YZ_SAYFALARI[kod],
     ilkAdimlar: ILK_ADIMLAR[kod] || [],
-    menu: Object.entries(MASA_SAYFALARI).map(([k, t]) => ({ kod: k, ad: t.ad, tur: t.tur, ust: t.ust }))
+    menu: Object.entries(MASA_SAYFALARI).filter(([k]) => acikSayfalar.includes(k)).map(([k, t]) => ({ kod: k, ad: t.ad, tur: t.tur, ust: t.ust }))
   };
 }

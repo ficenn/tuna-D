@@ -551,6 +551,19 @@ window.HAP = { secenekler: null };
     [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (x) { x.classList.toggle('secili', x.getAttribute('data-kapsam') === k); });
     $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Kapanan İşler' : 'Şimdi Çalışılacak İşler';
   }
+  // Kurulum profili (000090): bu HAP'ta açık olmayan iş türlerinin filtresi görünmez
+  // (ör. psikologda yalnızca Pazarlama ve Yapılacaklar). Liste arka uçtan gelir.
+  function kategoriCipleri() {
+    var acik = veri && veri.kategoriler;
+    if (!acik) return;
+    [].forEach.call(document.querySelectorAll('.filtreler [data-kapsam]'), function (b) {
+      var k = b.getAttribute('data-kapsam');
+      if (['A', 'B', 'C', 'D', 'Y'].indexOf(k) === -1) return;
+      var gorunur = !!acik[k];
+      b.style.display = gorunur ? '' : 'none';
+      if (!gorunur && filtre.kapsam === k) kapsamSec('tumu');
+    });
+  }
   [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (b) {
     b.addEventListener('click', function () { kapsamSec(b.getAttribute('data-kapsam')); sayfa = 1; tabloyuCiz(); });
   });
@@ -1155,6 +1168,7 @@ window.HAP = { secenekler: null };
       if (!veriGeldi) gonder({ tip: 'panelSecenekleri' });
       veriGeldi = true; veri = m.veri; $('yenile').disabled = false;
       if ($('genelMesaj').className.indexOf('tamam') === -1) mesaj('genelMesaj', '', '');
+      kategoriCipleri();
       hepsiniCiz();
     } else if (m.tip === 'panelHata') {
       veriGeldi = true; $('yenile').disabled = false;

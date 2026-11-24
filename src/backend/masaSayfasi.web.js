@@ -15,6 +15,7 @@ import { masaSayfasiHazirla } from './masaSayfasi';
 import * as V from './masaVeri';
 import * as Y from './yzMasa';
 import { talepleriIsle, SAYFA_PARTI } from './isTalepleri';
+import { profilKurallari } from './profil';
 
 // Geçmişe ve kararlara yazılacak ad: profildeki takma ad, yoksa ad, yoksa e-posta.
 async function aktor() {
@@ -73,6 +74,7 @@ export const masaIslem = webMethod(Permissions.SiteMember, async (islem, veri) =
 export const masaYzSor = webMethod(Permissions.SiteMember, async (sayfa, soru, gecmis, hazir) => {
   await hapYetkisiGerekli();
   try {
+    if (!(await profilKurallari()).sayfalar.includes(String(sayfa || ''))) return { hata: "Bu sayfa senin HAP'ında açık değil." }; // 000090
     return await Y.masaYzSor(String(sayfa || ''), soru, gecmis, await aktor(), new Date(), hazir ? { hazir } : {});
   } catch (hata) {
     console.error('masaYzSor:', hata);

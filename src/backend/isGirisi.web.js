@@ -16,6 +16,7 @@ import {
   isGuncelle
 } from './isGirisi';
 import { asamaEtiketi, durumEtiketi } from './suleyman';
+import { profilKurallari, izinliler } from './profil';
 
 // İşi giren kişi (geçmişe yazılır). Editor Önizleme'de üye bilgisi
 // gelmez; o durumda "yonetici" yazılır.
@@ -31,13 +32,14 @@ async function istekYapan() {
 // Formu doldurmak için gereken listeler.
 export const isGirisiSecenekleri = webMethod(Permissions.SiteMember, async () => {
   if (!(await hapYetkisiVar())) return { yetkiYok: true }; // HAP Ekibi rolü yoksa
+  const kural = await profilKurallari(); // kurulum profili (000090)
   return {
-    kategoriler: KATEGORILER,
+    kategoriler: izinliler(KATEGORILER, kural.kategoriler),
     kaynaklar: KAYNAKLAR,
     aciliyetler: ACILIYETLER,
     moduller: B_MODUL_SECENEKLERI, // B için: Masa SK / İçerik / Görünürlük
     baslangicDuraklari: BASLANGIC_SECENEKLERI, // A işi nereden başlasın
-    musteriler: await musterileriListele(),
+    musteriler: kural.musteri ? await musterileriListele() : [], // psikologda müşteri kaydı yok
     sorumlular: await sorumluListesi() // "Sorumlu" alanının önerileri
   };
 });

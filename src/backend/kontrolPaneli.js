@@ -21,6 +21,7 @@ import {
   TALEP_DURAGI, TALEP_BEKLEME_GUN
 } from './rota';
 import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER, KAPANIS_NOTU_ZORUNLU } from './isGirisi';
+import { profilKurallari, izinliler } from './profil';
 
 const IS = 'IsKayitlari';
 const BAGLAM = 'IsBaglamlari';
@@ -244,7 +245,7 @@ export async function panelVerisiHazirla(simdi = new Date()) {
   return {
     olusturulma: simdi.toISOString(),
     bugun: bugunTR(simdi),
-    kategoriler: KATEGORI_KISA,
+    kategoriler: izinliler(KATEGORI_KISA, (await profilKurallari()).kategoriler), // KP filtre düğmeleri (000090)
     gundem,
     isler
   };
