@@ -1,6 +1,7 @@
 import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from '../../../isIdCounter';
 import { ilkKayitAlanlari, gecisYap } from '../../../suleyman';
+import { profilKurallari } from '../../../profil';
 
 // KN formunda kişisel bilgi sorulmaz (2026-10-23 kararı): ad, işletme adı,
 // konum, e-posta yok. Kişi kendine bir rumuz seçer; Durum Fotoğrafı'nı
@@ -25,6 +26,12 @@ function knCevabi(answers, soruBasligi) {
 }
 
 export const invoke = async ({ payload }) => {
+  // KN (Kontrol Noktası) yalnızca tuna:D'nin giriş kapısı (000090): psikolog
+  // HAP'ında form cevabı, rumuz dahil, hiçbir yere yazılmaz.
+  if (!(await profilKurallari()).kn) {
+    console.warn('issKaydi: bu HAP kurulumunda KN kapalı; kayıt açılmadı.');
+    throw new Error('KN bu HAP kurulumunda kapalı.');
+  }
 
   const answers = payload?.answers || {};
   const dil = payload?.language || '';

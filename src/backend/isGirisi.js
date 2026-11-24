@@ -33,6 +33,7 @@ import wixData from 'wix-data';
 import { isKaydiEkleYenidenDenemeli } from './isIdCounter';
 import { ilkKayitAlanlari, kisaYolIlkKayitAlanlari, gecisYap, kayitDuzenle } from './suleyman';
 import { BAGLI_ISLER, DURAKLAR, ILK_DURAK, BASLANGIC_DURAKLARI } from './rota';
+import { profilKurallari, KAPALI_TUR_MESAJI } from './profil';
 
 const MUSTERI_KOLEKSIYONU = 'Musteriler';
 const BAGLAM_KOLEKSIYONU = 'IsBaglamlari';
@@ -409,6 +410,8 @@ async function kisaYolKaydet(v, aktor) {
 // uyarı olarak döner.
 export async function isGirisiKaydet(girdi, aktor) {
   const v = girdiyiDogrula(girdi);
+  // Kurulum profili (000090): izinsiz tür arka uçta da reddedilir.
+  if (!(await profilKurallari()).kategoriler.includes(v.kategori)) throw new Error(KAPALI_TUR_MESAJI);
   if (v.kisaYol) return kisaYolKaydet(v, aktor);
   const uyarilar = [];
 
@@ -510,6 +513,7 @@ export async function isGuncelle(isId, girdi, aktor) {
   const k = kayitSonuc.items[0];
   const kategori = k.kategori;
   if (!KATEGORILER[kategori]) throw new Error('Bu iş buradan düzenlenemez.');
+  if (!(await profilKurallari()).kategoriler.includes(kategori)) throw new Error(KAPALI_TUR_MESAJI);
 
   const aciklama = metin(g.aciklama, UZUNLUK.uzun, 'Açıklama');
   if (!aciklama) throw new Error('Açıklama boş bırakılamaz.');
