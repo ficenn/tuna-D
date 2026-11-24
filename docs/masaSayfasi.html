@@ -5,8 +5,9 @@
   stil taslaktan olduğu gibi alındı, canlı veri sayfa kodundan (HAP.drdx8.js) gelir.
   Wix'te #masaSayfasi ID'li "Embed HTML" öğesine yapıştırılır. Mesajlar: HAP.drdx8.js başındaki açıklama.
 -->
-<html lang="tr">
+<html lang="tr" data-theme="light">
 <head>
+<meta name="color-scheme" content="only light"><!-- 000041: her zaman aydınlık; karanlık mod sonra Ayarlar'a -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HAP · Masa</title>
@@ -26,7 +27,7 @@
   --golge:0 1px 2px rgba(40,44,52,.05);
   --font:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --el:"Caveat",cursive;
-  color-scheme:light;
+  color-scheme:only light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
