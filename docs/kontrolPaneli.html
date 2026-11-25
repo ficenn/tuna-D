@@ -311,7 +311,7 @@
     </div>
     <nav class="masa-gecis" aria-label="Masa sayfaları">
       <span>Masalar:</span>
-      <button type="button" class="metin-dugme" data-masa="yonetim">Yönetim</button>
+      <button type="button" class="metin-dugme" data-masa="yonetim" style="display:none">Yönetim</button>
       <button type="button" class="metin-dugme" data-masa="pazarlama">Pazarlama</button>
       <button type="button" class="metin-dugme" data-masa="icerik">İçerik</button>
       <button type="button" class="metin-dugme" data-masa="gorunurluk">Görünürlük</button>
@@ -352,19 +352,19 @@
       <div class="kart-bas"><svg class="ikon"><use href="#s-liste"/></svg><div><h2><span id="listeBaslik">Şimdi Çalışılacak İşler</span> <span class="sayac" id="acikSayi" title="Açık iş sayısı" hidden></span></h2><div class="kucuk" id="listeAlt">Bir işi seçince detayı açılır.</div></div></div>
       <div class="filtreler">
         <button type="button" class="cip secili" data-kapsam="tumu">Tümü</button>
-        <button type="button" class="cip" data-kapsam="A">Ticari</button>
+        <button type="button" class="cip" data-kapsam="A" style="display:none">Ticari</button>
         <button type="button" class="cip" data-kapsam="B">Pazarlama</button>
         <button type="button" class="cip" data-kapsam="C">Yapılacaklar</button>
-        <button type="button" class="cip" data-kapsam="D">Ar-Ge</button>
-        <button type="button" class="cip" data-kapsam="Y">Yönetim</button>
+        <button type="button" class="cip" data-kapsam="D" style="display:none">Ar-Ge</button>
+        <button type="button" class="cip" data-kapsam="Y" style="display:none">Yönetim</button>
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip cip-acil" id="acilFiltre" aria-pressed="false" title="Yalnız acil işleri göster">Acil <span id="acilSayi"></span></button>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
-        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş no, başlık, müşteri kodu…" aria-label="İşlerde ara"></label>
+        <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş no, başlık…" aria-label="İşlerde ara"></label>
       </div>
       <div class="tablo-alani"><table>
-        <thead><tr><th class="k-id"><button type="button" class="sirala" data-sirala="id">İş ID <span class="ok-sira" aria-hidden="true"></span></button></th><th>İş</th><th class="k-mk">Müşteri / Kaynak</th><th class="k-du">Durum</th><th class="k-bt"><button type="button" class="sirala" data-sirala="tarih">Bitiş tarihi <span class="ok-sira" aria-hidden="true"></span></button></th><th class="k-ok"></th></tr></thead>
+        <thead><tr><th class="k-id"><button type="button" class="sirala" data-sirala="id">İş ID <span class="ok-sira" aria-hidden="true"></span></button></th><th>İş</th><th class="k-mk">Kaynak</th><th class="k-du">Durum</th><th class="k-bt"><button type="button" class="sirala" data-sirala="tarih">Bitiş tarihi <span class="ok-sira" aria-hidden="true"></span></button></th><th class="k-ok"></th></tr></thead>
         <tbody id="isSatirlari"></tbody>
       </table></div>
       <div class="sayfalama" id="sayfalama">
@@ -561,9 +561,11 @@ window.HAP = { secenekler: null };
       b.style.display = veri.sayfalar.indexOf(b.getAttribute('data-masa')) === -1 ? 'none' : '';
     });
     // Müşteri kaydı olmayan HAP'ta (psikolog) "müşteri" sözü geçmez.
-    if (veri.musteriVar === false) {
-      $('ara').placeholder = 'İş no, başlık…';
-      var th = document.querySelector('th.k-mk'); if (th) th.textContent = 'Kaynak';
+    // Varsayılan görünüm en kapalı profildir (veri gelmeden ya da yetki yokken tuna:D'ye
+    // özgü hiçbir şey görünmez); müşteri kaydı olan HAP'ta sözler geri gelir.
+    if (veri.musteriVar) {
+      $('ara').placeholder = 'İş no, başlık, müşteri kodu…';
+      var th = document.querySelector('th.k-mk'); if (th) th.textContent = 'Müşteri / Kaynak';
     }
     [].forEach.call(document.querySelectorAll('.filtreler [data-kapsam]'), function (b) {
       var k = b.getAttribute('data-kapsam');

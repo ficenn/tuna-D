@@ -60,6 +60,7 @@ import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle }
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
 import wixLocationFrontend from 'wix-location-frontend';
 import wixWindowFrontend from 'wix-window-frontend';
+import { authentication } from 'wix-members-frontend';
 import { asama1YzOlmadanTamamla, takipYapildi, durakIslemiYap, yzTaslagiYenidenIste } from 'backend/suleyman.web';
 import { masaSayfasiVerisi, masaIslem, masaYzSor, masaYzSonucu } from 'backend/masaSayfasi.web';
 
@@ -85,7 +86,7 @@ function sayfaAdresi() {
 }
 
 // HAP yalnızca "HAP Ekibi" rolündeki üyelere açık (bkz. backend/hapYetki.js).
-const YETKI_YOK = 'Yetki yok: sağ üstteki "Giriş" ile üye hesabınızla oturum açın. Hesabınızda "HAP Ekibi" rolü olmalı.';
+const YETKI_YOK = 'HAP\'ı görmek için oturum açman gerekiyor. Giriş penceresi kapandıysa sayfayı yenile. Hesabında "HAP Ekibi" rolü olmalı.';
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
@@ -394,6 +395,13 @@ const MASA_ISLEYICILERI = {
 };
 
 $w.onReady(function () {
+  // Oturum açılmamışsa giriş penceresi kendiliğinden açılır (25 Kas): pilot ve
+  // kalıp sitelerinde başlıkta "Giriş" düğmesi yok. Giriş olunca sayfa yenilenir.
+  // promptLogin onReady içinde beklenmez (Wix: beklenirse sayfa yüklenmez).
+  if (!authentication.loggedIn()) {
+    authentication.onLogin(() => wixLocationFrontend.to(wixLocationFrontend.url));
+    authentication.promptLogin({ mode: 'login', modal: true }).catch(() => {});
+  }
   panelVar = varMi(PANEL);
   const istenen = String((wixLocationFrontend.query || {}).is || '').trim();
   if (/^\d{1,10}$/.test(istenen)) acilacakIs = istenen.padStart(6, '0');
