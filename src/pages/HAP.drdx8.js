@@ -86,12 +86,17 @@ function sayfaAdresi() {
 }
 
 // HAP yalnızca "HAP Ekibi" rolündeki üyelere açık (bkz. backend/hapYetki.js).
-const YETKI_YOK = 'HAP\'ı görmek için oturum açman gerekiyor. Giriş penceresi kapandıysa sayfayı yenile. Hesabında "HAP Ekibi" rolü olmalı.';
+// Oturum yoksa panelde giriş bağlantısı çıkar (25 Kas); oturum var ama rol yoksa
+// insan bize yazar: rolü biz veririz, kimse kendi kendine HAP'a giremez.
+const GIRIS_GEREK = 'HAP\'ı görmek için oturum açman gerekiyor.';
+const ROL_YOK = 'Hesabın henüz HAP\'a bağlanmamış ("HAP Ekibi" rolü yok). Lütfen bize yaz, hemen bağlayalım.';
+function yetkiMetni() { return authentication.loggedIn() ? ROL_YOK : GIRIS_GEREK; }
+function girisAc() { authentication.promptLogin({ mode: 'login', modal: true }).catch(() => {}); }
 
 function hataMetni(hata) {
   const m = (hata && hata.message) || String(hata);
   if (/permission|NotAuthorized|unauthori[sz]ed/i.test(m) || (hata && /NotAuthorized/.test(hata.name || ''))) {
-    return YETKI_YOK;
+    return yetkiMetni();
   }
   return m;
 }
@@ -121,7 +126,7 @@ async function masaVerisiGonder() {
   try {
     const veri = await masaSayfasiVerisi(aktifMasa, { hafta: aktifHafta });
     if (veri && veri.yetkiYok) {
-      masaya({ tip: 'masaHata', hata: YETKI_YOK });
+      masaya({ tip: 'masaHata', hata: yetkiMetni() });
       return;
     }
     masaya({ tip: 'masaVerisi', veri, dil: DIL });
@@ -161,7 +166,7 @@ async function panelVerisiGonder() {
   try {
     const veri = await panelVerisi();
     if (veri && veri.yetkiYok) {
-      panele({ tip: 'panelHata', hata: YETKI_YOK });
+      panele({ tip: 'panelHata', hata: yetkiMetni(), giris: !authentication.loggedIn() });
       return;
     }
     panele({ tip: 'panelVerisi', veri });
@@ -184,6 +189,8 @@ async function islem(fonksiyon, basariMetni) {
 }
 
 const ISLEYICILER = {
+  // Panel mesajındaki "giriş ekranını aç" bağlantısı (giriş penceresi kapatıldıysa).
+  girisAc() { girisAc(); },
   // Geri bildirim kutusu (panel): masa sayfalarındakiyle aynı yere yazılır.
   async geriBildirim(m) {
     try {
@@ -303,7 +310,7 @@ const FORM_ISLEYICILERI = {
     try {
       const veri = await isGirisiSecenekleri();
       if (veri && veri.yetkiYok) {
-        forma({ tip: 'yuklemeHatasi', hata: YETKI_YOK });
+        forma({ tip: 'yuklemeHatasi', hata: yetkiMetni() });
         return;
       }
       forma({ tip: 'secenekler', veri });
@@ -400,7 +407,7 @@ $w.onReady(function () {
   // promptLogin onReady içinde beklenmez (Wix: beklenirse sayfa yüklenmez).
   if (!authentication.loggedIn()) {
     authentication.onLogin(() => wixLocationFrontend.to(wixLocationFrontend.url));
-    authentication.promptLogin({ mode: 'login', modal: true }).catch(() => {});
+    girisAc();
   }
   panelVar = varMi(PANEL);
   const istenen = String((wixLocationFrontend.query || {}).is || '').trim();
