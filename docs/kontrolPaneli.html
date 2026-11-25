@@ -264,6 +264,7 @@
   ul.gecmis li::before { content: ""; position: absolute; left: -6px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--ana); }
   .mesaj { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; display: none; white-space: pre-line; }
   .mesaj.hata { display: block; background: var(--bugun-z); color: var(--bugun); }
+  .mesaj .giris-bag { color: inherit; text-decoration: underline; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
   .mesaj.tamam { display: block; background: var(--yesil-z); color: var(--yesil); }
   .mesaj.bilgi { display: block; background: var(--mavi-z); color: var(--mavi); }
   .mesaj.uyari { display: block; background: var(--yakin-z); color: var(--yakin); }
@@ -1184,6 +1185,13 @@ window.HAP = { secenekler: null };
     } else if (m.tip === 'panelHata') {
       veriGeldi = true; $('yenile').disabled = false;
       mesaj('genelMesaj', 'hata', m.hata || 'Panel yüklenemedi.');
+      if (m.giris) {
+        // Oturum yok: giriş penceresi kapatılsa bile buradan yeniden açılır (25 Kas).
+        var g = document.createElement('button'); g.type = 'button'; g.className = 'metin-dugme giris-bag';
+        g.textContent = 'Buraya tıklayarak'; g.addEventListener('click', function () { gonder({ tip: 'girisAc' }); });
+        var gm = $('genelMesaj'); gm.appendChild(document.createTextNode(' ')); gm.appendChild(g);
+        gm.appendChild(document.createTextNode(' giriş ekranını açabilirsin.'));
+      }
     } else if (m.tip === 'isDetayiSonuc') {
       if (m.isId !== acikDetay) return;
       if (m.basarili) detayiCiz(m.veri);
