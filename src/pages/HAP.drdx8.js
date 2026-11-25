@@ -172,7 +172,9 @@ async function panelVerisiGonder() {
     panele({ tip: 'panelVerisi', veri });
   } catch (hata) {
     console.error('Kontrol Paneli verisi yüklenemedi:', hata);
-    panele({ tip: 'panelHata', hata: hataMetni(hata) });
+    // Oturumsuz ziyaretçide Wix çağrıyı doğrudan reddeder (webMethod: SiteMember),
+    // yani yetkiYok dalına hiç gelinmez; giriş bağlantısı burada da gösterilir (25 Kas).
+    panele({ tip: 'panelHata', hata: hataMetni(hata), giris: !authentication.loggedIn() });
   }
 }
 
