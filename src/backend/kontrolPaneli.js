@@ -23,6 +23,11 @@ import {
 import { KAYNAKLAR, ACILIYETLER, KATEGORILER, MODULLER, KAPANIS_NOTU_ZORUNLU } from './isGirisi';
 import { profilKurallari, izinliler } from './profil';
 
+async function profilGorunumu() {
+  const kural = await profilKurallari();
+  return { kategoriler: izinliler(KATEGORI_KISA, kural.kategoriler), sayfalar: kural.sayfalar, musteriVar: kural.musteri };
+}
+
 const IS = 'IsKayitlari';
 const BAGLAM = 'IsBaglamlari';
 const MUSTERI = 'Musteriler';
@@ -245,7 +250,7 @@ export async function panelVerisiHazirla(simdi = new Date()) {
   return {
     olusturulma: simdi.toISOString(),
     bugun: bugunTR(simdi),
-    kategoriler: izinliler(KATEGORI_KISA, (await profilKurallari()).kategoriler), // KP filtre düğmeleri (000090)
+    ...(await profilGorunumu()), // KP filtre düğmeleri, masa bağlantıları, müşteri sütunu (000090)
     gundem,
     isler
   };
