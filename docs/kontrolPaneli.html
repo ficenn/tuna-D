@@ -670,8 +670,10 @@ window.HAP = { secenekler: null };
     var liste = filtrelenmis();
     var acik = veri.isler.filter(function (i) { return i.acik; });
     var acilSay = acik.filter(function (i) { return i.aciliyet === 'acil'; }).length;
-    $('acikSayi').textContent = acik.length; $('acikSayi').hidden = false;
-    $('acikSayi').title = acik.length + ' açık iş';
+    // Başlıktaki sayaç: Silinenler'de silinen iş sayısı, diğer görünümlerde açık iş sayısı (000055).
+    var silinenGorunum = filtre.kapsam === 'silinen', sayacSayi = silinenGorunum ? (veri.silinenler || []).length : acik.length;
+    $('acikSayi').textContent = sayacSayi; $('acikSayi').hidden = false;
+    $('acikSayi').title = sayacSayi + (silinenGorunum ? ' silinen iş' : ' açık iş');
     $('acilSayi').textContent = acilSay ? '· ' + acilSay : '';
     var sayfaSayisi = Math.max(1, Math.ceil(liste.length / SAYFA_BOYU));
     if (sayfa > sayfaSayisi) sayfa = sayfaSayisi;
