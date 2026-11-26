@@ -1466,8 +1466,12 @@ button.git:hover{text-decoration:underline}
       '<div class="acilir-ust"><p>Hangi kanalda, hangi gün, hangi saatte. Yayını insan yapar; buradaki her satır Meta ya da LinkedIn\'de zamanlanmış olmalı.</p>' + haftaNav() + '</div>' +
       '<div class="plan-kap"><div class="plan" role="table" aria-label="Kanal ve güne göre yayın planı">' + bas + satirlar + '</div></div></details>' +
       '<div class="duzen"><div class="ana-kolon">' + (bos ? rehberBlok('gorunurluk') : '') + modulIsBlok('gorunurluk') +
-      '<section class="blok" aria-label="Kanallar ve profiller"><header><div><h2>Kanallar ve profiller</h2><p>Vitrin güncel mi? Ayda bir gözden geçirilir. Satıra tıkla, güncelle.</p></div><span class="sayac">' + (bekleyenKanal ? bekleyenKanal + ' bekliyor' : 'hepsi güncel') + '</span></header>' +
-      '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Kanal</th><th>Rolü</th><th>Durum</th><th>Not</th></tr></thead><tbody>' + kanalTablo + '</tbody></table></div></section>' +
+      '<section class="blok" aria-label="Kanallar ve profiller"><header><div><h2>Kanallar ve profiller</h2><p>Vitrin güncel mi? Ayda bir gözden geçirilir. Satıra tıkla, güncelle.</p></div>' +
+      // 000069: boş listede "hepsi güncel" yazmaz; kanal eklemenin yolu her zaman açık.
+      (kanalTablo ? '<span class="sayac">' + (bekleyenKanal ? bekleyenKanal + ' bekliyor' : 'hepsi güncel') + '</span>' : '') +
+      '<button type="button" class="karar-dugme" data-kanal-ekle>+ Kanal ekle</button></header>' +
+      (kanalTablo ? '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Kanal</th><th>Rolü</th><th>Durum</th><th>Not</th></tr></thead><tbody>' + kanalTablo + '</tbody></table></div>'
+        : '<p class="bos-not">Henüz kanal eklenmedi. Kullandığın yerleri tek tek ekle: Instagram, LinkedIn, Google işletme profili, meslek dizinleri…</p>') + '</section>' +
       '<section class="blok" aria-label="Haftalık istatistik"><header><div><h2>Haftalık istatistik</h2><p>İçerik günü elle girilir. Başlangıç evresinde 4 haftalık eğilimle okunur.</p></div><button type="button" class="karar-dugme" data-istat="">Bu haftayı gir</button></header>' +
       (istatTablo ? '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Hafta</th>' + istatSutunlari().map(function (a) { return '<th>' + esc(a.kisa) + '</th>'; }).join('') + '</tr></thead><tbody>' + istatTablo + '</tbody></table></div>' : '<p class="bos-not">Henüz istatistik girilmedi.</p>') +
       '</section></div><aside class="yan-kolon" aria-label="Görünürlük YZ\'si">' + yzBlok('gorunurluk') + tanitBlok('gorunurluk') + '</aside></div>';
@@ -1688,6 +1692,15 @@ button.git:hover{text-decoration:underline}
       function (v) { return islemYap('istatistikKaydet', v, 'İstatistik kaydedildi.'); });
   }
 
+  function kanalEkleFormu() {
+    formAc('Yeni kanal',
+      alan('Kanal adı', girdi('kanal', '', 'text', ' maxlength="60" required placeholder="ör. Instagram, Google işletme profili"'), true) +
+      alan('Rolü', girdi('rol', '', 'text', ' maxlength="300" placeholder="ör. Tanınma ve güven; haftada 2 paylaşım"'), true) +
+      alan('Durum', secim('durum', [['kontrol', 'Kontrol edilmedi'], ['guncel', 'Güncel'], ['bekliyor', 'Düzeltme bekliyor']], 'kontrol'), true) +
+      alan('Not', '<textarea name="not" maxlength="1000"></textarea>', true),
+      function (v) { return islemYap('kanalEkle', v, 'Kanal eklendi.'); });
+  }
+
   function kanalFormu(id) {
     var k = (VERI.kanallar || []).filter(function (x) { return x.id === id; })[0]; if (!k) return;
     formAc(k.kanal,
@@ -1823,6 +1836,7 @@ button.git:hover{text-decoration:underline}
     if (d.gor) { gonder({ tip: 'masaAc', masa: d.gor }); return; }
     if (d.gitMasa) { document.querySelectorAll('dialog[open]').forEach(function (x) { x.close(); }); gonder({ tip: 'masaAc', masa: d.gitMasa }); return; }
     if (t.hasAttribute('data-yeni-is')) { gonder({ tip: 'yeniIs' }); return; }
+    if (t.hasAttribute('data-kanal-ekle')) { kanalEkleFormu(); return; }
     if (d.yapildi) { e.stopPropagation(); yapildiFormu(d.yapildi); return; }
     if (t.hasAttribute('data-kararlar')) { kararlarDiyalogu(); return; }
     if (d.kararOnayla) { t.disabled = true; islemYap('kararOnayla', { id: d.kararOnayla }, 'Onaylandı.').then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); }, function () { t.disabled = false; }); return; }
