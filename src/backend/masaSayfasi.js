@@ -31,7 +31,7 @@ import {
   rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
-import { profilKurallari } from './profil';
+import { profilKurallari, isletmeAdi } from './profil';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -147,7 +147,8 @@ function haftaSec(istenen, bugun) {
 
 export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), secenek = {}) {
   // Kurulum profili (000090): kapalı sayfa istenirse ilk açık sayfa gelir.
-  const acikSayfalar = (await profilKurallari()).sayfalar;
+  const kural = await profilKurallari();
+  const acikSayfalar = kural.sayfalar;
   if (!acikSayfalar.includes(kod)) kod = acikSayfalar[0];
   const tanim = MASA_SAYFALARI[kod];
   if (!tanim) throw new Error(`Bilinmeyen masa: ${kod}`);
@@ -242,6 +243,9 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     igneler,
     icerik,
     istatistik,
+    istatAlanlari: kural.istatistik, // haftalık istatistik sütunları ve formu (000053)
+    isletmeAdi: await isletmeAdi(), // menüdeki logo yazısı (000044)
+    tempoSecenekleri: kural.tempo, // tempo ayarlarında evre adları ve açıklama (26 Kas)
     kanallar,
     haftaIsleri,
     yeniGelenler,
