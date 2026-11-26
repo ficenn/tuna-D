@@ -13,6 +13,7 @@
 //   panel → sayfa: { tip: 'yapildi', isId, cozumNotu, kapanisNotu } → Süleyman: kısa yol işi (B/C/D/Y) "Yapıldı"
 //   panel → sayfa: { tip: 'durakIslemi', isId, islem, secenek }  → Süleyman: Ticari işin durak işlemi
 //   panel → sayfa: { tip: 'isiGuncelle', isId, girdi }           → İş Detayı → Düzenle
+//   panel → sayfa: { tip: 'isiSil', isId, neden } / { tip: 'isiGeriAl', isId } → İş Detayı → Sil / Geri al (000055)
 //   panel → sayfa: { tip: 'panelSecenekleri' }                   → Düzenle için seçenekleri gönder
 //   panel → sayfa: { tip: 'yeniIs' }                             → formu aç ve oraya kaydır
 //   panel → sayfa: { tip: 'panelBasinaKaydir' }                  → panelin başına kaydır
@@ -56,7 +57,7 @@
 //
 // Öğelerden biri sayfada yoksa diğeri yine çalışır.
 
-import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle } from 'backend/isGirisi.web';
+import { isGirisiSecenekleri, isGirisiniKaydet, yeniMusteriKaydet, isiGuncelle, isiSil, isiGeriAl } from 'backend/isGirisi.web';
 import { panelVerisi, isDetayi } from 'backend/kontrolPaneli.web';
 import wixLocationFrontend from 'wix-location-frontend';
 import wixWindowFrontend from 'wix-window-frontend';
@@ -271,6 +272,16 @@ const ISLEYICILER = {
       const uyari = s.uyarilar && s.uyarilar.length ? ` (${s.uyarilar.join(' ')})` : '';
       return `${m.isId}: güncellendi.${uyari}`;
     }
+  ),
+
+  // İş silme (000055): kayıt silinmez, işaretlenir; "Silinenler"den geri alınır.
+  isiSil: (m) => islem(
+    () => isiSil(m.isId, m.neden || ''),
+    (s) => (s.degisti ? `${m.isId}: silindi. Kontrol Paneli'nde "Silinenler"den geri alabilirsin.` : `${m.isId} zaten silinmişti.`)
+  ),
+  isiGeriAl: (m) => islem(
+    () => isiGeriAl(m.isId),
+    (s) => (s.degisti ? `${m.isId}: geri alındı, listeye döndü.` : `${m.isId} zaten listedeydi.`)
   ),
 
   panelBasinaKaydir: () => $w(PANEL).scrollTo(),

@@ -266,6 +266,7 @@ export async function isleriGetir(simdi = new Date(), { yalnizAcik = false } = {
   const gorulen = new Set();
   const hepsi = [];
   for (const k of [...acik.items, ...(guncel ? guncel.items : [])]) {
+    if (k.silindi === true) continue; // silinen iş (000055): tempo, masa, istatistik ve YZ görmez
     const anahtar = k._id || k.isId;
     if (gorulen.has(anahtar)) continue;
     gorulen.add(anahtar);
@@ -300,7 +301,11 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const evre = EVRELER[a.evre] ? a.evre : 'olcum';
   const esik = Number(a.esik) > 0 ? Number(a.esik) : 4;
   const hedef = Number(a.hedef) > 0 ? Number(a.hedef) : 7;
-  const kaynak = a.kaynak === 'elle' ? 'elle' : 'kurulum';
+  // Kaynak profilin izin verdikleri arasından (27 Kas): psikologda kurulum sayımı yok, kayıt
+  // boşsa da 'elle' geçerli. Yoksa psikolog sitesi iş kayıtlarını "seans" diye sayıyordu (0).
+  const kural = await profilKurallari();
+  const izinli = kural.tempo.kaynaklar.map((k) => k[0]);
+  const kaynak = izinli.includes(a.kaynak) ? a.kaynak : (izinli.includes('kurulum') ? 'kurulum' : izinli[0]);
   const birim = kaynak === 'elle' ? 'seans' : 'kurulum';
   const ay = ayKodu(simdi);
   const gecen = oncekiAy(ay);
@@ -335,7 +340,7 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const olcut = hedefEvresi ? hedef : esik;
   const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, olcut, oran);
   const sonuc = {
-    durum, etiket: TEMPO_ETIKETLERI[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
+    durum, etiket: (kural.tempo.etiketler || TEMPO_ETIKETLERI)[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
     esikAsilanAy, hedefEvresi, olcut, buAyGirildi: girildi.buAy, gecenAyGirildi: girildi.gecenAy,
     // Bugüne kadar beklenen (gösterge çentiği için).
     beklenen: Math.round(olcut * oran * 10) / 10,
@@ -355,7 +360,7 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
     };
   }
   // Strateji ölçüsü (anket, KN) yalnızca tuna:D'de; psikologda açılış hazırlığı sakin kutudur.
-  if (evre === 'hazirlik' && (await profilKurallari()).kn) sonuc.strateji = await stratejiOlcusu(isler);
+  if (evre === 'hazirlik' && kural.kn) sonuc.strateji = await stratejiOlcusu(isler);
   return sonuc;
 }
 

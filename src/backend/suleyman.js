@@ -210,6 +210,35 @@ async function kayitBul(isId) {
   return sonuc.items[0];
 }
 
+// Silinen iş (000055, 27 Kas): durak işlemi, "Yapıldı" ve düzenleme yapılmaz; önce Geri al.
+function silinmisseDur(kayit) {
+  if (kayit && kayit.silindi === true) throw new Error(`${kayit.isId} silinmiş bir iş. Önce "Geri al" ile geri getir.`);
+}
+
+// İş silme ve geri alma (000055, basit sürüm): kayıt yerinde durur, yalnızca işaretlenir.
+// Silinen iş listeden, tempodan, istatistikten ve YZ'nin okuduğundan çıkar; Kontrol
+// Paneli'nde "Silinenler"de görünür. İş no tekrar kullanılmaz (sayaç geri gitmez).
+// "Kalıcı sil" (KVKK) pilottan sonra.
+export async function silmeIsaretle(isId, sil, aktor, neden = '') {
+  const a = aktorKontrol(aktor);
+  if (a.tur !== 'insan') throw new Error('Süleyman: işi yalnızca insan silebilir ya da geri alabilir.');
+  const temizNeden = String(neden || '').trim();
+  if (temizNeden.length > 500) throw new Error('Neden çok uzun (en fazla 500 karakter).');
+  const kayit = await kayitBul(isId);
+  if (Boolean(kayit.silindi) === Boolean(sil)) return { basarili: true, degisti: false };
+  const durum = mevcutDurum(kayit);
+  const giris = gecmisKaydi({
+    islem: sil ? 'is_silindi' : 'is_geri_alindi', onceki: durum, yeni: durum, aktor: a,
+    not: sil && temizNeden ? `Neden: ${temizNeden}` : null
+  });
+  const alanlar = sil
+    ? { silindi: true, silinmeTarihi: new Date().toISOString(), silen: a.kim, silmeNedeni: temizNeden || null }
+    : { silindi: false, silinmeTarihi: null, silen: null, silmeNedeni: null };
+  await wixData.update(KOLEKSIYON, { ...kayit, ...alanlar, gecmis: [...(Array.isArray(kayit.gecmis) ? kayit.gecmis : []), giris] }, { suppressAuth: true });
+  console.log(`Süleyman: ${isId} ${sil ? 'silindi' : 'geri alındı'} (${a.kim})`);
+  return { basarili: true, degisti: true };
+}
+
 // Yeni İş Kaydı'nın yaşam döngüsü alanları: Giriş başlar.
 // isKaydiEkleYenidenDenemeli'ye verilen kayıt verisine eklenir.
 // `not` isteğe bağlıdır (ör. İş Girişi'nde kaynak ve müşteri değişiklikleri).
@@ -282,6 +311,7 @@ export async function gecisYap(isId, islem, aktor, not, simdi = new Date(), sece
   }
 
   const kayit = await kayitBul(isId);
+  silinmisseDur(kayit);
   const onceki = mevcutDurum(kayit);
 
   if (onceki.asama === hedefAsama && onceki.durum === hedefDurum) {
@@ -396,6 +426,7 @@ export async function durakIslemi(isId, islem, aktor, secenek = {}, simdi = new 
   if (temizNot.length > 2000) throw new Error('Not çok uzun (en fazla 2000 karakter).');
 
   const kayit = await kayitBul(isId);
+  silinmisseDur(kayit);
   const onceki = mevcutDurum(kayit);
   if (!izinliDurakIslemleri(onceki).includes(islem)) return izinsiz(isId, onceki, islem);
 
@@ -500,6 +531,7 @@ export async function kayitDuzenle(isId, alanlar, aktor, not) {
   if (yasak.length) throw new Error(`Süleyman: bu alanlar düzenlenemez: ${yasak.join(', ')}`);
 
   const kayit = await kayitBul(isId);
+  silinmisseDur(kayit);
   const durum = mevcutDurum(kayit);
   if (durum.durum === 'tamamlandi' || durum.durum === 'iptal') {
     throw new Error(`${isId} kapanmış bir iş; düzenlenemez.`);
@@ -553,6 +585,7 @@ export async function talepSuresiDolanlariKapat(simdi = new Date()) {
   const aktor = { tur: 'sistem', kim: 'Süleyman (zaman aşımı)' };
   const kapatilan = [];
   for (const kayit of sonuc.items) {
+    if (kayit.silindi === true) continue; // silinen iş (000055) beklemez, kapanmaz
     const kalan = talepKalanGun(kayit, simdi);
     if (kalan === null || kalan > 0) continue;
     const onceki = mevcutDurum(kayit);
