@@ -826,6 +826,8 @@ body.bos-mod .serit .amac.dolu-y{display:none!important}
 .video-kap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .kart-metin{white-space:pre-wrap;font-size:14px;line-height:1.6;margin:0}
 .r-adimlar li.tamam{opacity:.65}
+.r-adimlar li.r-izlenim{border-style:dashed;background:transparent}
+.r-adimlar li.r-izlenim .r-no{background:none;color:var(--soluk)}
 .r-adimlar li.tamam .r-no{background:var(--yesil);color:#fff}
 .r-adimlar .r-tik{font:inherit;font-size:12px;border:0;background:none;color:var(--soluk);cursor:pointer;text-decoration:underline;padding:2px 4px}
 .r-ilerleme i.dolu{background:var(--seftali-k)}
@@ -1198,7 +1200,15 @@ button.git:hover{text-decoration:underline}
     var dolu = adimListesi.map(function (_, i) { return '<i class="' + (tamam.indexOf(String(i + 1)) >= 0 ? 'dolu' : '') + '"></i>'; }).join('');
     return '<section class="blok rehber" aria-label="' + esc(T.rehberBaslik) + '" style="display:block">' +
       '<header><div><p class="el-yazi">' + esc(T.rehberBaslik) + '</p><h2>' + esc(r.h2) + '</h2></div><span class="r-ilerleme" aria-label="' + tamam.length + ' adım tamam">' + dolu + '</span></header>' +
-      '<ol class="r-adimlar">' + adimlar + '</ol><p class="r-dip">' + esc(r.dip) + '</p></section>';
+      '<ol class="r-adimlar">' + adimlar + izlenimAdimi() + '</ol><p class="r-dip">' + esc(r.dip) + '</p></section>';
+  }
+
+  // İlk gün rehberinin son adımı (000070, 27 Kas): HAP'ı gezdikten sonra ilk izlenimi
+  // Geri bildirim'e yazma çağrısı. Numarasız; ilerleme çubuğuna sayılmaz, işaretlenmez.
+  function izlenimAdimi() {
+    return '<li class="r-izlenim"><span class="r-no" aria-hidden="true">✎</span><div><b>Son adım: ilk izlenimin</b>' +
+      '<span>Biraz gezdikten sonra yaz: neyi hemen anladın, nerede takıldın, ne eksik? Bir cümle bile işimize yarar.</span></div>' +
+      '<div class="ust-eylem"><button type="button" class="r-tik" data-geri-bildirim data-izlenim>Geri bildirim yaz</button></div></li>';
   }
 
   function tanitBlok(kod) {
@@ -1851,11 +1861,11 @@ button.git:hover{text-decoration:underline}
       '<button type="button" class="metin-dugme" data-tempo-ayar>Tempo ayarları</button>');
   }
 
-  function geriBildirimFormu() {
+  function geriBildirimFormu(izlenim) {
     var ad = VERI ? VERI.masa.ad : 'HAP';
-    formAc('Geri bildirim', '<p class="tam ozet" style="margin:0">Takıldığın, eksik ya da yanlış bulduğun, aklına gelen her şey. Hangi sayfada yazdığın (' + esc(ad) + ') kendiliğinden eklenir.</p>' +
+    formAc(izlenim ? 'İlk izlenimin' : 'Geri bildirim', '<p class="tam ozet" style="margin:0">' + (izlenim ? 'HAP\'ı ilk kez kullanırken ne hissettin? Anlaşılan, kafa karıştıran, eksik bulduğun her şey.' : 'Takıldığın, eksik ya da yanlış bulduğun, aklına gelen her şey.') + ' Hangi sayfada yazdığın (' + esc(ad) + ') kendiliğinden eklenir.</p>' +
       alan('Ne gördün, ne istersin?', '<textarea name="metin" maxlength="4000" required></textarea>', true),
-      function (v) { return islemYap('geriBildirim', { metin: v.metin, sayfa: VERI ? VERI.masa.kod : null }, 'Geri bildirim kaydedildi. Teşekkürler!'); });
+      function (v) { return islemYap('geriBildirim', { metin: (izlenim ? '[İlk izlenim] ' : '') + v.metin, sayfa: VERI ? VERI.masa.kod : null }, 'Geri bildirim kaydedildi. Teşekkürler!'); });
   }
 
   function modulDiyalogu(kod) {
@@ -1897,7 +1907,7 @@ button.git:hover{text-decoration:underline}
     if (d.modulAc) { modulDiyalogu(d.modulAc); return; }
     if (t.hasAttribute('data-tempo-ayar')) { tempoFormu(); return; }
     if (t.hasAttribute('data-tempo')) { if (VERI.tempo && VERI.tempo.kaynak === 'elle' && VERI.tempo.evre !== 'hazirlik') aylikFormu(); else tempoFormu(); return; }
-    if (t.hasAttribute('data-geri-bildirim')) { geriBildirimFormu(); return; }
+    if (t.hasAttribute('data-geri-bildirim')) { geriBildirimFormu(t.hasAttribute('data-izlenim')); return; }
     if (t.hasAttribute('data-yz-ayar') || t.hasAttribute('data-yz-ac')) { yzAyarFormu(); return; }
     if (d.hafta !== undefined && t.closest('.hafta-nav')) {
       var n = Number(d.hafta), hedef = n === 0 ? buHafta() : gunEkle(VERI.hafta, n);
