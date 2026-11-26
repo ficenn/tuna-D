@@ -28,7 +28,7 @@ import { DURAKLAR } from './rota';
 import { gunEkle } from './suleyman';
 import {
   tempoHesapla, kararlariGetir, igneleriGetir, icerikleriGetir, istatistikleriGetir, kanallariGetir,
-  rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, HANE, KARAR_MASASI
+  rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, haftalikRitim, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
 import { profilKurallari, isletmeAdi } from './profil';
@@ -195,16 +195,17 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
   const kararMasasi = KARAR_MASASI[kod] || null;
 
   // Sayfaya göre ek veri (paralel).
-  const [tempo, kararlar, igneler, icerik, istatistik, kanallar, rehber, yz, sabah] = await Promise.all([
+  const [tempo, kararlar, igneler, icerik, istatistik, kanallar, rehber, yz, sabah, ritim] = await Promise.all([
     pazarlamaAilesi || kod === 'yonetim' ? tempoHesapla(simdi, kayitlar.items) : null,
     kararMasasi ? kararlariGetir(kararMasasi) : null,
     HANE[kod] ? igneleriGetir(kod) : [],
     pazarlamaAilesi ? icerikleriGetir(hafta) : null,
     pazarlamaAilesi ? istatistikleriGetir(6) : [],
-    kod === 'gorunurluk' ? kanallariGetir() : [],
+    kod === 'gorunurluk' || kod === 'icerik' ? kanallariGetir() : [], // İçerik: kart kanal seçimi (26 Kas)
     rehberDurumu(kod),
     yzDurumu(simdi),
-    sabahNotu(kod, simdi)
+    sabahNotu(kod, simdi),
+    pazarlamaAilesi ? haftalikRitim(kural) : null
   ]);
 
   // Masaya yeni gelen, yönlendirilmemiş B işleri (Masa YZ'sinin kartı).
@@ -253,7 +254,9 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     yz,
     sabahNotu: sabah,
     yzVar: !!YZ_SAYFALARI[kod],
-    ilkAdimlar: ILK_ADIMLAR[kod] || [],
+    ilkAdimlar: (kural.ilkAdimlar && kural.ilkAdimlar[kod]) || ILK_ADIMLAR[kod] || [],
+    metinler: kural.metinler || {}, // ekran metinleri, profile göre (T paketi A4/A5)
+    ritim, // haftalık içerik ritmi; null = belirlenmedi
     menu: Object.entries(MASA_SAYFALARI).filter(([k]) => acikSayfalar.includes(k)).map(([k, t]) => ({ kod: k, ad: t.ad, tur: t.tur, ust: t.ust }))
   };
 }

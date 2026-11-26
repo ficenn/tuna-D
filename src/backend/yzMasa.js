@@ -25,7 +25,7 @@ import { tohumlar } from './baglamTohum';
 import { ILK_ADIMLAR } from './masaSayfasi';
 import {
   yzDurumu, yzKullanimEkle, tempoHesapla, kararlariGetir, icerikleriGetir, istatistikleriGetir,
-  kanallariGetir, haftaBasi, metin, isleriGetir, ayarGetir, igneleriGetir, KARAR_MASASI, HANE
+  kanallariGetir, haftaBasi, metin, isleriGetir, ayarGetir, igneleriGetir, haftalikRitim, KARAR_MASASI, HANE
 } from './masaVeri';
 import { profilKurallari } from './profil';
 
@@ -114,17 +114,25 @@ function kisaTarih(ymd) {
 }
 
 // Masanın bugünkü durumu (YZ'ye düz metin).
+// Girilmemiş ay "0" değil "girilmedi" diye gider (Haiku testi 26 Kas: 8'de doğru,
+// 9, H1c, H7'de "0 seans" dedi; veri yok ≠ sıfır).
+function ayDegeri(n, girildi) {
+  return girildi === false ? 'girilmedi (sayı bilinmiyor, 0 sayma)' : n;
+}
+
 export async function durumMetni(sayfa, simdi = new Date()) {
   const bugun = gunTR(simdi);
-  const istatAlanlari = (await profilKurallari()).istatistik; // 000053: psikologda anket/KN yok
-  const [acikIsler, tempo, kararlar, hafta, istat, kanallar, igneler] = await Promise.all([
+  const kural = await profilKurallari();
+  const istatAlanlari = kural.istatistik; // 000053: psikologda anket/KN yok
+  const [acikIsler, tempo, kararlar, hafta, istat, kanallar, igneler, ritim] = await Promise.all([
     isleriGetir(simdi, { yalnizAcik: true }),
     tempoHesapla(simdi),
     kararlariGetir(KARAR_MASASI[sayfa] || 'pazarlama'),
     icerikleriGetir(haftaBasi(bugun)),
     istatistikleriGetir(4),
     kanallariGetir(),
-    HANE[sayfa] ? igneleriGetir(sayfa) : []
+    HANE[sayfa] ? igneleriGetir(sayfa) : [],
+    haftalikRitim(kural)
   ]);
   const acik = (k) => k.status !== 'tamamlandi' && k.status !== 'iptal';
   const bIsleri = acikIsler.filter((k) => k.kategori === 'B' && acik(k));
@@ -133,7 +141,8 @@ export async function durumMetni(sayfa, simdi = new Date()) {
   const gecikti = (k) => k.termin && String(k.termin) < bugun;
   const isSatiri = (k) => `- ${k.isId} · ${modulAdi[k.modul] || 'masa yönetimi'} · ${String(k.description || '').slice(0, 140)}${k.termin ? (gecikti(k) ? ` · GECİKTİ (bitiş ${k.termin})` : ` · bitiş ${k.termin}`) : ''}`;
   const gecikenB = bIsleri.filter(gecikti).length;
-  // İçerik kuralı: haftada 3 içerik günü (sayfadaki "0/3 gün dolu" ile aynı hesap).
+  // İçerik ritmi: haftada n içerik günü (sayfadaki "x / n gün dolu" ile aynı hesap). n ayardan
+  // gelir (HapAyarlari 'ritim'); belirlenmemişse YZ kendi kural uydurmasın diye bu söylenir.
   const doluGunler = new Set(hafta.icerikler.filter((c) => c.durum !== 'fikir' && c.tarih).map((c) => c.tarih));
   const kalanGun = hafta.gunler.filter((g) => g >= bugun).length;
   const ticariAcik = acikIsler.filter((k) => (k.kategori === 'A' || k.source === 'Webhook') && acik(k)).length;
@@ -141,10 +150,13 @@ export async function durumMetni(sayfa, simdi = new Date()) {
   const satirlar = [
     // Saat de verilir (000067/000091): akşam açılan sayfada "günaydın" denmesin.
     `Bugün: ${bugun}, saat ${saatTR(simdi)} (Türkiye saati).`,
-    tempo.evre === 'hazirlik'
+    tempo.evre === 'hazirlik' && tempo.strateji
       ? `Evre: HAZIRLIK (HAP bitene kadar). Kurulum bu ay ${tempo.buAy}, geçen ay ${tempo.gecenAy} (bilgi; alarm konusu değil). Strateji ölçüsü ${tempo.strateji.baslangic}'den beri: anket ${tempo.strateji.anket}/${tempo.strateji.anketHedef} (${tempo.strateji.anketSon}'a kadar), KN formu ${tempo.strateji.kn}/${tempo.strateji.knHedef} (${tempo.strateji.knSon}'a kadar).`
-      : `Tempo (${tempo.birim}): ${tempo.etiket}. Bu ay ${tempo.buAy}, geçen ay ${tempo.gecenAy}. Eşik ayda ${tempo.esik}, Hedef ayda ${tempo.hedef} (Hedef'e 3 ay üst üste Eşik aşılınca geçilir; şu an ${tempo.esikAsilanAy}/3).` + gelirMetni(tempo),
-    `Açık ticari iş (A/KN): ${ticariAcik} (ayrıntı verilmez).`,
+      : tempo.evre === 'hazirlik'
+        // Psikologda açılış hazırlığı (26 Kas): strateji ölçüsü yok, alarm yok.
+        ? `Evre: AÇILIŞ HAZIRLIĞI (işletme açılmaya hazırlanıyor; alarm yok, seans sayısı Eşik'le karşılaştırılmaz). Seans bu ay ${ayDegeri(tempo.buAy, tempo.buAyGirildi)}, geçen ay ${ayDegeri(tempo.gecenAy, tempo.gecenAyGirildi)} (bilgi).`
+        : `Tempo (${tempo.birim}): ${tempo.etiket}. Bu ay ${ayDegeri(tempo.buAy, tempo.buAyGirildi)}, geçen ay ${ayDegeri(tempo.gecenAy, tempo.gecenAyGirildi)}. Eşik ayda ${tempo.esik}, Hedef ayda ${tempo.hedef} (Hedef'e 3 ay üst üste Eşik aşılınca geçilir; şu an ${tempo.esikAsilanAy}/3).` + gelirMetni(tempo),
+    ...(kural.kn ? [`Açık ticari iş (A/KN): ${ticariAcik} (ayrıntı verilmez).`] : []),
     '',
     'Geçerli masa kararları:',
     ...(kararlar.gecerli.length ? kararlar.gecerli.map((k) => `- ${k.baslik}${k.aciklama ? ` (${k.aciklama})` : ''}`) : ['- (henüz yok)']),
@@ -155,7 +167,9 @@ export async function durumMetni(sayfa, simdi = new Date()) {
     '',
     `Bu haftanın içerikleri (${hafta.hafta} haftası):`,
     ...(hafta.icerikler.length ? hafta.icerikler.map((c) => `- ${kisaTarih(c.tarih)} ${c.saat || ''} · ${c.kanal} · ${c.baslik} · ${c.durumEtiketi}`) : ['- (planlanmış içerik yok)']),
-    `İçerik kuralı (haftada 3 içerik günü): bu hafta ${Math.min(doluGunler.size, 3)}/3 gün dolu${doluGunler.size >= 3 ? '' : `, ${3 - doluGunler.size} gün boş`}; haftanın bugün dahil ${kalanGun} günü kaldı. Bu senin takvimin: ilk notta ve "ne yapalım" sorusunda fikir havuzundan önce buna bak.`,
+    ritim
+      ? `İçerik ritmi (haftada ${ritim} içerik günü): bu hafta ${Math.min(doluGunler.size, ritim)}/${ritim} gün dolu${doluGunler.size >= ritim ? '' : `, ${ritim - doluGunler.size} gün boş`}; haftanın bugün dahil ${kalanGun} günü kaldı. Bu senin takvimin: ilk notta ve "ne yapalım" sorusunda fikir havuzundan önce buna bak.`
+      : `İçerik ritmi: haftalık ritim henüz belirlenmedi (İçerik sayfasındaki şeritten seçilir). Haftada kaç içerik olması gerektiğini sen söyleme; ritmi kullanıcıya sor ya da belirlemesini öner. Bu hafta ${doluGunler.size} gün planlı içerik var.`,
     `Fikir havuzu: ${hafta.fikirler.map((f) => f.baslik).slice(0, 15).join(' | ') || '(boş)'}`,
     '',
     'İğnelenenler (kullanıcının "önümde dursun" dediği notlar, yeniden eskiye):',
