@@ -48,6 +48,7 @@ const ISLEMLER = {
   sabahNotu: (v, a) => Y.sabahNotuIste(String(v.sayfa || ''), a),
   geriBildirim: (v, a) => V.geriBildirimEkle(v, a),
   tempoAyarla: (v, a) => V.tempoAyarla(v, a),
+  ritimAyarla: (v, a) => V.ritimAyarla(v.haftalik, a), // T paketi, 26 Kas
   isYonlendir: (v, a) => V.isYonlendir(v.isId, v.hedef, a)
 };
 

@@ -309,10 +309,13 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const aylik = { [ay]: 0, [uc[0]]: 0, [uc[1]]: 0, [uc[2]]: 0 };
   const isler = kayitlar || (await isleriGetir(simdi));
   let elle = null;
+  let girildi = { buAy: true, gecenAy: true };
   if (kaynak === 'elle') {
     const kayit = await aylikKayitlar([ay, ...uc]);
     for (const m of Object.keys(aylik)) aylik[m] = kayit[m] ? kayit[m].seans : 0;
     elle = { buAy: kayit[ay] || null, gecmis: uc.map((m) => kayit[m] || { ay: m, seans: null, gelir: null, not: '' }) };
+    // Girilmemiş ay 0 değil, bilinmiyor (Haiku testi 26 Kas: YZ "0 seans" diyordu).
+    girildi = { buAy: Boolean(kayit[ay] && kayit[ay].seans !== null && kayit[ay].seans !== undefined), gecenAy: Boolean(kayit[gecen] && kayit[gecen].seans !== null && kayit[gecen].seans !== undefined) };
   } else {
     for (const k of isler) {
       // Net sayım (Yönetim kararı, 13 Kasım): iade edilen kurulum hiç sayılmaz,
@@ -333,7 +336,7 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, olcut, oran);
   const sonuc = {
     durum, etiket: TEMPO_ETIKETLERI[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
-    esikAsilanAy, hedefEvresi, olcut,
+    esikAsilanAy, hedefEvresi, olcut, buAyGirildi: girildi.buAy, gecenAyGirildi: girildi.gecenAy,
     // Bugüne kadar beklenen (gösterge çentiği için).
     beklenen: Math.round(olcut * oran * 10) / 10,
     yon: buAy > gecenAy ? '↑' : buAy < gecenAy ? '↓' : '→'
@@ -382,6 +385,27 @@ export async function tempoAyarla(alanlar, aktor) {
   }
   await ayarYaz('tempo', yeni, aktor);
   return tempoHesapla();
+}
+
+// --- Haftalık içerik ritmi (T paketi, 26 Kas) ---
+//
+// İçerik şeridindeki "x / n içerik günü dolu" sayacının n'i. Psikolog kendi ritmini
+// seçer (1–7 gün); kayıt yoksa profilin varsayılanı (tuna:D 3, psikolog belirlenmedi).
+// Boş değer kaydı siler: ritim yeniden "belirlenmedi" olur.
+
+export async function haftalikRitim(kural = null) {
+  const a = await ayarGetir('ritim');
+  const n = Number(a && a.haftalik);
+  if (Number.isInteger(n) && n >= 1 && n <= 7) return n;
+  return (kural || await profilKurallari()).ritim || null;
+}
+
+export async function ritimAyarla(deger, aktor) {
+  const bos = deger === '' || deger === null || deger === undefined;
+  const n = bos ? null : Number(deger);
+  if (!bos && !(Number.isInteger(n) && n >= 1 && n <= 7)) throw new Error('Haftalık ritim 1 ile 7 gün arasında olmalı.');
+  await ayarYaz('ritim', { title: 'Haftalık içerik ritmi', haftalik: n }, aktor);
+  return haftalikRitim();
 }
 
 // --- Aylık elle giriş (000035, 16 Kasım; Fatoş + Tuna) ---
@@ -591,7 +615,10 @@ export async function icerikKaydet(veri, aktor) {
   const durum = ICERIK_DURUMLARI[veri.durum] ? veri.durum : 'fikir';
   const tarih = ymdKontrol(veri.tarih, 'Tarih');
   if (durum !== 'fikir' && !tarih) throw new Error('Planlanan içeriğin tarihi olmalı.');
-  const kanal = KANAL_ADLARI.includes(veri.kanal) ? veri.kanal : 'Diğer';
+  // Kanal: sabit liste ya da Kanallar tablosundaki bir kanal (26 Kas); başka ad 'Diğer'.
+  const istenen = String(veri.kanal || '').trim();
+  const tablo = KANAL_ADLARI.includes(istenen) || !istenen ? [] : (await kanallariGetir()).map((k) => k.kanal);
+  const kanal = KANAL_ADLARI.includes(istenen) || tablo.includes(istenen) ? istenen : 'Diğer';
   const alanlar = {
     baslik: metin(veri.baslik, KISA, 'Başlık', true),
     tarih, saat: saatKontrol(veri.saat), kanal, durum,

@@ -42,9 +42,46 @@ const TEMPO_PSIKOLOG = {
   aciklama: '<b>Açılış hazırlığı:</b> işletmeni açmaya hazırlanırken; alarm yok, seans sayısı Eşik\'le karşılaştırılmaz. <b>Ölçüm:</b> önce Eşik izlenir; 3 ay üst üste her ay Eşik aşılırsa Hedef\'e geçilir. Evre, Eşik ve Hedef senin kararın.'
 };
 
+// Ekran metinleri (T paketi A4/A5, 26 Kas; Fatoş'un "Ekran metinleri — psikolog
+// sürümü" taslağı). Sayfadaki varsayılan metinler tuna:D'nindir; burada yalnızca
+// psikologda değişenler durur. "Masayı tanı" ve başlık altı Masalar koleksiyonundan
+// gelir (isi / kart), burada değil.
+const METIN_PSIKOLOG = {
+  sayfa: {
+    icerik: { yzAlt: 'Pazarlama masasının kararlarıyla çalışır. Senin sesinle taslak yazar; yayımlamaz.' }
+  },
+  fikirAlt: 'Tarihi olmayan fikirler. Haftalık içerik çalışmanda takvime yerleştirilir.',
+  yolculuk: 'görmek → fark etmek → durmak → okumak → anlamlandırmak → etkilenmek → davranmak',
+  planNotu: 'Hangi kanalda, hangi gün, hangi saatte. Yayını insan yapar; buradaki her satır kendi kanalında zamanlanmış olmalı.',
+  planCumartesi: false
+};
+
+// İlk gün rehberi adımları: psikologda değişen sayfalar. Olmayan sayfa tuna:D
+// adımlarını kullanır (masaSayfasi.js ILK_ADIMLAR).
+const ILK_ADIMLAR_PSIKOLOG = {
+  pazarlama: [
+    { ad: 'Kime sesleniyoruz?', aciklama: 'Herkese seslenen kimseye ulaşmaz. Tek bir kişiyi tarif ederek başla.' },
+    { ad: 'Farkımız ne?', aciklama: 'Seni sen yapan şey. Vitrinin ilk cümlesi buradan çıkar.' },
+    { ad: 'Hangi kanallar?', aciklama: 'Her yerde olmak zorunda değilsin; iyi bakılan iki kanal ve meslektaş ağın yeter.' },
+    { ad: 'İlk ayın temposu', aciklama: 'Haftada kaç içerik, kaç meslektaş ya da kurum görüşmesi? Sayıyla yaz ki ölçebilelim.' }
+  ],
+  icerik: [
+    { ad: 'Sesini bul', aciklama: 'Nasıl konuşursun, kime nasıl hitap edersin? Üç cümle yeter.' },
+    { ad: 'Havuza ilk 5 fikir', aciklama: 'Yarım fikir de fikirdir. Buraya at, kaybolmasın.' },
+    { ad: 'Haftalık ritmini seç', aciklama: 'Haftada kaç içerik, hangi günler? Sen belirle; mükemmel değil, gerçek olsun.' }
+  ],
+  gorunurluk: [
+    { ad: 'Vitrinini düzenle', aciklama: 'Biri seni bugün bulsa ne görür? Unvanın, fotoğrafın, bion, iletişim yolun.' },
+    { ad: 'Yayın günlerini seç', aciklama: 'Kaç gün olacağını sen seç; hep aynı günler olsun: alışkanlık güven verir.' },
+    { ad: 'Ölçmeye başla', aciklama: 'Her hafta üç sayı: yayın, gelen soru ya da mesaj, ilk görüşme.' }
+  ]
+};
+
+// Haftalık içerik ritmi (0/3 sayacı): HapAyarlari 'ritim'.haftalik (1–7). Kayıt
+// yoksa tuna:D'de 3 (eski kural), psikologda belirlenmemiş (null).
 export const PROFILLER = {
-  tunad: { kategoriler: ['A', 'B', 'C', 'D', 'Y'], sayfalar: ['yonetim', 'pazarlama', 'icerik', 'gorunurluk'], musteri: true, kn: true, istatistik: ISTAT_TUNAD, tempo: TEMPO_TUNAD },
-  psikolog: { kategoriler: ['B', 'C'], sayfalar: ['pazarlama', 'icerik', 'gorunurluk'], musteri: false, kn: false, istatistik: ISTAT_PSIKOLOG, tempo: TEMPO_PSIKOLOG }
+  tunad: { kategoriler: ['A', 'B', 'C', 'D', 'Y'], sayfalar: ['yonetim', 'pazarlama', 'icerik', 'gorunurluk'], musteri: true, kn: true, istatistik: ISTAT_TUNAD, tempo: TEMPO_TUNAD, metinler: {}, ilkAdimlar: {}, ritim: 3 },
+  psikolog: { kategoriler: ['B', 'C'], sayfalar: ['pazarlama', 'icerik', 'gorunurluk'], musteri: false, kn: false, istatistik: ISTAT_PSIKOLOG, tempo: TEMPO_PSIKOLOG, metinler: METIN_PSIKOLOG, ilkAdimlar: ILK_ADIMLAR_PSIKOLOG, ritim: null }
 };
 
 export async function kurulumProfili() {

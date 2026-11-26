@@ -171,7 +171,7 @@ body.bos-mod .bos-kucuk{display:block}
 .kopyala{font:inherit;font-size:12px;font-weight:600;border:1px solid var(--cizgi);background:var(--kart);color:var(--ana-koyu);border-radius:7px;padding:5px 9px;cursor:pointer}
 .sohbet{padding:12px 16px;display:grid;gap:10px}
 .mesaj{border-radius:10px;padding:10px 12px;display:grid;gap:4px;max-width:92%}
-.mesaj p{margin:0;font-size:14px}
+.mesaj p{margin:0;font-size:14px;white-space:pre-line} /* YZ'nin satır sonları korunur (Haiku testi 26 Kas) */
 .mesaj .kim{font-size:12px;color:var(--soluk);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .yz-m{background:var(--ana-acik);justify-self:start}
 .ins-m{background:var(--gri-z);justify-self:end}
@@ -901,6 +901,7 @@ button.git:hover{text-decoration:underline}
 .gecmis-aylar .soluk{color:var(--soluk)}
 .bulgu{margin:0;padding:8px 10px;border-radius:8px;background:var(--sari-z);font-size:13px}
 .eylem .metin-dugme[data-tempo-ayar]{background:none;border:0;box-shadow:none;color:var(--soluk);font-weight:500;text-decoration:underline;margin-left:auto;padding:0 4px}
+.kural-durum .metin-dugme{background:none;border:0;box-shadow:none;color:var(--soluk);font:inherit;text-decoration:underline;cursor:pointer;padding:0 2px}
 /* Tempo sarısı (Tuna, 16 Kas): turuncudan net ayrılsın; daha açık, daha parlak. Yalnızca tempo kartında. */
 :root{--tempo-sari:#e2b200;--tempo-sari-z:#fdf6d3;--tempo-sari-y:#7d6200}
 :root[data-theme="dark"]{--tempo-sari:#ecc94b;--tempo-sari-z:#38321a;--tempo-sari-y:#f2d873}
@@ -1015,6 +1016,27 @@ button.git:hover{text-decoration:underline}
   var AY_KISA = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
   var KANAL_SINIF = { Instagram: 'k-ig', LinkedIn: 'k-li', Facebook: 'k-fb' };
   var KANALLAR = ['Instagram', 'LinkedIn', 'Facebook', 'Diğer'];
+  // Profil metinleri (T paketi A4/A5, 26 Kas): psikologda değişen ekran yazıları
+  // VERI.metinler'den gelir; yoksa buradaki varsayılan (tuna:D) kalır.
+  function metin(anahtar, varsayilan) {
+    var m = VERI && VERI.metinler;
+    return m && m[anahtar] !== undefined ? m[anahtar] : varsayilan;
+  }
+  function sayfaMetni(kod) {
+    var tem = SAYFA_METNI[kod] || {}, ek = (VERI && VERI.metinler && VERI.metinler.sayfa && VERI.metinler.sayfa[kod]) || {}, s = {};
+    Object.keys(tem).forEach(function (k) { s[k] = tem[k]; });
+    Object.keys(ek).forEach(function (k) { s[k] = ek[k]; });
+    return s;
+  }
+  // Kanal adları: Kanallar tablosu doluysa ondan (sırasıyla), boşsa eski sabit liste.
+  // 'Diğer' her zaman seçilebilir; kartlarda kullanılmış başka bir ad da listede kalır.
+  function kanalAdlari(kullanilan) {
+    var tablo = (VERI && VERI.kanallar || []).map(function (k) { return k.kanal; }).filter(Boolean);
+    var liste = tablo.length ? tablo.slice() : KANALLAR.filter(function (k) { return k !== 'Diğer'; });
+    (kullanilan || []).forEach(function (k) { if (k && liste.indexOf(k) < 0 && k !== 'Diğer') liste.push(k); });
+    liste.push('Diğer');
+    return liste;
+  }
   var ICERIK_DURUM = { fikir: ['Fikir', 'd-yakin'], planlandi: ['Planlandı', 'd-ileri'], yayinda: ['Yayında', 'd-yayinda'] };
 
   // ===== Durum =====
@@ -1163,7 +1185,7 @@ button.git:hover{text-decoration:underline}
   }
 
   function rehberBlok(kod) {
-    var r = SAYFA_METNI[kod].rehber;
+    var r = sayfaMetni(kod).rehber;
     var adimListesi = (VERI.ilkAdimlar || []).map(function (a) { return [a.ad, a.aciklama]; });
     var tamam = VERI.rehber || [];
     var yzVar = VERI.yzVar;
@@ -1216,7 +1238,7 @@ button.git:hover{text-decoration:underline}
   // ===== YZ paneli =====
   function sohbetDizisi(kod) {
     if (SOHBET[kod]) return SOHBET[kod];
-    var m = SAYFA_METNI[kod], dizi = [];
+    var m = sayfaMetni(kod), dizi = [];
     var bos = sayfaBosMu(kod);
     dizi.push({ selam: true, rol: 'yz', kim: m.yzAd + (bos ? ' · ilk gün' : ''), metin: bos ? m.selamBos : selamMetni(kod), sistem: true, eylem: VERI.yz.etkin ? [{ et: T.bugunuYorumla, hazir: { tur: 'gunDurumu' } }] : null });
     SOHBET[kod] = dizi;
@@ -1262,7 +1284,12 @@ button.git:hover{text-decoration:underline}
   // YZ cevabının altında en fazla bir düğme: "Sıradaki adım" (Açık işler 39, Fatoş 14 Kas).
   // YZ ikisini birden önerirse iş önerisi öne geçer; karar ayrıca masa kararlarından önerilebilir.
   function siradakiAdim(kod, r) {
-    if (r.isOnerisi) return [{ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi }];
+    // Öneri zaten açık bir işe atıf yapıyorsa (ör. "000001'i bitir") yeni iş düğmesi çıkmaz:
+    // mükerrer iş riski (Haiku testi 26 Kas; Gemini'de de aynıydı). Karar önerisi varsa o gösterilir.
+    // Sayfadaki iş listesi yalnızca bu masanınki; öneri başka masanın işini anabilir
+    // (Görünürlük notunda 000001 = İçerik'in işi), bu yüzden altı haneli her iş no yeter.
+    var mukerrer = r.isOnerisi && /\b\d{6}\b/.test(String(r.isOnerisi));
+    if (r.isOnerisi && !mukerrer) return [{ et: kod === 'pazarlama' ? 'Masa yönetimi işi yap' : 'İş olarak aç', is: r.isOnerisi }];
     if (r.kararOnerisi) return [kod === 'pazarlama' ? { et: 'Karar önerisi olarak kaydet', karar: r.kararOnerisi } : { et: 'Masaya taşı', karar: r.kararOnerisi }];
     return []; // öneri yoksa boş dizi (null değil: çağıranlar .length okuyor; 18 Kas hatası)
   }
@@ -1270,14 +1297,14 @@ button.git:hover{text-decoration:underline}
   // Günün ilk notu: sayfa günün ilk açılışında ister; hazırsa veriyle gelir.
   var SABAH = {};   // sayfa → { bekliyor } | { mesaj }
   function notMesaji(kod, sn) {
-    var m = SAYFA_METNI[kod], ey = siradakiAdim(kod, sn);
+    var m = sayfaMetni(kod), ey = siradakiAdim(kod, sn);
     return { rol: 'yz', kim: m.yzAd + ' · günün ilk notu' + (sn.saat ? ' · ' + sn.saat : ''), metin: sn.metin, eylem: ey.length ? ey : null, gunNotu: true };
   }
   function sabahMesajlari(kod) {
     if (VERI.sabahNotu && VERI.sabahNotu.metin) { SABAH[kod] = { mesaj: SABAH[kod] && SABAH[kod].mesaj && SABAH[kod].mesaj.metin === VERI.sabahNotu.metin ? SABAH[kod].mesaj : notMesaji(kod, VERI.sabahNotu) }; return [SABAH[kod].mesaj]; }
     var d = SABAH[kod];
     if (d && d.mesaj) return [d.mesaj];
-    if (d && d.bekliyor) return [{ rol: 'yz', kim: SAYFA_METNI[kod].yzAd, metin: 'Günün ilk notu hazırlanıyor…', tur: 'yaziyor', sistem: true }];
+    if (d && d.bekliyor) return [{ rol: 'yz', kim: sayfaMetni(kod).yzAd, metin: 'Günün ilk notu hazırlanıyor…', tur: 'yaziyor', sistem: true }];
     return [];
   }
   function sabahNotuIste(kod) {
@@ -1299,7 +1326,7 @@ button.git:hover{text-decoration:underline}
   }
 
   function yzBlok(kod) {
-    var m = SAYFA_METNI[kod];
+    var m = sayfaMetni(kod);
     var sabahlar = sabahMesajlari(kod);
     // Günün ilk notu varsa (ya da hazırlanıyorsa) hazır selam gösterilmez.
     var sohbet0 = sohbetDizisi(kod).filter(function (x) { return !(sabahlar.length && x.selam); });
@@ -1379,9 +1406,32 @@ button.git:hover{text-decoration:underline}
 
   function modulIsBlok(kod) {
     var liste = VERI.isler.map(function (r) { return isSatiri(r); }).join('') + VERI.sonBitenler.map(function (r) { return isSatiri(r); }).join('');
-    return '<section class="blok" aria-label="Modülün işleri"><header><div><h2>Haftanın işleri</h2><p>' + esc(SAYFA_METNI[kod].isAlt) + '</p></div><span class="sayac">' + VERI.isler.length + ' açık</span></header>' +
+    return '<section class="blok" aria-label="Modülün işleri"><header><div><h2>Haftanın işleri</h2><p>' + esc(sayfaMetni(kod).isAlt) + '</p></div><span class="sayac">' + VERI.isler.length + ' açık</span></header>' +
       (liste ? '<ul class="liste">' + liste + '</ul>' : '<p class="bos-not">Açık iş yok.</p>') +
       '<p class="giris-notu">' + esc(T.girisNotu) + ' <button type="button" class="git" data-yeni-is>' + esc(T.isGirisi) + '</button></p></section>';
+  }
+
+  // Haftalık içerik ritmi (T paketi, 26 Kas): "x / n içerik günü dolu". n ayardan
+  // (VERI.ritim); belirlenmemişse sayaç yerine kısa bir çağrı.
+  function ritimSatiri(gunSayisi) {
+    var n = Number(VERI.ritim) || 0;
+    var dugme = '<button type="button" class="metin-dugme" data-ritim="">' + (n ? 'Değiştir' : 'Ritmi belirle') + '</button>';
+    if (!n) return '<div class="ozet-satir"><span class="ozet-baslik">Haftalık ritim</span><p class="kural-durum">Haftalık ritim henüz belirlenmedi. ' + dugme + '</p></div>';
+    return '<div class="ozet-satir"><span class="ozet-baslik">Ritim: haftada ' + n + ' içerik</span><p class="kural-durum"><b>' + Math.min(gunSayisi, n) + ' / ' + n + '</b> içerik günü dolu ' +
+      (gunSayisi >= n ? '<span class="durum d-bitti">Tamam</span>' : '<span class="durum d-yakin">' + (n - gunSayisi) + ' gün boş</span>') + ' ' + dugme + '</p></div>';
+  }
+
+  function ritimFormu() {
+    formAc('Haftalık içerik ritmi',
+      alan('Haftada kaç gün içerik?', girdi('haftalik', VERI.ritim || '', 'number', ' min="1" max="7" step="1" placeholder="1–7; boş bırakırsan belirlenmemiş olur"'), true) +
+      '<p class="tam ozet-not">Hangi günler olacağını takvimde sen seçersin; bu sayı yalnızca şeritteki sayacı ve YZ\'nin hatırlatmasını belirler.</p>',
+      function (v) { return islemYap('ritimAyarla', v, 'Ritim kaydedildi.'); });
+  }
+
+  function yolculukHtml() {
+    var adimlar = String(metin('yolculuk', 'görülmek → fark edilmek → durmak → açıp okumak → anlamlandırmak → etkilenmek → davranmak')).split(' → ');
+    var son = adimlar.pop();
+    return esc(adimlar.join(' → ')) + (adimlar.length ? ' → ' : '') + '<b>' + esc(son) + '</b>';
   }
 
   function icerikSayfasi() {
@@ -1407,8 +1457,7 @@ button.git:hover{text-decoration:underline}
       seritUst(VERI.masa.ad, ['<span class="etiket">' + esc(T.modul) + '</span>', '<button type="button" class="etiket etiket-bag" data-git-masa="pazarlama" style="border:0;cursor:pointer">Pazarlama masası ↗</button>']) + amac() +
       '<div class="is-ozeti"><div class="ozet-satir"><span class="ozet-baslik">Bu hafta · ' + esc(haftaEtiketi(ic.hafta)) + '</span>' +
       yigin([[say.planlandi, '--mavi', 'planlandı'], [say.fikir, '--sari', 'fikir'], [say.yayinda, '--yesil', 'yayında']], ic.icerikler.length + ' kart') + '</div>' +
-      '<div class="ozet-satir"><span class="ozet-baslik">Kural: haftada 3 içerik</span><p class="kural-durum"><b>' + Math.min(gunSayisi, 3) + ' / 3</b> içerik günü dolu ' +
-      (gunSayisi >= 3 ? '<span class="durum d-bitti">Tamam</span>' : '<span class="durum d-yakin">' + (3 - gunSayisi) + ' gün boş</span>') + '</p></div></div></div>' +
+      ritimSatiri(gunSayisi) + '</div></div>' +
       '<div class="sag"><div class="kanal-ozet"><span class="ozet-baslik">Kanallara göre bu hafta</span><ul>' +
       (Object.keys(kanal).length ? Object.keys(kanal).map(function (k) { return '<li>' + kanalCip(k) + '<span></span><b>' + kanal[k] + '</b></li>'; }).join('') : '<li><span class="ozet-not">Bu hafta kart yok</span></li>') +
       '</ul></div>' + geriCip() + '</div></section>' +
@@ -1416,7 +1465,7 @@ button.git:hover{text-decoration:underline}
       (siradaki ? ' · sıradaki: ' + esc(gunAdi(siradaki.tarih) + ' ' + ymdParca(siradaki.tarih).d + ' ' + AY_KISA[ymdParca(siradaki.tarih).m - 1] + ' ' + (siradaki.saat || '') + ' ' + siradaki.baslik) : '') + '</p></div><span class="ac-ipucu">Aç / kapat</span></summary>' +
       '<div class="acilir-ust"><p>Kartın üzerine tıkla: açıklama, görsel ve not kartın içinde durur.</p>' + haftaNav() + '</div><div class="takvim" id="takvim">' + takvim + '</div></details>' +
       '<div class="duzen"><div class="ana-kolon">' + (bos ? rehberBlok('icerik') : '') + modulIsBlok('icerik') +
-      '<section class="blok" aria-label="Fikir havuzu"><header><div><h2>Fikir havuzu</h2><p>Tarihi olmayan fikirler. Cumartesi içerik çalışmasında haftaya yerleştirilir.</p></div><span class="sayac">' + ic.fikirler.length + ' fikir</span></header>' +
+      '<section class="blok" aria-label="Fikir havuzu"><header><div><h2>Fikir havuzu</h2><p>' + esc(metin('fikirAlt', 'Tarihi olmayan fikirler. Cumartesi içerik çalışmasında haftaya yerleştirilir.')) + '</p></div><span class="sayac">' + ic.fikirler.length + ' fikir</span></header>' +
       (fikirler ? '<ul class="liste fikirler">' + fikirler + '</ul>' : '<p class="bos-not">Havuz boş. Yarım fikir de fikirdir.</p>') +
       '<button class="ekle" type="button" data-icerik-yeni="">+ Fikir ekle</button></section></div>' +
       '<aside class="yan-kolon" aria-label="İçerik YZ\'si">' + yzBlok('icerik') + tanitBlok('icerik') + '</aside></div>';
@@ -1429,7 +1478,7 @@ button.git:hover{text-decoration:underline}
     var saha = (VERI.haftaIsleri || []).filter(function (i) { return i.modulKod === 'gorunurluk' && /saha/i.test(i.baslik); });
     var planli = ic.icerikler.filter(function (c) { return c.durum !== 'fikir'; }).length;
     var fikir = ic.icerikler.length - planli;
-    var kanallar = KANALLAR.filter(function (k) { return k !== 'Diğer' || ic.icerikler.some(function (c) { return c.kanal === 'Diğer'; }); });
+    var kanallar = kanalAdlari(ic.icerikler.map(function (c) { return c.kanal; })).filter(function (k) { return k !== 'Diğer' || ic.icerikler.some(function (c) { return c.kanal === 'Diğer'; }); });
     var bas = '<div class="plan-satir plan-bas" role="row"><span role="columnheader"></span>' + ic.gunler.map(function (g) { return '<span role="columnheader" class="' + (g === VERI.bugun ? 'bugun-b' : '') + '">' + gunAdi(g) + ' ' + ymdParca(g).d + '</span>'; }).join('') + '</div>';
     var satirlar = kanallar.map(function (k) {
       return '<div class="plan-satir" role="row"><span class="kanal-ad" role="rowheader">' + kanalCip(k) + '</span>' + ic.gunler.map(function (g) {
@@ -1459,11 +1508,11 @@ button.git:hover{text-decoration:underline}
       seritUst(VERI.masa.ad, ['<span class="etiket">' + esc(T.modul) + '</span>', '<button type="button" class="etiket etiket-bag" data-git-masa="pazarlama" style="border:0;cursor:pointer">Pazarlama masası ↗</button>']) + amac() +
       '<div class="is-ozeti"><div class="ozet-satir"><span class="ozet-baslik">Bu hafta · ' + esc(haftaEtiketi(ic.hafta)) + '</span>' +
       yigin([[planli, '--mavi', 'zamanlandı'], [fikir, '--sari', 'fikir'], [saha.length, '--yesil', 'saha günü']], ic.icerikler.length + ' yayın') + '</div>' +
-      '<div class="ozet-satir"><span class="ozet-baslik">Yolculuk</span><p class="yolculuk">görülmek → fark edilmek → durmak → açıp okumak → anlamlandırmak → etkilenmek → <b>davranmak</b></p></div></div></div>' +
+      '<div class="ozet-satir"><span class="ozet-baslik">Yolculuk</span><p class="yolculuk">' + yolculukHtml() + '</p></div></div></div>' +
       '<div class="sag"><div class="kanal-ozet"><span class="ozet-baslik">Geçen hafta (' + esc(haftaEtiketi(gecenHafta())) + ')</span><ul>' +
       istatListe(g) + '</ul></div>' + geriCip() + '</div></section>' +
-      '<details class="blok acilir" id="takvimDetay" aria-label="Yayın planı"' + (takvimAcik.gorunurluk ? ' open' : '') + '><summary><div><h2>Yayın planı</h2><p>Bu hafta ' + planli + ' yayın' + (fikir ? ', ' + fikir + ' fikir' : '') + (saha.length ? ' · ' + saha.length + ' saha günü' : '') + ' · Cmt içerik çalışması</p></div><span class="ac-ipucu">Aç / kapat</span></summary>' +
-      '<div class="acilir-ust"><p>Hangi kanalda, hangi gün, hangi saatte. Yayını insan yapar; buradaki her satır Meta ya da LinkedIn\'de zamanlanmış olmalı.</p>' + haftaNav() + '</div>' +
+      '<details class="blok acilir" id="takvimDetay" aria-label="Yayın planı"' + (takvimAcik.gorunurluk ? ' open' : '') + '><summary><div><h2>Yayın planı</h2><p>Bu hafta ' + planli + ' yayın' + (fikir ? ', ' + fikir + ' fikir' : '') + (saha.length ? ' · ' + saha.length + ' saha günü' : '') + (metin('planCumartesi', true) ? ' · Cmt içerik çalışması' : '') + '</p></div><span class="ac-ipucu">Aç / kapat</span></summary>' +
+      '<div class="acilir-ust"><p>' + esc(metin('planNotu', 'Hangi kanalda, hangi gün, hangi saatte. Yayını insan yapar; buradaki her satır Meta ya da LinkedIn\'de zamanlanmış olmalı.')) + '</p>' + haftaNav() + '</div>' +
       '<div class="plan-kap"><div class="plan" role="table" aria-label="Kanal ve güne göre yayın planı">' + bas + satirlar + '</div></div></details>' +
       '<div class="duzen"><div class="ana-kolon">' + (bos ? rehberBlok('gorunurluk') : '') + modulIsBlok('gorunurluk') +
       '<section class="blok" aria-label="Kanallar ve profiller"><header><div><h2>Kanallar ve profiller</h2><p>Vitrin güncel mi? Ayda bir gözden geçirilir. Satıra tıkla, güncelle.</p></div>' +
@@ -1548,7 +1597,7 @@ button.git:hover{text-decoration:underline}
     var kod = kodVer || VERI.masa.kod;
     soru = String(soru || '').trim();
     if ((!soru && !hazir) || yzMesgul) return;
-    var m = SAYFA_METNI[kod];
+    var m = sayfaMetni(kod);
     if (!VERI.yz.etkin) { sohbeteEkle(kod, { rol: 'yz', kim: m.yzAd, metin: T.yzKapali, tur: 'hesap', eylem: [{ et: 'Etkinleştir', yzAc: true }] }); return; }
     var dizi = sohbetDizisi(kod);
     var gecmis = dizi.filter(function (x) { return !x.sistem && !x.tur; }).slice(-8).map(function (x) { return { rol: x.rol, metin: x.metin }; });
@@ -1659,7 +1708,7 @@ button.git:hover{text-decoration:underline}
     c = c || { baslik: '', tarih: tarih || '', saat: '12:30', kanal: 'Instagram', durum: tarih ? 'planlandi' : 'fikir', not: '', etiket: '' };
     formAc(c.id ? 'İçeriği düzenle' : (tarih ? 'Takvime kart ekle' : 'Fikir ekle'),
       alan('Başlık', girdi('baslik', c.baslik, 'text', ' maxlength="300" required'), true) +
-      alan('Kanal', secim('kanal', KANALLAR, c.kanal)) + alan('Durum', secim('durum', [['fikir', 'Fikir'], ['planlandi', 'Planlandı'], ['yayinda', 'Yayında']], c.durum)) +
+      alan('Kanal', secim('kanal', kanalAdlari([c.kanal]), c.kanal)) + alan('Durum', secim('durum', [['fikir', 'Fikir'], ['planlandi', 'Planlandı'], ['yayinda', 'Yayında']], c.durum)) +
       alan('Tarih (fikirde boş kalabilir)', girdi('tarih', c.tarih, 'date')) + alan('Saat', girdi('saat', c.saat, 'time')) +
       alan('Etiket (ör. 9–13 Kas adayı)', girdi('etiket', c.etiket, 'text', ' maxlength="60"'), true) +
       alan('Not ve açıklama: görsel, metin, kanal notu', '<textarea name="not" maxlength="8000">' + esc(c.not) + '</textarea>', true),
@@ -1837,6 +1886,7 @@ button.git:hover{text-decoration:underline}
     if (d.gitMasa) { document.querySelectorAll('dialog[open]').forEach(function (x) { x.close(); }); gonder({ tip: 'masaAc', masa: d.gitMasa }); return; }
     if (t.hasAttribute('data-yeni-is')) { gonder({ tip: 'yeniIs' }); return; }
     if (t.hasAttribute('data-kanal-ekle')) { kanalEkleFormu(); return; }
+    if (t.hasAttribute('data-ritim')) { ritimFormu(); return; }
     if (d.yapildi) { e.stopPropagation(); yapildiFormu(d.yapildi); return; }
     if (t.hasAttribute('data-kararlar')) { kararlarDiyalogu(); return; }
     if (d.kararOnayla) { t.disabled = true; islemYap('kararOnayla', { id: d.kararOnayla }, 'Onaylandı.').then(function () { if ($('d-kararlar').open) setTimeout(kararlarDiyalogu, 600); }, function () { t.disabled = false; }); return; }
@@ -1904,7 +1954,7 @@ button.git:hover{text-decoration:underline}
     var dizi = YZ_GORUNEN.filter(function (m) { return m.rol === 'yz' && !m.tur && !m.sistem; });
     var son = dizi[dizi.length - 1];
     if (!son) { bildir('İğnelenecek bir YZ yanıtı yok. Kutuya yazdığını da iğneleyebilirsin.', true); return; }
-    igneSecimi = { metin: son.metin, kaynak: SAYFA_METNI[kod].yzAd };
+    igneSecimi = { metin: son.metin, kaynak: sayfaMetni(kod).yzAd };
     ciz();
   }
   function igneTamamla(hedef) {
@@ -1914,7 +1964,7 @@ button.git:hover{text-decoration:underline}
       if (s.temizle && $('yzSoru')) $('yzSoru').value = '';
       var kisa = s.metin.length > 80 ? s.metin.slice(0, 79) + '…' : s.metin;
       var nereye = hedef === 'karar' ? 'Karar önerisi olarak masa kararlarına düştü; panoda da görünüyor.' : hedef === 'fikir' ? 'Fikir havuzuna eklendi; panoda da görünüyor.' : 'Panoda duruyor.';
-      sohbeteEkle(kod, { rol: 'yz', kim: SAYFA_METNI[kod].yzAd + ' · ' + saat(), metin: 'İğnelendi: "' + kisa + '" → ' + nereye, tur: 'igne-onay', sistem: true });
+      sohbeteEkle(kod, { rol: 'yz', kim: sayfaMetni(kod).yzAd + ' · ' + saat(), metin: 'İğnelendi: "' + kisa + '" → ' + nereye, tur: 'igne-onay', sistem: true });
     }, function () { ciz(); });
   }
   function mesajEylemi(i, j, dugme) {
@@ -1926,7 +1976,7 @@ button.git:hover{text-decoration:underline}
     if (e.yon) { dugme.disabled = true; islemYap('isYonlendir', { hedef: e.yon[0], isId: e.yon[1] }, e.yon[1] + ': ' + e.et + '.'); return; }
     if (e.karar) {
       e.kullanildi = true; ciz();
-      islemYap('kararOner', { masa: 'pazarlama', baslik: e.karar, oneren: SAYFA_METNI[kod].yzAd }, kod === 'pazarlama' ? 'Karar önerisi masa kararlarına düştü.' : 'Pazarlama masasına karar önerisi olarak taşındı.').catch(function () { e.kullanildi = false; ciz(); });
+      islemYap('kararOner', { masa: 'pazarlama', baslik: e.karar, oneren: sayfaMetni(kod).yzAd }, kod === 'pazarlama' ? 'Karar önerisi masa kararlarına düştü.' : 'Pazarlama masasına karar önerisi olarak taşındı.').catch(function () { e.kullanildi = false; ciz(); });
       return;
     }
     if (e.is) { gonder({ tip: 'yeniIs', taslak: { kategori: 'B', modul: kod === 'pazarlama' ? 'masa' : kod, aciklama: e.is } }); return; }
