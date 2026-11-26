@@ -95,7 +95,9 @@ export async function talepIsle(talep) {
       sorumlu: guncel.sorumlu,
       aciliyet: guncel.aciliyet,
       modul: guncel.modul
-    }, { tur: 'insan', kim: `Claude (${kaynak})`.slice(0, 120) });
+    // Geçmişte tür "yz" (000092): işi Claude açtı, bir insan değil. Kısa yol girişi
+    // yz aktörünü kabul eder; durak kararları ve kayıt düzenleme yine yalnızca insanda.
+    }, { tur: 'yz', kim: `Claude (${kaynak})`.slice(0, 120) });
     await isaretle(guncel, { durum: 'acildi', isId: sonuc.isId, uyari: (sonuc.uyarilar || []).join(' ') || null, islenme: new Date() });
     return { id: guncel._id, isId: sonuc.isId };
   } catch (e) {

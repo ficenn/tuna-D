@@ -39,6 +39,7 @@ const ISLEMLER = {
   icerikSil: (v) => V.icerikSil(v.id),
   istatistikKaydet: (v, a) => V.istatistikKaydet(v, a),
   kanalGuncelle: (v) => V.kanalGuncelle(v),
+  kanalEkle: (v) => V.kanalEkle(v), // 000069
   rehberAdimi: (v, a) => V.rehberAdimi(v.sayfa, v.adim, v.tamam, a),
   yzEtkinlestir: (v, a) => V.yzEtkinlestir(v.etkin, a),
   yzSiniri: (v, a) => V.yzSiniriAyarla(v.tl, a),

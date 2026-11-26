@@ -139,7 +139,8 @@ export async function durumMetni(sayfa, simdi = new Date()) {
   const ticariAcik = acikIsler.filter((k) => (k.kategori === 'A' || k.source === 'Webhook') && acik(k)).length;
 
   const satirlar = [
-    `Bugün: ${bugun}.`,
+    // Saat de verilir (000067/000091): akşam açılan sayfada "günaydın" denmesin.
+    `Bugün: ${bugun}, saat ${saatTR(simdi)} (Türkiye saati).`,
     tempo.evre === 'hazirlik'
       ? `Evre: HAZIRLIK (HAP bitene kadar). Kurulum bu ay ${tempo.buAy}, geçen ay ${tempo.gecenAy} (bilgi; alarm konusu değil). Strateji ölçüsü ${tempo.strateji.baslangic}'den beri: anket ${tempo.strateji.anket}/${tempo.strateji.anketHedef} (${tempo.strateji.anketSon}'a kadar), KN formu ${tempo.strateji.kn}/${tempo.strateji.knHedef} (${tempo.strateji.knSon}'a kadar).`
       : `Tempo (${tempo.birim}): ${tempo.etiket}. Bu ay ${tempo.buAy}, geçen ay ${tempo.gecenAy}. Eşik ayda ${tempo.esik}, Hedef ayda ${tempo.hedef} (Hedef'e 3 ay üst üste Eşik aşılınca geçilir; şu an ${tempo.esikAsilanAy}/3).` + gelirMetni(tempo),
@@ -369,15 +370,16 @@ export async function masaYzSonucuKaydet(govde) {
   return { kaydedildi: true };
 }
 
-// Artıkları temizler: bir saatten eski sohbet kayıtları, iki günden eski sabah notları.
+// Artıkları temizler: bir saatten eski sohbet kayıtları, bir günden eski sabah notları
+// (21 Kas kurul kararı, 000091: sabah notu 1 gün saklanır).
 export async function eskiYzMesajlariniSil(simdi = new Date()) {
   const saatOnce = simdi.getTime() - 3600 * 1000;
-  const ikiGunOnce = simdi.getTime() - 2 * 86400 * 1000;
+  const birGunOnce = simdi.getTime() - 86400 * 1000;
   const s = await wixData.query(MESAJ).lt('_createdDate', new Date(saatOnce)).limit(500).find(SA);
   let silinen = 0;
   for (const k of s.items) {
     const t = new Date(k._createdDate?.$date || k._createdDate).getTime();
-    if (k.tur === 'sabah' && t > ikiGunOnce) continue;
+    if (k.tur === 'sabah' && t > birGunOnce) continue;
     try { await wixData.remove(MESAJ, k._id, SA); silinen++; } catch (e) { /* geç */ }
   }
   return silinen;
@@ -389,7 +391,7 @@ export async function eskiYzMesajlariniSil(simdi = new Date()) {
 //
 // Zamanlanmış iş yok: sayfa günün ilk açılışında notu ister (YZ etkinse,
 // sınır dolmadıysa). Not o gün sohbetin başında durur; gidilmeyen sayfa için
-// YZ çağrılmaz, para harcanmaz. Kayıt (tur 'sabah') iki gün sonra silinir.
+// YZ çağrılmaz, para harcanmaz. Kayıt (tur 'sabah') bir gün sonra silinir (000091).
 export const SABAH_SORUSU = 'Günün ilk notunu yaz: ekip arkadaşına güne başlarken söyleyeceğin gibi, birkaç doğal cümle. Bu sayfanın bugünkü durumuna bak; bugün için en fazla iki şey söyle (günü gelen ya da gecikmiş işler, bekleyen kararlar). Yapılacak bir şey varsa nereden başlanacağını öner; yoksa kısa bir selam yeter. Başlık ya da madde kullanma. Saat sabah değilse "günaydın" deme.';
 
 function gunBasi(simdi) {

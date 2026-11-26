@@ -668,6 +668,21 @@ export async function kanalGuncelle(veri) {
   return kanalSatiri(await wixData.update(KANAL, yeni, SA));
 }
 
+// Yeni kanal (000069, 26 Kas): boş bir HAP'ta kanal listesi elle kurulur. Ad zorunlu;
+// sıra listenin sonu. Aynı adla ikinci kanal açılmaz (büyük/küçük harf fark etmez).
+export async function kanalEkle(veri) {
+  const ad = metin(veri.kanal, 60, 'Kanal adı');
+  if (!ad) throw new Error('Kanal adı gerekli.');
+  const mevcut = await kanallariGetir();
+  if (mevcut.length >= 50) throw new Error('En fazla 50 kanal eklenebilir.');
+  if (mevcut.some((k) => String(k.kanal || '').toLocaleLowerCase('tr-TR') === ad.toLocaleLowerCase('tr-TR'))) throw new Error('Bu adla bir kanal zaten var.');
+  const sira = mevcut.reduce((m, k) => Math.max(m, k.sira === 99 ? 0 : k.sira), 0) + 1;
+  const durum = KANAL_DURUMLARI[veri.durum] ? veri.durum : 'kontrol';
+  return kanalSatiri(await wixData.insert(KANAL, {
+    kanal: ad, rol: metin(veri.rol || '', KISA, 'Rol'), not: metin(veri.not || '', 1000, 'Not'), durum, sira, kontrolTarihi: gunTR()
+  }, SA));
+}
+
 // --- İlk gün rehberi ---
 
 export async function rehberDurumu(sayfa) {
