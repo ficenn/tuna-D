@@ -611,6 +611,11 @@ export async function icerikleriGetir(hafta) {
   return { hafta: bas, gunler: Array.from({ length: 7 }, (_, i) => gunEkle(bas, i)), icerikler: haftaninlar, fikirler };
 }
 
+// Gönderi türü (000045, 27 Kas): içerik kartındaki eski serbest "Etiket" alanı artık
+// listeden seçilir. Alan adı (etiket) aynı kaldı; değer listedeki adın kendisidir.
+// Listede olmayan eski bir değer, kart düzenlenirken değiştirilmezse korunur.
+export const GONDERI_TURLERI = ['Gönderi', 'Kaydırmalı (karusel)', 'Hikâye', 'Reels', 'Video', 'Metin', 'Belge (PDF)', 'Anket', 'Diğer'];
+
 export async function icerikKaydet(veri, aktor) {
   const durum = ICERIK_DURUMLARI[veri.durum] ? veri.durum : 'fikir';
   const tarih = ymdKontrol(veri.tarih, 'Tarih');
@@ -623,14 +628,15 @@ export async function icerikKaydet(veri, aktor) {
     baslik: metin(veri.baslik, KISA, 'Başlık', true),
     tarih, saat: saatKontrol(veri.saat), kanal, durum,
     not: metin(veri.not, 8000, 'Not'),
-    etiket: metin(veri.etiket, 60, 'Etiket') || null,
+    etiket: metin(veri.etiket, 60, 'Gönderi türü') || null,
     sorumlu: metin(veri.sorumlu, 120, 'Sorumlu') || kim(aktor)
   };
-  if (veri.id) {
-    const eski = await wixData.get(ICERIK, String(veri.id), SA);
-    if (!eski) throw new Error('İçerik bulunamadı.');
-    return icerikSatiri(await wixData.update(ICERIK, { ...eski, ...alanlar }, SA));
+  const eski = veri.id ? await wixData.get(ICERIK, String(veri.id), SA) : null;
+  if (veri.id && !eski) throw new Error('İçerik bulunamadı.');
+  if (alanlar.etiket && !GONDERI_TURLERI.includes(alanlar.etiket) && !(eski && eski.etiket === alanlar.etiket)) {
+    throw new Error('Gönderi türü listeden seçilmeli.');
   }
+  if (eski) return icerikSatiri(await wixData.update(ICERIK, { ...eski, ...alanlar }, SA));
   return icerikSatiri(await wixData.insert(ICERIK, alanlar, SA));
 }
 

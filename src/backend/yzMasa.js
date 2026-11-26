@@ -166,7 +166,7 @@ export async function durumMetni(sayfa, simdi = new Date()) {
     ...(bIsleri.length ? bIsleri.slice(0, 30).map(isSatiri) : ['- (yok)']),
     '',
     `Bu haftanın içerikleri (${hafta.hafta} haftası):`,
-    ...(hafta.icerikler.length ? hafta.icerikler.map((c) => `- ${kisaTarih(c.tarih)} ${c.saat || ''} · ${c.kanal} · ${c.baslik} · ${c.durumEtiketi}`) : ['- (planlanmış içerik yok)']),
+    ...(hafta.icerikler.length ? hafta.icerikler.map((c) => `- ${kisaTarih(c.tarih)} ${c.saat || ''} · ${c.kanal}${c.etiket ? ` (${c.etiket})` : ''} · ${c.baslik} · ${c.durumEtiketi}`) : ['- (planlanmış içerik yok)']),
     ritim
       ? `İçerik ritmi (haftada ${ritim} içerik günü): bu hafta ${Math.min(doluGunler.size, ritim)}/${ritim} gün dolu${doluGunler.size >= ritim ? '' : `, ${ritim - doluGunler.size} gün boş`}; haftanın bugün dahil ${kalanGun} günü kaldı. Bu senin takvimin: ilk notta ve "ne yapalım" sorusunda fikir havuzundan önce buna bak.`
       : `İçerik ritmi: haftalık ritim henüz belirlenmedi (İçerik sayfasındaki şeritten seçilir). Haftada kaç içerik olması gerektiğini sen söyleme; ritmi kullanıcıya sor ya da belirlemesini öner. Bu hafta ${doluGunler.size} gün planlı içerik var.`,

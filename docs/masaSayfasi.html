@@ -1714,13 +1714,21 @@ button.git:hover{text-decoration:underline}
     ac('d-kart');
   }
 
+  // Gönderi türü (000045): listeden seçilir; listede olmayan eski bir değer kartta kalır.
+  var GONDERI_TURLERI = ['Gönderi', 'Kaydırmalı (karusel)', 'Hikâye', 'Reels', 'Video', 'Metin', 'Belge (PDF)', 'Anket', 'Diğer'];
+  function gonderiTurleri(mevcut) {
+    var liste = [['', 'Seçilmedi']].concat(GONDERI_TURLERI.map(function (t) { return [t, t]; }));
+    if (mevcut && GONDERI_TURLERI.indexOf(mevcut) < 0) liste.push([mevcut, mevcut + ' (eski)']);
+    return liste;
+  }
+
   function icerikFormu(c, tarih) {
     c = c || { baslik: '', tarih: tarih || '', saat: '12:30', kanal: 'Instagram', durum: tarih ? 'planlandi' : 'fikir', not: '', etiket: '' };
     formAc(c.id ? 'İçeriği düzenle' : (tarih ? 'Takvime kart ekle' : 'Fikir ekle'),
       alan('Başlık', girdi('baslik', c.baslik, 'text', ' maxlength="300" required'), true) +
       alan('Kanal', secim('kanal', kanalAdlari([c.kanal]), c.kanal)) + alan('Durum', secim('durum', [['fikir', 'Fikir'], ['planlandi', 'Planlandı'], ['yayinda', 'Yayında']], c.durum)) +
       alan('Tarih (fikirde boş kalabilir)', girdi('tarih', c.tarih, 'date')) + alan('Saat', girdi('saat', c.saat, 'time')) +
-      alan('Etiket (ör. 9–13 Kas adayı)', girdi('etiket', c.etiket, 'text', ' maxlength="60"'), true) +
+      alan('Gönderi türü', secim('etiket', gonderiTurleri(c.etiket), c.etiket || ''), true) +
       alan('Not ve açıklama: görsel, metin, kanal notu', '<textarea name="not" maxlength="8000">' + esc(c.not) + '</textarea>', true),
       function (v) { v.id = c.id || null; return islemYap('icerikKaydet', v, 'Kaydedildi.'); },
       c.id ? '<button type="button" class="ikincil" data-icerik-sil="' + esc(c.id) + '" style="margin-left:auto">Sil</button>' : '');
