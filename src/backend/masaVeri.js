@@ -28,6 +28,7 @@
 import wixData from 'wix-data';
 import { gunTR, gunEkle, gunArasi, kayitDuzenle, mevcutDurum } from './suleyman';
 import { kapanisZamani } from './masaSayfasi';
+import { profilKurallari } from './profil';
 
 const SA = { suppressAuth: true };
 const KARAR = 'MasaKararlari';
@@ -622,7 +623,8 @@ export async function icerikSil(id) {
 function istatSatiri(s) {
   return {
     id: s._id, hafta: s.hafta, yayin: s.yayin ?? null, yayinPlan: s.yayinPlan ?? null,
-    kaydetme: s.kaydetme ?? null, dm: s.dm ?? null, anket: s.anket ?? null, kn: s.kn ?? null, giren: s.giren || null
+    kaydetme: s.kaydetme ?? null, dm: s.dm ?? null, anket: s.anket ?? null, kn: s.kn ?? null,
+    gorusme: s.gorusme ?? null, giren: s.giren || null
   };
 }
 
@@ -633,16 +635,9 @@ export async function istatistikleriGetir(adet = 6) {
 
 export async function istatistikKaydet(veri, aktor) {
   const hafta = haftaBasi(ymdKontrol(veri.hafta, 'Hafta') || haftaBasi(gunTR()));
-  const alanlar = {
-    hafta,
-    yayin: sayi(veri.yayin, 'Yayın'),
-    yayinPlan: sayi(veri.yayinPlan, 'Planlanan yayın'),
-    kaydetme: sayi(veri.kaydetme, 'Kaydetme + paylaşma'),
-    dm: sayi(veri.dm, 'DM / soru'),
-    anket: sayi(veri.anket, 'Anket cevabı'),
-    kn: sayi(veri.kn, 'KN formu'),
-    giren: kim(aktor)
-  };
+  // Yalnızca bu HAP'ın profilindeki alanlar yazılır (000053); öteki alanlara dokunulmaz.
+  const alanlar = { hafta, giren: kim(aktor) };
+  for (const a of (await profilKurallari()).istatistik) alanlar[a.alan] = sayi(veri[a.alan], a.etiket);
   const var_ = await wixData.query(ISTAT).eq('hafta', hafta).limit(1).find(SA);
   const k = var_.items[0];
   return istatSatiri(k ? await wixData.update(ISTAT, { ...k, ...alanlar }, SA) : await wixData.insert(ISTAT, alanlar, SA));

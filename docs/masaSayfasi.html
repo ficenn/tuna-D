@@ -1445,8 +1445,7 @@ button.git:hover{text-decoration:underline}
     }).join('');
     var bekleyenKanal = (VERI.kanallar || []).filter(function (k) { return k.durum !== 'guncel'; }).length;
     var istatTablo = istat.map(function (s) {
-      var v = function (x) { return x == null ? '—' : x; };
-      return '<tr class="tik" data-istat="' + esc(s.hafta) + '"><td>' + esc(kisaTarih(s.hafta)) + '</td><td>' + v(s.yayin) + (s.yayinPlan != null ? ' / ' + s.yayinPlan : '') + '</td><td>' + v(s.kaydetme) + '</td><td>' + v(s.dm) + '</td><td>' + v(s.anket) + '</td><td>' + v(s.kn) + '</td></tr>';
+      return '<tr class="tik" data-istat="' + esc(s.hafta) + '"><td>' + esc(kisaTarih(s.hafta)) + '</td>' + istatSutunlari().map(function (a) { return '<td>' + esc(istatDeger(s, a)) + '</td>'; }).join('') + '</tr>';
     }).join('');
     var g = gecen || {};
     var gv = function (x) { return x == null ? '—' : x; };
@@ -1456,8 +1455,7 @@ button.git:hover{text-decoration:underline}
       yigin([[planli, '--mavi', 'zamanlandı'], [fikir, '--sari', 'fikir'], [saha.length, '--yesil', 'saha günü']], ic.icerikler.length + ' yayın') + '</div>' +
       '<div class="ozet-satir"><span class="ozet-baslik">Yolculuk</span><p class="yolculuk">görülmek → fark edilmek → durmak → açıp okumak → anlamlandırmak → etkilenmek → <b>davranmak</b></p></div></div></div>' +
       '<div class="sag"><div class="kanal-ozet"><span class="ozet-baslik">Geçen hafta (' + esc(haftaEtiketi(gecenHafta())) + ')</span><ul>' +
-      '<li><span>Yayın</span><span></span><b>' + gv(g.yayin) + (g.yayinPlan != null ? ' / ' + g.yayinPlan : '') + '</b></li><li><span>Kaydetme + paylaşma</span><span></span><b>' + gv(g.kaydetme) + '</b></li>' +
-      '<li><span>DM / soru</span><span></span><b>' + gv(g.dm) + '</b></li><li><span>Anket cevabı</span><span></span><b>' + gv(g.anket) + '</b></li></ul></div>' + geriCip() + '</div></section>' +
+      istatListe(g) + '</ul></div>' + geriCip() + '</div></section>' +
       '<details class="blok acilir" id="takvimDetay" aria-label="Yayın planı"' + (takvimAcik.gorunurluk ? ' open' : '') + '><summary><div><h2>Yayın planı</h2><p>Bu hafta ' + planli + ' yayın' + (fikir ? ', ' + fikir + ' fikir' : '') + (saha.length ? ' · ' + saha.length + ' saha günü' : '') + ' · Cmt içerik çalışması</p></div><span class="ac-ipucu">Aç / kapat</span></summary>' +
       '<div class="acilir-ust"><p>Hangi kanalda, hangi gün, hangi saatte. Yayını insan yapar; buradaki her satır Meta ya da LinkedIn\'de zamanlanmış olmalı.</p>' + haftaNav() + '</div>' +
       '<div class="plan-kap"><div class="plan" role="table" aria-label="Kanal ve güne göre yayın planı">' + bas + satirlar + '</div></div></details>' +
@@ -1465,7 +1463,7 @@ button.git:hover{text-decoration:underline}
       '<section class="blok" aria-label="Kanallar ve profiller"><header><div><h2>Kanallar ve profiller</h2><p>Vitrin güncel mi? Ayda bir gözden geçirilir. Satıra tıkla, güncelle.</p></div><span class="sayac">' + (bekleyenKanal ? bekleyenKanal + ' bekliyor' : 'hepsi güncel') + '</span></header>' +
       '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Kanal</th><th>Rolü</th><th>Durum</th><th>Not</th></tr></thead><tbody>' + kanalTablo + '</tbody></table></div></section>' +
       '<section class="blok" aria-label="Haftalık istatistik"><header><div><h2>Haftalık istatistik</h2><p>İçerik günü elle girilir. Başlangıç evresinde 4 haftalık eğilimle okunur.</p></div><button type="button" class="karar-dugme" data-istat="">Bu haftayı gir</button></header>' +
-      (istatTablo ? '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Hafta</th><th>Yayın</th><th>Kaydetme + paylaşma</th><th>DM / soru</th><th>Anket cevabı</th><th>KN formu</th></tr></thead><tbody>' + istatTablo + '</tbody></table></div>' : '<p class="bos-not">Henüz istatistik girilmedi.</p>') +
+      (istatTablo ? '<div class="tablo-kap"><table class="tablo"><thead><tr><th>Hafta</th>' + istatSutunlari().map(function (a) { return '<th>' + esc(a.kisa) + '</th>'; }).join('') + '</tr></thead><tbody>' + istatTablo + '</tbody></table></div>' : '<p class="bos-not">Henüz istatistik girilmedi.</p>') +
       '</section></div><aside class="yan-kolon" aria-label="Görünürlük YZ\'si">' + yzBlok('gorunurluk') + tanitBlok('gorunurluk') + '</aside></div>';
   }
 
@@ -1652,15 +1650,28 @@ button.git:hover{text-decoration:underline}
       c.id ? '<button type="button" class="ikincil" data-icerik-sil="' + esc(c.id) + '" style="margin-left:auto">Sil</button>' : '');
   }
 
+  // Haftalık istatistik alanları profilden gelir (000053): psikologda yayın, soru/mesaj,
+  // ilk görüşme; tuna:D'de anket ve KN de. Veri gelmezse eski (tuna:D) liste.
+  var ISTAT_VARSAYILAN = [{ alan: 'yayin', etiket: 'Yayın (yapılan)', kisa: 'Yayın' }, { alan: 'yayinPlan', etiket: 'Planlanan yayın', kisa: 'Plan' },
+    { alan: 'kaydetme', etiket: 'Kaydetme + paylaşma', kisa: 'Kaydetme + paylaşma' }, { alan: 'dm', etiket: 'DM / soru', kisa: 'DM / soru' },
+    { alan: 'anket', etiket: 'Anket cevabı', kisa: 'Anket cevabı' }, { alan: 'kn', etiket: 'KN formu', kisa: 'KN formu' }];
+  function istatAlanlari() { return (VERI && VERI.istatAlanlari) || ISTAT_VARSAYILAN; }
+  function istatSutunlari() { return istatAlanlari().filter(function (a) { return a.alan !== 'yayinPlan'; }); }
+  function istatDeger(s, a) {
+    var x = s[a.alan], v = x == null ? '—' : String(x);
+    if (a.alan === 'yayin' && s.yayinPlan != null && istatAlanlari().some(function (b) { return b.alan === 'yayinPlan'; })) v += ' / ' + s.yayinPlan;
+    return v;
+  }
+  function istatListe(s, sinif) {
+    return istatSutunlari().map(function (a) { return '<li><span>' + esc(a.kisa) + '</span>' + (sinif ? '' : '<span></span>') + '<b>' + esc(istatDeger(s, a)) + '</b></li>'; }).join('');
+  }
+
   function istatFormu(hafta) {
     hafta = hafta || gecenHafta();
     var s = (VERI.istatistik || []).filter(function (x) { return x.hafta === hafta; })[0] || {};
-    var plan = s.yayinPlan;
     formAc('Haftalık istatistik',
       alan('Hafta (Pazartesi)', girdi('hafta', hafta, 'date'), true) +
-      alan('Yayın (yapılan)', girdi('yayin', s.yayin, 'number', ' min="0"')) + alan('Planlanan yayın', girdi('yayinPlan', plan, 'number', ' min="0"')) +
-      alan('Kaydetme + paylaşma', girdi('kaydetme', s.kaydetme, 'number', ' min="0"')) + alan('DM / soru', girdi('dm', s.dm, 'number', ' min="0"')) +
-      alan('Anket cevabı', girdi('anket', s.anket, 'number', ' min="0"')) + alan('KN formu', girdi('kn', s.kn, 'number', ' min="0"')),
+      istatAlanlari().map(function (a) { return alan(a.etiket, girdi(a.alan, s[a.alan], 'number', ' min="0"')); }).join(''),
       function (v) { return islemYap('istatistikKaydet', v, 'İstatistik kaydedildi.'); });
   }
 
@@ -1777,8 +1788,7 @@ button.git:hover{text-decoration:underline}
       var bu = ic.icerikler.slice(0, 8);
       govde = '<h3>Bu hafta</h3>' + (bu.length ? '<ul class="mini">' + bu.map(function (c) { var d = ICERIK_DURUM[c.durum]; return '<li><time>' + gunAdi(c.tarih) + ' ' + ymdParca(c.tarih).d + '</time><span>' + esc(c.baslik) + '</span><span class="durum ' + d[1] + '">' + d[0] + '</span></li>'; }).join('') + '</ul>' : '<p class="ozet">Bu hafta planlanmış içerik yok.</p>');
     } else {
-      var v = function (x) { return x == null ? '—' : x; };
-      govde = '<h3>Geçen hafta</h3>' + (ist ? '<ul class="mini sayilar"><li><span>Yayın</span><b>' + v(ist.yayin) + (ist.yayinPlan != null ? ' / ' + ist.yayinPlan : '') + '</b></li><li><span>Kaydetme + paylaşma</span><b>' + v(ist.kaydetme) + '</b></li><li><span>DM / soru</span><b>' + v(ist.dm) + '</b></li><li><span>Anket cevabı</span><b>' + v(ist.anket) + '</b></li></ul>' : '<p class="ozet">Henüz istatistik girilmedi.</p>');
+      govde = '<h3>Geçen hafta</h3>' + (ist ? '<ul class="mini sayilar">' + istatListe(ist, true) + '</ul>' : '<p class="ozet">Henüz istatistik girilmedi.</p>');
     }
     $('modulIc').className = 'modul ' + kod;
     $('modulIc').innerHTML = '<header><h2>' + esc(md.ad) + ' modülü</h2><button type="button" class="kapat" data-kapat aria-label="Kapat">×</button></header>' +

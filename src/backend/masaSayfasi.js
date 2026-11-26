@@ -147,7 +147,8 @@ function haftaSec(istenen, bugun) {
 
 export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), secenek = {}) {
   // Kurulum profili (000090): kapalı sayfa istenirse ilk açık sayfa gelir.
-  const acikSayfalar = (await profilKurallari()).sayfalar;
+  const kural = await profilKurallari();
+  const acikSayfalar = kural.sayfalar;
   if (!acikSayfalar.includes(kod)) kod = acikSayfalar[0];
   const tanim = MASA_SAYFALARI[kod];
   if (!tanim) throw new Error(`Bilinmeyen masa: ${kod}`);
@@ -242,6 +243,7 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     igneler,
     icerik,
     istatistik,
+    istatAlanlari: kural.istatistik, // haftalık istatistik sütunları ve formu (000053)
     kanallar,
     haftaIsleri,
     yeniGelenler,

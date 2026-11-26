@@ -27,6 +27,7 @@ import {
   yzDurumu, yzKullanimEkle, tempoHesapla, kararlariGetir, icerikleriGetir, istatistikleriGetir,
   kanallariGetir, haftaBasi, metin, isleriGetir, ayarGetir, igneleriGetir, KARAR_MASASI, HANE
 } from './masaVeri';
+import { profilKurallari } from './profil';
 
 const SA = { suppressAuth: true };
 const MESAJ = 'YzMesajlari';
@@ -115,6 +116,7 @@ function kisaTarih(ymd) {
 // Masanın bugünkü durumu (YZ'ye düz metin).
 export async function durumMetni(sayfa, simdi = new Date()) {
   const bugun = gunTR(simdi);
+  const istatAlanlari = (await profilKurallari()).istatistik; // 000053: psikologda anket/KN yok
   const [acikIsler, tempo, kararlar, hafta, istat, kanallar, igneler] = await Promise.all([
     isleriGetir(simdi, { yalnizAcik: true }),
     tempoHesapla(simdi),
@@ -159,7 +161,7 @@ export async function durumMetni(sayfa, simdi = new Date()) {
     ...(igneler.length ? igneler.slice(0, 8).map((i) => `- ${String(i.metin || '').replace(/\s+/g, ' ').slice(0, 160)} (${i.hedefEtiketi || i.hedef}${i.tarih ? `, ${String(i.tarih).slice(0, 10)}` : ''})`) : ['- (yok)']),
     '',
     'Haftalık istatistik (yeniden eskiye):',
-    ...(istat.length ? istat.map((s) => `- ${s.hafta}: yayın ${s.yayin ?? '?'}/${s.yayinPlan ?? '?'}, kaydetme+paylaşma ${s.kaydetme ?? '?'}, DM ${s.dm ?? '?'}, anket ${s.anket ?? '?'}, KN ${s.kn ?? '?'}`) : ['- (henüz girilmedi)']),
+    ...(istat.length ? istat.map((s) => `- ${s.hafta}: ${istatAlanlari.map((a) => `${a.etiket} ${s[a.alan] ?? '?'}`).join(', ')}`) : ['- (henüz girilmedi)']),
     '',
     'Kanallar:',
     ...kanallar.map((k) => `- ${k.kanal}: ${k.rol} · ${k.durumEtiketi}${k.not ? ` · ${k.not}` : ''}`)
