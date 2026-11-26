@@ -31,7 +31,7 @@ import {
   rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, haftalikRitim, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
-import { profilKurallari, isletmeAdi } from './profil';
+import { profilKurallari, isletmeKimligi } from './profil';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -208,6 +208,8 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     pazarlamaAilesi ? haftalikRitim(kural) : null
   ]);
 
+  const kimlik = await isletmeKimligi();
+
   // Masaya yeni gelen, yönlendirilmemiş B işleri (Masa YZ'sinin kartı).
   const yeniGelenler = kod === 'pazarlama'
     ? kayitlar.items.filter((k) => yeniGelenMi(k, simdi)).map((k) => satir(k, musteriler, simdi))
@@ -245,7 +247,7 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     icerik,
     istatistik,
     istatAlanlari: kural.istatistik, // haftalık istatistik sütunları ve formu (000053)
-    isletmeAdi: await isletmeAdi(), // menüdeki logo yazısı (000044)
+    isletmeAdi: kimlik.ad, isletmeLogo: kimlik.logo, // menüdeki işletme adı ve logosu (000044)
     tempoSecenekleri: kural.tempo, // tempo ayarlarında evre adları ve açıklama (26 Kas)
     kanallar,
     haftaIsleri,
