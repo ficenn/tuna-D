@@ -31,7 +31,7 @@ import {
   rehberDurumu, yzDurumu, yeniGelenMi, isOzeti, haftaBasi, isleriGetir, HANE, KARAR_MASASI
 } from './masaVeri';
 import { YZ_SAYFALARI, sabahNotu } from './yzMasa';
-import { profilKurallari } from './profil';
+import { profilKurallari, isletmeAdi } from './profil';
 
 const IS = 'IsKayitlari';
 const MASA = 'Masalar';
@@ -244,6 +244,8 @@ export async function masaSayfasiHazirla(kod, dil = 'tr', simdi = new Date(), se
     icerik,
     istatistik,
     istatAlanlari: kural.istatistik, // haftalık istatistik sütunları ve formu (000053)
+    isletmeAdi: await isletmeAdi(), // menüdeki logo yazısı (000044)
+    tempoSecenekleri: kural.tempo, // tempo ayarlarında evre adları ve açıklama (26 Kas)
     kanallar,
     haftaIsleri,
     yeniGelenler,

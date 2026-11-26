@@ -351,7 +351,8 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
         gecenKayit.seans >= esik && gecenKayit.gelir < esikTL)
     };
   }
-  if (evre === 'hazirlik') sonuc.strateji = await stratejiOlcusu(isler);
+  // Strateji ölçüsü (anket, KN) yalnızca tuna:D'de; psikologda açılış hazırlığı sakin kutudur.
+  if (evre === 'hazirlik' && (await profilKurallari()).kn) sonuc.strateji = await stratejiOlcusu(isler);
   return sonuc;
 }
 
@@ -370,7 +371,8 @@ export async function tempoAyarla(alanlar, aktor) {
   if (!esik || !hedef || hedef < esik) throw new Error('Eşik ve Hedef pozitif olmalı; Hedef Eşik\'ten küçük olamaz.');
   const yeni = { esik, hedef };
   if (EVRELER[alanlar.evre]) yeni.evre = alanlar.evre;
-  if (alanlar.kaynak === 'elle' || alanlar.kaynak === 'kurulum') yeni.kaynak = alanlar.kaynak;
+  const izinliKaynak = (await profilKurallari()).tempo.kaynaklar.map((k) => k[0]); // psikologda yalnızca 'elle'
+  if (izinliKaynak.includes(alanlar.kaynak)) yeni.kaynak = alanlar.kaynak;
   if (alanlar.esikTL !== undefined || alanlar.hedefTL !== undefined) {
     const esikTL = tutar(alanlar.esikTL, 'Eşik (TL)');
     const hedefTL = tutar(alanlar.hedefTL, 'Hedef (TL)');
