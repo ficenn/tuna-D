@@ -113,6 +113,19 @@ function kisaTarih(ymd) {
   return `${Number(d)}.${Number(m)}`;
 }
 
+// Gün adı (27 Kas): YZ tarihten haftanın gününü kendisi çıkarmasın (Cuma günü "yarın ya da perşembe" dedi).
+const GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+const AY_ADLARI = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+function gunAdi(ymd) {
+  if (!ymd) return '';
+  const [y, m, d] = ymd.split('-').map(Number);
+  return GUN_ADLARI[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+function uzunTarih(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return `${d} ${AY_ADLARI[m - 1]} ${y}, ${gunAdi(ymd)}`;
+}
+
 // Masanın bugünkü durumu (YZ'ye düz metin).
 // Girilmemiş ay "0" değil "girilmedi" diye gider (Haiku testi 26 Kas: 8'de doğru,
 // 9, H1c, H7'de "0 seans" dedi; veri yok ≠ sıfır).
@@ -149,7 +162,7 @@ export async function durumMetni(sayfa, simdi = new Date()) {
 
   const satirlar = [
     // Saat de verilir (000067/000091): akşam açılan sayfada "günaydın" denmesin.
-    `Bugün: ${bugun}, saat ${saatTR(simdi)} (Türkiye saati).`,
+    `Bugün: ${uzunTarih(bugun)} (${bugun}), saat ${saatTR(simdi)} (Türkiye saati). Haftanın kalan günleri: ${hafta.gunler.filter((g) => g >= bugun).map((g) => (g === bugun ? `${gunAdi(g)} (bugün)` : gunAdi(g))).join(', ') || '(yok)'}.`,
     tempo.evre === 'hazirlik' && tempo.strateji
       ? `Evre: HAZIRLIK (HAP bitene kadar). Kurulum bu ay ${tempo.buAy}, geçen ay ${tempo.gecenAy} (bilgi; alarm konusu değil). Strateji ölçüsü ${tempo.strateji.baslangic}'den beri: anket ${tempo.strateji.anket}/${tempo.strateji.anketHedef} (${tempo.strateji.anketSon}'a kadar), KN formu ${tempo.strateji.kn}/${tempo.strateji.knHedef} (${tempo.strateji.knSon}'a kadar).`
       : tempo.evre === 'hazirlik'
@@ -166,7 +179,7 @@ export async function durumMetni(sayfa, simdi = new Date()) {
     ...(bIsleri.length ? bIsleri.slice(0, 30).map(isSatiri) : ['- (yok)']),
     '',
     `Bu haftanın içerikleri (${hafta.hafta} haftası):`,
-    ...(hafta.icerikler.length ? hafta.icerikler.map((c) => `- ${kisaTarih(c.tarih)} ${c.saat || ''} · ${c.kanal}${c.etiket ? ` (${c.etiket})` : ''} · ${c.baslik} · ${c.durumEtiketi}`) : ['- (planlanmış içerik yok)']),
+    ...(hafta.icerikler.length ? hafta.icerikler.map((c) => `- ${gunAdi(c.tarih)} ${kisaTarih(c.tarih)} ${c.saat || ''} · ${c.kanal}${c.etiket ? ` (${c.etiket})` : ''} · ${c.baslik} · ${c.durumEtiketi}`) : ['- (planlanmış içerik yok)']),
     ritim
       ? `İçerik ritmi (haftada ${ritim} içerik günü): bu hafta ${Math.min(doluGunler.size, ritim)}/${ritim} gün dolu${doluGunler.size >= ritim ? '' : `, ${ritim - doluGunler.size} gün boş`}; haftanın bugün dahil ${kalanGun} günü kaldı. Bu senin takvimin: ilk notta ve "ne yapalım" sorusunda fikir havuzundan önce buna bak.`
       : `İçerik ritmi: haftalık ritim henüz belirlenmedi (İçerik sayfasındaki şeritten seçilir). Haftada kaç içerik olması gerektiğini sen söyleme; ritmi kullanıcıya sor ya da belirlemesini öner. Bu hafta ${doluGunler.size} gün planlı içerik var.`,
@@ -229,7 +242,7 @@ ${evre === 'hazirlik' ? `${HAZIRLIK_KURALI}\n\n` : ''}### Masanın bugünkü dur
 ${durum}
 
 ### Nasıl konuşursun (Yönetim kararı, 10 Kasım: "ekip arkadaşım gibi konuşsun")
-- Ekip arkadaşı gibi, doğal Türkçe cümlelerle konuş. Kullanıcıya "sen" dersin; tonun sevecen ve saygılı (müşteri velinimettir). Kısa tut (çoğu zaman 2–5 cümle, en fazla ~120 kelime).
+- Ekip arkadaşı gibi, doğal Türkçe cümlelerle konuş. Kullanıcıya "sen" dersin; tonun sevecen ve saygılı (müşteri velinimettir). Kısa tut (çoğu zaman 2–5 cümle, en fazla ~120 kelime). İstisna: kullanıcı taslak, metin ya da liste istediyse bu sınır yok; istenen metni tam yaz. Açıkça taslak istendiyse önce soru sorma, seçenek sunma ("iskelet mi, tam taslak mı?" deme): eksik bilgi varsa makul bir varsayımla yaz ve varsayımını taslaktan sonra tek cümleyle söyle.
 - Sohbetin ilk mesajında ya da biri selam verdiğinde kısaca selam ver, hâlini sor. Aynı sohbette selamı tekrarlama.
 - Başlık, etiket ve kalıp yok: "Ne gördüm:", "Neden önemli:", "Önerim:", "Özet:" gibi başlıklar yazma, madde imi kullanma. Bir şey değerlendirirken ne gördüğünü, neden önemli olduğunu ve önerini aklında sırala ama düz konuşma içinde söyle.
 - Her mesajda aynı iskeleti kullanma; bir selamlaşmaya selamla, bir soruya doğrudan cevapla karşılık ver.
@@ -254,7 +267,7 @@ function gecmisTemizle(gecmis) {
   if (!Array.isArray(gecmis)) return [];
   return gecmis.slice(-GECMIS_ADET).map((m) => ({
     rol: m && m.rol === 'yz' ? 'model' : 'user',
-    metin: String((m && m.metin) || '').slice(0, 2000)
+    metin: String((m && m.metin) || '').slice(0, 6000)
   })).filter((m) => m.metin);
 }
 
@@ -268,14 +281,18 @@ export function devirMetni(devir, sayfa) {
   const kaynak = String(devir.kaynak || '');
   if (!YZ_SAYFALARI[kaynak] || kaynak === sayfa) return '';
   const ad = YZ_SAYFALARI[kaynak].ad;
-  const satirlar = (Array.isArray(devir.konusma) ? devir.konusma : []).slice(-6)
-    .map((m) => [m && m.rol === 'yz' ? ad : 'Kullanıcı', String((m && m.metin) || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1500)])
+  // Mesaj başına en çok 6000, toplam en çok 12000 karakter; sığmazsa en eskiler düşer (en yeniler tam kalır).
+  const ham = (Array.isArray(devir.konusma) ? devir.konusma : []).slice(-6)
+    .map((m) => [m && m.rol === 'yz' ? ad : 'Kullanıcı', String((m && m.metin) || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()])
     .filter((s) => s[1])
-    .map((s) => `${s[0]}: ${s[1]}`);
+    .map((s) => `${s[0]}: ${s[1].length > 6000 ? `${s[1].slice(0, 6000)} …(kısaltıldı)` : s[1]}`);
+  const satirlar = [];
+  let toplam = 0;
+  for (let i = ham.length - 1; i >= 0 && toplam + ham[i].length <= 12000; i--) { satirlar.unshift(ham[i]); toplam += ham[i].length; }
   const govde = satirlar.length
-    ? ` Oradaki son konuşma aşağıda. Bilgi olarak oku: oradaki YZ'nin önerileri senin sözün ya da masa kararı değil; gerekirse kendi değerlendirmeni yap.\n${satirlar.join('\n')}`
+    ? ` Oradaki son konuşma aşağıda. Bilgi olarak oku: oradaki YZ'nin önerileri senin sözün ya da masa kararı değil; gerekirse kendi değerlendirmeni yap.\n--- Taşınan konuşma (${ad}) ---\n${satirlar.join('\n\n')}\n--- Taşınan konuşmanın sonu ---`
     : '';
-  return `[Devir: kullanıcı bu soruyu ${ad} ile çalışırken "Masaya sor" düğmesiyle masaya taşıdı.${govde}]\n\nKullanıcının masaya sorusu:\n`;
+  return `Devir: kullanıcı bu soruyu ${ad} ile çalışırken "Masaya sor" düğmesiyle masaya taşıdı.${govde}\n\nKullanıcının masaya sorusu:\n`;
 }
 
 // --- Hazır sorular (Tuna, 11 Kasım) ---

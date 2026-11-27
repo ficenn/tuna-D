@@ -1640,7 +1640,7 @@ button.git:hover{text-decoration:underline}
     var kod = VERI.masa.kod, hedef = 'pazarlama';
     var soru = $('yzSoru') ? $('yzSoru').value.trim() : '';
     var konusma = sohbetDizisi(kod).filter(function (x) { return !x.sistem && !x.tur && !x.gizli && x.metin; }).slice(-6)
-      .map(function (x) { return { rol: x.rol === 'yz' ? 'yz' : 'ins', metin: String(x.metin).slice(0, 1500) }; });
+      .map(function (x) { return { rol: x.rol === 'yz' ? 'yz' : 'ins', metin: String(x.metin).slice(0, 6100) }; });
     document.querySelectorAll('dialog[open]').forEach(function (x) { x.close(); });
     if ($('yzSoru')) $('yzSoru').value = '';
     var devir = soru || konusma.length ? { kaynak: kod, hedef: hedef, soru: soru.slice(0, 2000), konusma: konusma } : null;
@@ -1680,7 +1680,7 @@ button.git:hover{text-decoration:underline}
     } else {
       if ($('yzSoru')) $('yzSoru').value = '';
       // Devirle giden soru, sonraki cevaplarda da taşınan konuşmayla birlikte hatırlansın (kısaltılmış).
-      var gm = devir && devir.konusma.length ? '[' + sayfaMetni(devir.kaynak).yzAd + ' ile konuşmadan taşındı]\n' + devir.konusma.map(function (r) { return (r.rol === 'yz' ? sayfaMetni(devir.kaynak).yzAd : 'Kullanıcı') + ': ' + r.metin.slice(0, 280); }).join('\n').slice(0, 1600) + '\n\nSoru: ' + soru : null;
+      var gm = devir && devir.konusma.length ? '[' + sayfaMetni(devir.kaynak).yzAd + ' ile konuşmadan taşındı]\n' + devir.konusma.map(function (r) { return (r.rol === 'yz' ? sayfaMetni(devir.kaynak).yzAd : 'Kullanıcı') + ': ' + r.metin.slice(0, 1500); }).join('\n\n').slice(-4500) + '\n\nSoru: ' + soru : null;
       sohbeteEkle(kod, { rol: 'ins', kim: (VERI.ben || 'Sen') + ' · ' + saat(), metin: soru, gecmisMetin: gm });
     }
     var bekleyen = { rol: 'yz', kim: m.yzAd, metin: T.yaziyor, tur: 'yaziyor', sistem: true };
