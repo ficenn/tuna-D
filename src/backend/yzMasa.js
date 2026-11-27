@@ -269,7 +269,7 @@ export function devirMetni(devir, sayfa) {
   if (!YZ_SAYFALARI[kaynak] || kaynak === sayfa) return '';
   const ad = YZ_SAYFALARI[kaynak].ad;
   const satirlar = (Array.isArray(devir.konusma) ? devir.konusma : []).slice(-6)
-    .map((m) => [m && m.rol === 'yz' ? ad : 'Kullanıcı', String((m && m.metin) || '').replace(/\s+/g, ' ').trim().slice(0, 600)])
+    .map((m) => [m && m.rol === 'yz' ? ad : 'Kullanıcı', String((m && m.metin) || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1500)])
     .filter((s) => s[1])
     .map((s) => `${s[0]}: ${s[1]}`);
   const govde = satirlar.length

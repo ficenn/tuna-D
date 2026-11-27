@@ -88,7 +88,7 @@ function devirTemizle(d) {
   const kaynak = String(d.kaynak || ''), hedef = String(d.hedef || '');
   if (!MASA_KODLARI.includes(kaynak) || !MASA_KODLARI.includes(hedef) || kaynak === hedef) return null;
   const konusma = (Array.isArray(d.konusma) ? d.konusma : []).slice(-6)
-    .map((m) => ({ rol: m && m.rol === 'yz' ? 'yz' : 'ins', metin: String((m && m.metin) || '').slice(0, 600) }))
+    .map((m) => ({ rol: m && m.rol === 'yz' ? 'yz' : 'ins', metin: String((m && m.metin) || '').slice(0, 1500) }))
     .filter((m) => m.metin);
   const soru = String(d.soru || '').slice(0, 2000);
   if (!soru && !konusma.length) return null;
@@ -399,7 +399,7 @@ const MASA_ISLEYICILERI = {
     const v = m.veri || {};
     try {
       if (m.islem === 'yzSor') {
-        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || [], v.hazir || null, devirTemizle(v.devir));
+        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || [], v.hazir || null, v.devir ? devirTemizle({ ...v.devir, hedef: v.sayfa, soru: v.soru }) : null);
         cevap(s && s.hata ? { hata: s.hata } : { sonuc: s });
       } else if (m.islem === 'yzSonuc') {
         cevap({ sonuc: await masaYzSonucu(v.istekId) });
