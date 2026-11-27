@@ -73,11 +73,11 @@ export const masaIslem = webMethod(Permissions.SiteMember, async (islem, veri) =
   }
 });
 
-export const masaYzSor = webMethod(Permissions.SiteMember, async (sayfa, soru, gecmis, hazir) => {
+export const masaYzSor = webMethod(Permissions.SiteMember, async (sayfa, soru, gecmis, hazir, devir) => {
   await hapYetkisiGerekli();
   try {
     if (!(await profilKurallari()).sayfalar.includes(String(sayfa || ''))) return { hata: "Bu sayfa senin HAP'ında açık değil." }; // 000090
-    return await Y.masaYzSor(String(sayfa || ''), soru, gecmis, await aktor(), new Date(), hazir ? { hazir } : {});
+    return await Y.masaYzSor(String(sayfa || ''), soru, gecmis, await aktor(), new Date(), hazir ? { hazir } : { devir: devir || null });
   } catch (hata) {
     console.error('masaYzSor:', hata);
     return { hata: String(hata && hata.message || hata) };
