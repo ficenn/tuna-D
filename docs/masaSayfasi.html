@@ -823,6 +823,7 @@ body.bos-mod .serit .amac.dolu-y{display:none!important}
 .hata-kutu{color:var(--kirmizi)}
 .mesaj.yaziyor p{color:var(--soluk);font-style:italic}
 .mesaj.hata-m{box-shadow:inset 3px 0 0 var(--kirmizi)}
+.mesaj.devir{box-shadow:inset 3px 0 0 var(--ana)}
 .kucuk-eylem{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .kucuk-eylem button{font-size:12.5px;padding:5px 10px}
 .eylem button:disabled,.yaz button:disabled{opacity:.5;cursor:default;transform:none}
@@ -1361,7 +1362,7 @@ button.git:hover{text-decoration:underline}
     YZ_GORUNEN = dizi;
     var sohbet = dizi.map(function (x, i) { return x.gizli ? '' : mesajHtml(x, i, kod); }).join('');
     if (!VERI.yz.etkin) sohbet += mesajHtml({ rol: 'yz', kim: m.yzAd, metin: T.yzKapali, tur: 'hesap', eylem: [{ et: 'Etkinleştir', yzAc: true }] }, 'k', kod).replace('data-mesaj="k"', 'data-yz-ac="1"');
-    var ust = kod === 'pazarlama' ? '' : '<button type="button" class="karar-dugme" data-git-masa="pazarlama" title="Stratejik bir soru mu? Masa YZ\'sine taşır">' + esc(T.masayaSor) + '</button>';
+    var ust = kod === 'pazarlama' ? '' : '<button type="button" class="karar-dugme" data-masaya-sor="1" title="Stratejik bir soru mu? Yazdığını ve bu konuşmanın son kısmını Pazarlama masasının YZ\'sine taşır">' + esc(T.masayaSor) + '</button>';
     var sec = igneSecimi ? '<div class="igne-sec"><span>Nereye iğneleyelim?</span>' +
       ['karar', 'fikir', 'pano'].map(function (h) { return '<button type="button" data-igne-hedef="' + h + '">' + esc(T.hedef[h]) + '</button>'; }).join('') +
       '<button type="button" data-igne-vazgec>Vazgeç</button></div>' : '';
@@ -1628,6 +1629,37 @@ button.git:hover{text-decoration:underline}
   // Yazı kutusu yazdıkça büyür (en çok ~6 satır).
   function boyutla() { var t = this && this.style ? this : $('yzSoru'); if (!t) return; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 150) + 'px'; }
 
+  // ===== Devir: modülden masaya taşıma (27 Kas) =====
+  // "Masaya sor": yazılan soru ve bu konuşmanın son kısmı Pazarlama masasına taşınır.
+  // Zarf { kaynak, hedef, soru, konusma } sayfa kodundan geçer ve bir kez kullanılır;
+  // masa YZ'si konuşmayı ilk soruyla birlikte, bilgi olarak okur. İleride Yönetim'in
+  // masalar arası trafiği de aynı zarfla taşınabilir.
+  var DEVIR = {};   // hedef sayfa → bekleyen devir { kaynak, konusma }
+  var SAYFA_AD = { pazarlama: 'Pazarlama', icerik: 'İçerik', gorunurluk: 'Görünürlük', yonetim: 'Yönetim' };
+  function masayaSor() {
+    var kod = VERI.masa.kod, hedef = 'pazarlama';
+    var soru = $('yzSoru') ? $('yzSoru').value.trim() : '';
+    var konusma = sohbetDizisi(kod).filter(function (x) { return !x.sistem && !x.tur && !x.gizli && x.metin; }).slice(-6)
+      .map(function (x) { return { rol: x.rol === 'yz' ? 'yz' : 'ins', metin: String(x.metin).slice(0, 600) }; });
+    document.querySelectorAll('dialog[open]').forEach(function (x) { x.close(); });
+    if ($('yzSoru')) $('yzSoru').value = '';
+    var devir = soru || konusma.length ? { kaynak: kod, hedef: hedef, soru: soru.slice(0, 2000), konusma: konusma } : null;
+    gonder(devir ? { tip: 'masaAc', masa: hedef, devir: devir } : { tip: 'masaAc', masa: hedef });
+  }
+  // Masa verisiyle gelen devir: sohbete not düşer, soru yazı kutusuna konur (insan gönderir).
+  function devirAl(d) {
+    if (!d || !SAYFA_AD[d.kaynak] || d.hedef !== VERI.masa.kod) return '';
+    var konusma = d.konusma || [], ad = SAYFA_AD[d.kaynak], yzAd = sayfaMetni(d.kaynak).yzAd;
+    DEVIR[d.hedef] = { kaynak: d.kaynak, konusma: konusma };
+    var metin = (konusma.length ? yzAd + ' ile son konuşman (' + konusma.length + ' mesaj) bu masaya taşındı; masa YZ\'si onu ilk sorunla birlikte okuyacak. ' : 'Sorun ' + ad + ' sayfasından taşındı. ') +
+      (d.soru ? 'Sorunu aşağıya yazdım; istersen düzelt, sonra gönder.' : 'Masaya ne sormak istediğini aşağıya yaz.');
+    sohbetDizisi(d.hedef).push({ rol: 'yz', kim: ad + '\'ten taşındı · ' + saat(), metin: metin, tur: 'devir', sistem: true, eylem: [{ et: 'Taşımayı bırak', devirBirak: d.hedef }] });
+    return d.soru || '';
+  }
+  function devirKullanildi(kod) {
+    sohbetDizisi(kod).forEach(function (x) { if (x.tur === 'devir' && x.eylem) x.eylem[0].kullanildi = true; });
+  }
+
   // ===== YZ sohbeti =====
   function sohbeteEkle(kod, m) { sohbetDizisi(kod).push(m); ciz(); var so = $('sohbet'); if (so) so.scrollTop = so.scrollHeight; }
 
@@ -1639,21 +1671,25 @@ button.git:hover{text-decoration:underline}
     var m = sayfaMetni(kod);
     if (!VERI.yz.etkin) { sohbeteEkle(kod, { rol: 'yz', kim: m.yzAd, metin: T.yzKapali, tur: 'hesap', eylem: [{ et: 'Etkinleştir', yzAc: true }] }); return; }
     var dizi = sohbetDizisi(kod);
-    var gecmis = dizi.filter(function (x) { return !x.sistem && !x.tur; }).slice(-8).map(function (x) { return { rol: x.rol, metin: x.metin }; });
+    var gecmis = dizi.filter(function (x) { return !x.sistem && !x.tur; }).slice(-8).map(function (x) { return { rol: x.rol, metin: x.gecmisMetin || x.metin }; });
+    var devir = !hazir && DEVIR[kod] ? DEVIR[kod] : null;
+    if (devir) { delete DEVIR[kod]; devirKullanildi(kod); }
     if (hazir) {
       // Düğme sorusu: sohbet geçmişinde etiketle durur, ekranda görünmez.
       dizi.push({ rol: 'ins', metin: '(' + (etiket || 'Soru') + ')', gizli: true });
     } else {
       if ($('yzSoru')) $('yzSoru').value = '';
-      sohbeteEkle(kod, { rol: 'ins', kim: (VERI.ben || 'Sen') + ' · ' + saat(), metin: soru });
+      // Devirle giden soru, sonraki cevaplarda da taşınan konuşmayla birlikte hatırlansın (kısaltılmış).
+      var gm = devir && devir.konusma.length ? '[' + sayfaMetni(devir.kaynak).yzAd + ' ile konuşmadan taşındı]\n' + devir.konusma.map(function (r) { return (r.rol === 'yz' ? sayfaMetni(devir.kaynak).yzAd : 'Kullanıcı') + ': ' + r.metin.slice(0, 250); }).join('\n') + '\n\nSoru: ' + soru : null;
+      sohbeteEkle(kod, { rol: 'ins', kim: (VERI.ben || 'Sen') + ' · ' + saat(), metin: soru, gecmisMetin: gm });
     }
     var bekleyen = { rol: 'yz', kim: m.yzAd, metin: T.yaziyor, tur: 'yaziyor', sistem: true };
     sohbeteEkle(kod, bekleyen);
     yzMesgul = true; ciz();
-    istek('yzSor', { sayfa: kod, soru: soru, hazir: hazir || null, gecmis: gecmis }).then(function (s) {
-      if (s.kapali || s.sinir || s.gunlukSinir) { if (s.yz) VERI.yz = s.yz; bitir({ rol: 'yz', kim: m.yzAd, metin: s.kapali ? T.yzKapali : s.sinir ? T.yzSinir : T.yzGunluk, tur: 'hesap' }); return; }
+    istek('yzSor', { sayfa: kod, soru: soru, hazir: hazir || null, gecmis: gecmis, devir: devir }).then(function (s) {
+      if (s.kapali || s.sinir || s.gunlukSinir) { if (devir) DEVIR[kod] = devir; if (s.yz) VERI.yz = s.yz; bitir({ rol: 'yz', kim: m.yzAd, metin: s.kapali ? T.yzKapali : s.sinir ? T.yzSinir : T.yzGunluk, tur: 'hesap' }); return; }
       bekle(s.istekId, Date.now());
-    }).catch(function (h) { bitir({ rol: 'yz', kim: m.yzAd, metin: h.message, tur: 'hata-m', sistem: true }); });
+    }).catch(function (h) { if (devir) DEVIR[kod] = devir; bitir({ rol: 'yz', kim: m.yzAd, metin: h.message, tur: 'hata-m', sistem: true }); });
 
     function bekle(istekId, bas) {
       setTimeout(function () {
@@ -1930,6 +1966,7 @@ button.git:hover{text-decoration:underline}
     if (t.hasAttribute('data-kapat')) { var dl = t.closest('dialog'); if (dl) dl.close(); return; }
     if (d.git === 'kp') { gonder({ tip: 'kontrolPaneli' }); return; }
     if (d.gor) { gonder({ tip: 'masaAc', masa: d.gor }); return; }
+    if (t.hasAttribute('data-masaya-sor')) { masayaSor(); return; }
     if (d.gitMasa) { document.querySelectorAll('dialog[open]').forEach(function (x) { x.close(); }); gonder({ tip: 'masaAc', masa: d.gitMasa }); return; }
     if (t.hasAttribute('data-yeni-is')) { gonder({ tip: 'yeniIs' }); return; }
     if (t.hasAttribute('data-kanal-ekle')) { kanalEkleFormu(); return; }
@@ -2020,6 +2057,7 @@ button.git:hover{text-decoration:underline}
     var kod = VERI.masa.kod;
     if (e.hazir) { yzGonder(null, null, e.hazir, e.et); return; }
     if (e.yzAc) { yzAyarFormu(); return; }
+    if (e.devirBirak) { delete DEVIR[e.devirBirak]; e.kullanildi = true; m.metin = 'Taşıma bırakıldı; masa YZ\'si o konuşmayı görmeyecek.'; ciz(); return; }
     if (e.yon) { dugme.disabled = true; islemYap('isYonlendir', { hedef: e.yon[0], isId: e.yon[1] }, e.yon[1] + ': ' + e.et + '.'); return; }
     if (e.karar) {
       e.kullanildi = true; ciz();
@@ -2037,7 +2075,12 @@ button.git:hover{text-decoration:underline}
       var onceki = VERI ? VERI.masa.kod : null;
       VERI = d.veri;
       if (onceki !== VERI.masa.kod) igneSecimi = null;
+      var devirSoru = d.devir ? devirAl(d.devir) : '';
       hazir = true; ciz();
+      if (d.devir && $('yzSoru')) {
+        var ta = $('yzSoru'); ta.value = devirSoru; boyutla.call(ta); ta.focus();
+        var so = $('sohbet'); if (so) so.scrollTop = so.scrollHeight;
+      }
     } else if (d.tip === 'masaHata') {
       hazir = true;
       $('sayfa').innerHTML = '<p class="hata-kutu">' + esc(d.hata || 'Masa yüklenemedi.') + '</p>';

@@ -41,18 +41,19 @@
 // panelden / masa sayfasından masa seçilirse panel ve form kapanır, masa
 // sayfası açılır. "Kontrol Paneli"ne dönünce tersi.
 //   masa → sayfa: { tip: 'masaHazir' }                 → (masa görünümündeyse) veriyi gönder
-//   masa → sayfa: { tip: 'masaAc', masa }              → o masayı aç
+//   masa → sayfa: { tip: 'masaAc', masa, devir? }      → o masayı aç; devir { kaynak, hedef, soru, konusma }
+//                                                         ("Masaya sor", 27 Kas) masa verisiyle bir kez gider
 //   masa → sayfa: { tip: 'kontrolPaneli' }             → panele dön
 //   masa → sayfa: { tip: 'isAc', isId }                → panele dön, işi aç
 //   masa → sayfa: { tip: 'yeniIs', taslak? }           → panele dön, iş formunu aç (tek kapı);
 //                                                         taslak { kategori, modul, aciklama } forma yazılır
 //   masa → sayfa: { tip: 'istek', id, islem, veri }    → masaIslem / YZ; cevap { tip: 'yanit', id, sonuc | hata }
-//                   islem 'yzSor' { sayfa, soru | hazir, gecmis } · 'yzSonuc' { istekId } · 'hafta' { hafta }
+//                   islem 'yzSor' { sayfa, soru | hazir, gecmis, devir? } · 'yzSonuc' { istekId } · 'hafta' { hafta }
 //                   · diğerleri backend/masaSayfasi.web.js ISLEMLER (sonra veri yenilenir)
 //   masa → sayfa: { tip: 'yapildi', isId, kapanisNotu } → Süleyman: kısa yol "Yapıldı"
 //   panel → sayfa: { tip: 'masaAc', masa }             → masa sayfasını aç
 //   panel → sayfa: { tip: 'geriBildirim', metin }      → GeriBildirimler'e yaz; cevap { tip: 'geriBildirimSonuc', basarili, hata }
-//   sayfa → masa: { tip: 'masaVerisi', veri, dil } / { tip: 'masaHata', hata }
+//   sayfa → masa: { tip: 'masaVerisi', veri, dil, devir? } / { tip: 'masaHata', hata }
 //   sayfa → masa: { tip: 'islemSonuc', basarili, mesaj | hata }
 //
 // Öğelerden biri sayfada yoksa diğeri yine çalışır.
@@ -78,6 +79,21 @@ const DIL = 'tr';             // İngilizce 21 Kasım'dan sonra (masa sayfası M
 let masaVar = false;
 let gorunum = 'panel';        // 'panel' | 'masa'
 let aktifMasa = null;
+let bekleyenDevir = null;     // "Masaya sor" zarfı; hedef masa açılınca bir kez gider
+
+// Devir zarfı (27 Kas): masalar arası taşınan soru ve konuşma. Burada süzülür;
+// YZ'ye giden metni backend (yzMasa.devirMetni) kurar.
+function devirTemizle(d) {
+  if (!d || typeof d !== 'object') return null;
+  const kaynak = String(d.kaynak || ''), hedef = String(d.hedef || '');
+  if (!MASA_KODLARI.includes(kaynak) || !MASA_KODLARI.includes(hedef) || kaynak === hedef) return null;
+  const konusma = (Array.isArray(d.konusma) ? d.konusma : []).slice(-6)
+    .map((m) => ({ rol: m && m.rol === 'yz' ? 'yz' : 'ins', metin: String((m && m.metin) || '').slice(0, 600) }))
+    .filter((m) => m.metin);
+  const soru = String(d.soru || '').slice(0, 2000);
+  if (!soru && !konusma.length) return null;
+  return { kaynak, hedef, soru, konusma };
+}
 let aktifHafta = null;        // İçerik takvimi / yayın planında seçili hafta (null = bu hafta)
 
 // Bu sayfanın sorgusuz adresi, ör. https://site.com/hap
@@ -124,13 +140,15 @@ function masaya(mesaj) {
 
 async function masaVerisiGonder() {
   if (!aktifMasa) return;
+  const devir = bekleyenDevir && bekleyenDevir.hedef === aktifMasa ? bekleyenDevir : null;
+  bekleyenDevir = null;
   try {
     const veri = await masaSayfasiVerisi(aktifMasa, { hafta: aktifHafta });
     if (veri && veri.yetkiYok) {
       masaya({ tip: 'masaHata', hata: yetkiMetni() });
       return;
     }
-    masaya({ tip: 'masaVerisi', veri, dil: DIL });
+    masaya(devir ? { tip: 'masaVerisi', veri, dil: DIL, devir } : { tip: 'masaVerisi', veri, dil: DIL });
   } catch (hata) {
     console.error('Masa sayfası verisi yüklenemedi:', hata);
     masaya({ tip: 'masaHata', hata: hataMetni(hata) });
@@ -367,7 +385,7 @@ const MASA_ISLEYICILERI = {
   async masaHazir() {
     if (gorunum === 'masa') await masaVerisiGonder();
   },
-  masaAc: (m) => masayaGec(String(m.masa || '')),
+  masaAc: (m) => { bekleyenDevir = devirTemizle(m.devir); return masayaGec(String(m.masa || '')); },
   kontrolPaneli: () => paneleGec(null),
   isAc: (m) => paneleGec(m.isId ? String(m.isId) : null),
   async yeniIs(m) {
@@ -381,7 +399,7 @@ const MASA_ISLEYICILERI = {
     const v = m.veri || {};
     try {
       if (m.islem === 'yzSor') {
-        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || [], v.hazir || null);
+        const s = await masaYzSor(v.sayfa, v.soru, v.gecmis || [], v.hazir || null, devirTemizle(v.devir));
         cevap(s && s.hata ? { hata: s.hata } : { sonuc: s });
       } else if (m.islem === 'yzSonuc') {
         cevap({ sonuc: await masaYzSonucu(v.istekId) });
