@@ -897,6 +897,13 @@ button.git:hover{text-decoration:underline}
 .gosterge .centik{stroke:var(--metin);stroke-width:2;stroke-dasharray:2 1}
 .gosterge .ibre{stroke:var(--metin);stroke-width:2;stroke-linecap:round}
 .gosterge .ibre-merkez{fill:var(--metin)}
+/* Büyük gösterge (Fatoş, 27 Kas): kadran iki kat, metinler altında ortalı; göz hemen fark etsin. */
+.gosterge-satir{flex-direction:column;align-items:center;gap:4px;text-align:center}
+.gosterge-satir>div{width:100%;display:grid;gap:3px}
+.gosterge-satir .baslik{justify-content:center;font-size:16px}
+.gosterge-satir .sayi{font-size:14px}
+.gosterge-satir .cubuk-etiket{justify-content:center;gap:6px 12px;flex-wrap:wrap}
+.tempo:has(.gosterge-satir){padding:14px 16px 12px}
 .tempo.sakin .gosterge{color:var(--yesil)}
 .tempo.uyari .gosterge{color:var(--sari)}
 .tempo:not(.sakin):not(.uyari):not(.hazirlik) .gosterge{color:var(--seftali-k)}
@@ -1160,7 +1167,7 @@ button.git:hover{text-decoration:underline}
     }
     var son = nokta(t.buAy / enCok, r), ibre = nokta(t.buAy / enCok, r - 9);
     var yay = t.buAy > 0 ? '<path class="deger" d="M' + (cx - r) + ' ' + cy + ' A' + r + ' ' + r + ' 0 0 1 ' + son[0] + ' ' + son[1] + '"/>' : '';
-    return '<svg class="gosterge" viewBox="0 0 84 50" width="84" height="50" aria-hidden="true">' +
+    return '<svg class="gosterge" viewBox="0 0 84 50" width="168" height="100" aria-hidden="true">' +
       '<path class="iz" d="M' + (cx - r) + ' ' + cy + ' A' + r + ' ' + r + ' 0 0 1 ' + (cx + r) + ' ' + cy + '"/>' + yay +
       cizgi(t.esik, 'isaret', r - 6, r + 6) + cizgi(t.hedef, 'isaret hedef', r - 6, r + 6) +
       (t.beklenen > 0 && t.beklenen < t.olcut ? cizgi(t.beklenen, 'centik', r + 1, r + 7) : '') +

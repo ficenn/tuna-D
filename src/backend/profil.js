@@ -40,7 +40,7 @@ const TEMPO_PSIKOLOG = {
   evreler: [['hazirlik', '1. Açılış hazırlığı'], ['olcum', '2. Ölçüm']],
   kaynaklar: [['elle', 'Seans sayısı (elle girilir)']],
   // Tempo kutusunun başlığı (27 Kas): psikologda "müşteri akışı" yok; ölçü seans sayısı.
-  etiketler: { sakin: 'Yolunda', uyari: 'Dikkat', kirmizi: 'Öncelik: seans sayısı', hazirlik: 'Açılış hazırlığı' },
+  etiketler: { sakin: 'Yolunda', uyari: 'Dikkat', kirmizi: 'Öncelik: eşiğe ulaşmak', hazirlik: 'Açılış hazırlığı' },
   aciklama: '<b>Açılış hazırlığı:</b> işletmeni açmaya hazırlanırken; alarm yok, seans sayısı Eşik\'le karşılaştırılmaz. <b>Ölçüm:</b> önce Eşik izlenir; 3 ay üst üste her ay Eşik aşılırsa Hedef\'e geçilir. Evre, Eşik ve Hedef senin kararın.'
 };
 
@@ -70,7 +70,7 @@ const ILK_ADIMLAR_PSIKOLOG = {
   icerik: [
     { ad: 'Sesini bul', aciklama: 'Nasıl konuşursun, kime nasıl hitap edersin? Üç cümle yeter.' },
     { ad: 'Havuza ilk 5 fikir', aciklama: 'Yarım fikir de fikirdir. Buraya at, kaybolmasın.' },
-    { ad: 'Haftalık ritmini seç', aciklama: 'Haftada kaç içerik, hangi günler? Sen belirle: sana uygun olanı söyle.' }
+    { ad: 'Haftalık ritmini seç', aciklama: 'Haftada kaç içerik, hangi günler? Sen belirle; mükemmel değil, gerçek olsun.' }
   ],
   gorunurluk: [
     { ad: 'Vitrinini düzenle', aciklama: 'Biri seni bugün bulsa ne görür? Unvanın, fotoğrafın, bion, iletişim yolun.' },
