@@ -266,6 +266,7 @@ export async function isleriGetir(simdi = new Date(), { yalnizAcik = false } = {
   const gorulen = new Set();
   const hepsi = [];
   for (const k of [...acik.items, ...(guncel ? guncel.items : [])]) {
+    if (k.silindi === true) continue; // silinen iş (000055): tempo, masa, istatistik ve YZ görmez
     const anahtar = k._id || k.isId;
     if (gorulen.has(anahtar)) continue;
     gorulen.add(anahtar);
@@ -300,7 +301,11 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const evre = EVRELER[a.evre] ? a.evre : 'olcum';
   const esik = Number(a.esik) > 0 ? Number(a.esik) : 4;
   const hedef = Number(a.hedef) > 0 ? Number(a.hedef) : 7;
-  const kaynak = a.kaynak === 'elle' ? 'elle' : 'kurulum';
+  // Kaynak profilin izin verdikleri arasından (27 Kas): psikologda kurulum sayımı yok, kayıt
+  // boşsa da 'elle' geçerli. Yoksa psikolog sitesi iş kayıtlarını "seans" diye sayıyordu (0).
+  const kural = await profilKurallari();
+  const izinli = kural.tempo.kaynaklar.map((k) => k[0]);
+  const kaynak = izinli.includes(a.kaynak) ? a.kaynak : (izinli.includes('kurulum') ? 'kurulum' : izinli[0]);
   const birim = kaynak === 'elle' ? 'seans' : 'kurulum';
   const ay = ayKodu(simdi);
   const gecen = oncekiAy(ay);
@@ -335,7 +340,7 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
   const olcut = hedefEvresi ? hedef : esik;
   const durum = evre === 'hazirlik' ? 'hazirlik' : tempoDurumu(buAy, olcut, oran);
   const sonuc = {
-    durum, etiket: TEMPO_ETIKETLERI[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
+    durum, etiket: (kural.tempo.etiketler || TEMPO_ETIKETLERI)[durum], evre, buAy, gecenAy, esik, hedef, birim, kaynak,
     esikAsilanAy, hedefEvresi, olcut, buAyGirildi: girildi.buAy, gecenAyGirildi: girildi.gecenAy,
     // Bugüne kadar beklenen (gösterge çentiği için).
     beklenen: Math.round(olcut * oran * 10) / 10,
@@ -355,7 +360,7 @@ export async function tempoHesapla(simdi = new Date(), kayitlar = null) {
     };
   }
   // Strateji ölçüsü (anket, KN) yalnızca tuna:D'de; psikologda açılış hazırlığı sakin kutudur.
-  if (evre === 'hazirlik' && (await profilKurallari()).kn) sonuc.strateji = await stratejiOlcusu(isler);
+  if (evre === 'hazirlik' && kural.kn) sonuc.strateji = await stratejiOlcusu(isler);
   return sonuc;
 }
 
@@ -611,6 +616,11 @@ export async function icerikleriGetir(hafta) {
   return { hafta: bas, gunler: Array.from({ length: 7 }, (_, i) => gunEkle(bas, i)), icerikler: haftaninlar, fikirler };
 }
 
+// Gönderi türü (000045, 27 Kas): içerik kartındaki eski serbest "Etiket" alanı artık
+// listeden seçilir. Alan adı (etiket) aynı kaldı; değer listedeki adın kendisidir.
+// Listede olmayan eski bir değer, kart düzenlenirken değiştirilmezse korunur.
+export const GONDERI_TURLERI = ['Gönderi', 'Kaydırmalı (karusel)', 'Hikâye', 'Reels', 'Video', 'Metin', 'Belge (PDF)', 'Anket', 'Diğer'];
+
 export async function icerikKaydet(veri, aktor) {
   const durum = ICERIK_DURUMLARI[veri.durum] ? veri.durum : 'fikir';
   const tarih = ymdKontrol(veri.tarih, 'Tarih');
@@ -623,14 +633,15 @@ export async function icerikKaydet(veri, aktor) {
     baslik: metin(veri.baslik, KISA, 'Başlık', true),
     tarih, saat: saatKontrol(veri.saat), kanal, durum,
     not: metin(veri.not, 8000, 'Not'),
-    etiket: metin(veri.etiket, 60, 'Etiket') || null,
+    etiket: metin(veri.etiket, 60, 'Gönderi türü') || null,
     sorumlu: metin(veri.sorumlu, 120, 'Sorumlu') || kim(aktor)
   };
-  if (veri.id) {
-    const eski = await wixData.get(ICERIK, String(veri.id), SA);
-    if (!eski) throw new Error('İçerik bulunamadı.');
-    return icerikSatiri(await wixData.update(ICERIK, { ...eski, ...alanlar }, SA));
+  const eski = veri.id ? await wixData.get(ICERIK, String(veri.id), SA) : null;
+  if (veri.id && !eski) throw new Error('İçerik bulunamadı.');
+  if (alanlar.etiket && !GONDERI_TURLERI.includes(alanlar.etiket) && !(eski && eski.etiket === alanlar.etiket)) {
+    throw new Error('Gönderi türü listeden seçilmeli.');
   }
+  if (eski) return icerikSatiri(await wixData.update(ICERIK, { ...eski, ...alanlar }, SA));
   return icerikSatiri(await wixData.insert(ICERIK, alanlar, SA));
 }
 

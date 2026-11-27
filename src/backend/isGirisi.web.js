@@ -15,7 +15,8 @@ import {
   isGirisiKaydet,
   isGuncelle
 } from './isGirisi';
-import { asamaEtiketi, durumEtiketi } from './suleyman';
+import { asamaEtiketi, durumEtiketi, silmeIsaretle } from './suleyman';
+import wixData from 'wix-data';
 import { profilKurallari, izinliler } from './profil';
 
 // İşi giren kişi (geçmişe yazılır). Editor Önizleme'de üye bilgisi
@@ -66,4 +67,28 @@ export const isiGuncelle = webMethod(Permissions.SiteMember, async (isId, girdi)
   await hapYetkisiGerekli(); // yalnızca HAP Ekibi rolündeki üyeler
   const aktor = { tur: 'insan', kim: await istekYapan() };
   return isGuncelle(isId, girdi, aktor);
+});
+
+// Kontrol Paneli → İş Detayı → "Sil" / "Geri al" (000055, basit sürüm). Kayıt silinmez,
+// işaretlenir; bu HAP'ta açık olmayan bir iş türü silinemez.
+async function silinebilirMi(isId) {
+  const id = String(isId || '').trim();
+  if (!id) throw new Error('İş ID eksik.');
+  const s = await wixData.query('IsKayitlari').eq('isId', id).limit(1).find({ suppressAuth: true });
+  if (!s.items.length) throw new Error(`İş bulunamadı: ${id}`);
+  const kategori = s.items[0].kategori || (s.items[0].source === 'Webhook' ? 'A' : null);
+  if (!kategori || !(await profilKurallari()).kategoriler.includes(kategori)) throw new Error('Bu iş buradan silinemez.');
+  return id;
+}
+
+export const isiSil = webMethod(Permissions.SiteMember, async (isId, neden) => {
+  await hapYetkisiGerekli();
+  const id = await silinebilirMi(isId);
+  return silmeIsaretle(id, true, { tur: 'insan', kim: await istekYapan() }, neden);
+});
+
+export const isiGeriAl = webMethod(Permissions.SiteMember, async (isId) => {
+  await hapYetkisiGerekli();
+  const id = await silinebilirMi(isId);
+  return silmeIsaretle(id, false, { tur: 'insan', kim: await istekYapan() });
 });

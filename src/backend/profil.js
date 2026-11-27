@@ -39,6 +39,8 @@ const TEMPO_TUNAD = {
 const TEMPO_PSIKOLOG = {
   evreler: [['hazirlik', '1. Açılış hazırlığı'], ['olcum', '2. Ölçüm']],
   kaynaklar: [['elle', 'Seans sayısı (elle girilir)']],
+  // Tempo kutusunun başlığı (27 Kas): psikologda "müşteri akışı" yok; ölçü seans sayısı.
+  etiketler: { sakin: 'Yolunda', uyari: 'Dikkat', kirmizi: 'Öncelik: eşiğe ulaşmak', hazirlik: 'Açılış hazırlığı' },
   aciklama: '<b>Açılış hazırlığı:</b> işletmeni açmaya hazırlanırken; alarm yok, seans sayısı Eşik\'le karşılaştırılmaz. <b>Ölçüm:</b> önce Eşik izlenir; 3 ay üst üste her ay Eşik aşılırsa Hedef\'e geçilir. Evre, Eşik ve Hedef senin kararın.'
 };
 
@@ -93,17 +95,29 @@ export async function kurulumProfili() {
   }
 }
 
-// Kurulum kaydındaki işletme adı (000044'ün ilk adımı, 26 Kas): masa sayfasının
-// logosunun yanında görünür. Ad girilmemişse psikolog sitesinde boş kalır; tuna:D'nin
-// adı yalnızca kendi sitemizde çıkar.
-export async function isletmeAdi() {
+// İşletme kimliği (000044): kurulum kaydındaki ad ve logo, masa sayfasının sol üstünde
+// HAP logosunun altında görünür. Ad girilmemişse psikolog sitesinde boş kalır; tuna:D'nin
+// adı yalnızca kendi sitemizde çıkar. Logo HapAyarlari 'kurulum'.logo alanındadır (CMS'te
+// Görsel alanı ya da https adresi); Wix görseli tarayıcının açabileceği adrese çevrilir.
+export function logoAdresi(deger) {
+  const s = typeof deger === 'string' ? deger.trim() : (deger && typeof deger.src === 'string' ? deger.src.trim() : '');
+  const wix = /^wix:image:\/\/v1\/([^/#?]+)/.exec(s);
+  if (wix) return `https://static.wixstatic.com/media/${wix[1]}`;
+  return /^https:\/\/[^\s"'<>]+$/.test(s) ? s.slice(0, 500) : '';
+}
+
+export async function isletmeKimligi() {
   try {
     const k = await wixData.get('HapAyarlari', 'kurulum', { suppressAuth: true });
     const ad = k && typeof k.isletmeAdi === 'string' ? k.isletmeAdi.trim().slice(0, 40) : '';
-    return ad || (k && k.profil === 'tunad' ? 'tuna:D' : '');
+    return { ad: ad || (k && k.profil === 'tunad' ? 'tuna:D' : ''), logo: logoAdresi(k && k.logo) };
   } catch (hata) {
-    return '';
+    return { ad: '', logo: '' };
   }
+}
+
+export async function isletmeAdi() {
+  return (await isletmeKimligi()).ad;
 }
 
 export async function profilKurallari() {

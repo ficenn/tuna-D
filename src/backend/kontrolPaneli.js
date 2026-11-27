@@ -59,7 +59,9 @@ const ISLEM_ETIKETLERI = {
   durak_atlandi: 'Durak atlandı',
   talep_zaman_asimi: 'Talep gelmedi (zaman aşımı)',
   form_cevaplari_silindi: 'Form cevapları silindi (KVKK)',
-  yz_basarisiz: 'YZ analizi başarısız'
+  yz_basarisiz: 'YZ analizi başarısız',
+  is_silindi: 'İş silindi',
+  is_geri_alindi: 'Silme geri alındı'
 };
 
 // Masalar koleksiyonunda satırı henüz olmayan masalar için ad.
@@ -244,7 +246,11 @@ export async function panelVerisiHazirla(simdi = new Date()) {
     .find({ suppressAuth: true });
 
   const musteriler = await musteriAdlari(sonuc.items.map((k) => k.musteri));
-  const isler = sonuc.items.map((k) => satir(k, musteriler, simdi));
+  // Silinen işler (000055) listeye, gündeme ve sayılara girmez; "Silinenler"de ayrı durur.
+  const isler = sonuc.items.filter((k) => k.silindi !== true).map((k) => satir(k, musteriler, simdi));
+  const silinenler = sonuc.items.filter((k) => k.silindi === true).map((k) => ({
+    ...satir(k, musteriler, simdi), silindi: true, silinmeTarihi: k.silinmeTarihi || null, silen: k.silen || null
+  })).sort((a, b) => String(b.silinmeTarihi || '').localeCompare(String(a.silinmeTarihi || '')));
   const gundem = gundemHesapla(isler, simdi);
 
   return {
@@ -252,7 +258,8 @@ export async function panelVerisiHazirla(simdi = new Date()) {
     bugun: bugunTR(simdi),
     ...(await profilGorunumu()), // KP filtre düğmeleri, masa bağlantıları, müşteri sütunu (000090)
     gundem,
-    isler
+    isler,
+    silinenler
   };
 }
 
@@ -297,8 +304,8 @@ export async function isDetayiHazirla(isId) {
   const gecmis = (Array.isArray(k.gecmis) ? k.gecmis : []).map((g) => ({
     tarih: g.tarih || null,
     islem: g.etiket || ISLEM_ETIKETLERI[g.islem] || g.islem,
-    onceki: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz'].includes(g.islem) ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
-    yeni: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz'].includes(g.islem) ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
+    onceki: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz', 'is_silindi', 'is_geri_alindi'].includes(g.islem) ? null : g.onceki ? `${asamaEtiketi(g.onceki.asama) || g.onceki.asama} / ${durumEtiketi(g.onceki.asama, g.onceki.durum) || g.onceki.durum}` : null,
+    yeni: ['kayit_guncellendi', 'form_cevaplari_silindi', 'yz_basarisiz', 'is_silindi', 'is_geri_alindi'].includes(g.islem) ? null : g.yeni ? `${asamaEtiketi(g.yeni.asama) || g.yeni.asama} / ${durumEtiketi(g.yeni.asama, g.yeni.durum) || g.yeni.durum}` : null,
     kim: g.aktor ? `${g.aktor.kim}${g.aktor.tur ? ' (' + g.aktor.tur + ')' : ''}` : '',
     not: g.not || null
   }));
@@ -353,7 +360,7 @@ export async function isDetayiHazirla(isId) {
   const bagliIsler = [];
   try {
     const altlar = await wixData.query(IS).eq('bagliIs', id).limit(50).find({ suppressAuth: true });
-    for (const a of altlar.items) bagliIsler.push({ isId: a.isId, baslik: baslik(a), kategoriKisa: KATEGORI_KISA[a.kategori] || '—', yon: 'alt' });
+    for (const a of altlar.items.filter((x) => x.silindi !== true)) bagliIsler.push({ isId: a.isId, baslik: baslik(a), kategoriKisa: KATEGORI_KISA[a.kategori] || '—', yon: 'alt' });
     if (k.bagliIs) {
       const ana = await wixData.query(IS).eq('isId', String(k.bagliIs)).limit(1).find({ suppressAuth: true });
       if (ana.items.length) bagliIsler.push({ isId: ana.items[0].isId, baslik: baslik(ana.items[0]), kategoriKisa: 'Ana iş', yon: 'ana' });
@@ -397,8 +404,22 @@ export async function isDetayiHazirla(isId) {
     masa = { kod: k.atananMasa, ad: ad || MASA_YEDEK_ADLARI[k.atananMasa] || k.atananMasa };
   }
 
+  // Silme (000055): silinen işte yalnızca "Geri al" var; açık ya da kapalı her işte "Sil".
+  const silinme = k.silindi === true
+    ? { tarih: k.silinmeTarihi || null, kim: k.silen || null, neden: k.silmeNedeni || null }
+    : null;
+  if (silinme) {
+    islemler.length = 0;
+    islemler.push('geriAl');
+    duzenleme = null;
+    durak = null;
+  } else {
+    islemler.push('sil');
+  }
+
   return {
     ...ozet,
+    silinme,
     musteriBilgisi: musteri,
     kapsam: b?.kapsam || null,
     girisNotu: b?.girisNotu || null,

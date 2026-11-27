@@ -229,6 +229,11 @@
   .islem-kutu.yapildi { background: var(--yesil-z); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .islem-kutu.durak { background: var(--ana-acik); }
   .islem-kutu.kapali { background: var(--gri-z); }
+  /* İş silme (000055) */
+  .islem-kutu.sil { background: transparent; border: 1px dashed var(--cizgi); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .islem-kutu.sil input { flex: 1 1 200px; padding: 6px 8px; border: 1px solid var(--cizgi); border-radius: 8px; font: inherit; }
+  .islem-kutu.silindi { background: var(--bugun-z); border: 1px solid var(--bugun-c); }
+  .dugme.sil-dugme { background: #fff; color: var(--bugun); border: 1px solid var(--bugun-c); }
   .durak-bas { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .durak-bas b { font-size: 15px; color: var(--ana-koyu); }
   .durak-bilgi { margin: 4px 0 0; font-size: 13px; }
@@ -361,6 +366,7 @@
         <span class="ayrac" aria-hidden="true"></span>
         <button type="button" class="cip cip-acil" id="acilFiltre" aria-pressed="false" title="Yalnız acil işleri göster">Acil <span id="acilSayi"></span></button>
         <button type="button" class="cip" data-kapsam="arsiv">Arşiv</button>
+        <button type="button" class="cip" data-kapsam="silinen" id="silinenCip" hidden>Silinenler</button>
         <button type="button" class="cip secili kapat" id="ozelFiltre" hidden></button>
         <label class="arama"><svg class="ikon" style="width:16px;height:16px;flex-basis:16px;color:var(--soluk)"><use href="#s-ara"/></svg><input type="search" id="ara" placeholder="İş no, başlık…" aria-label="İşlerde ara"></label>
       </div>
@@ -547,10 +553,10 @@ window.HAP = { secenekler: null };
 
   function kapsamSec(k, ozeliKoru) {
     filtre.kapsam = k;
-    if (k === 'arsiv' && filtre.acil) acilKur(false);
+    if ((k === 'arsiv' || k === 'silinen') && filtre.acil) acilKur(false);
     if (!ozeliKoru && (filtre.gun || filtre.idler)) { filtre.gun = null; filtre.idler = null; $('ozelFiltre').hidden = true; if (veri) takvimCiz(); }
     [].forEach.call(document.querySelectorAll('[data-kapsam]'), function (x) { x.classList.toggle('secili', x.getAttribute('data-kapsam') === k); });
-    $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Kapanan İşler' : 'Şimdi Çalışılacak İşler';
+    $('listeBaslik').textContent = k === 'arsiv' ? 'Arşiv: Kapanan İşler' : k === 'silinen' ? 'Silinen İşler (geri alınabilir)' : 'Şimdi Çalışılacak İşler';
   }
   // Kurulum profili (000090): bu HAP'ta açık olmayan iş türlerinin filtresi görünmez
   // (ör. psikologda yalnızca Pazarlama ve Yapılacaklar). Liste arka uçtan gelir.
@@ -632,9 +638,9 @@ window.HAP = { secenekler: null };
 
   function filtrelenmis() {
     var q = kucult(filtre.metin.trim());
-    var arsiv = filtre.kapsam === 'arsiv';
-    return sirala(veri.isler.filter(function (i) {
-      if (arsiv ? i.acik : !i.acik) return false;
+    var arsiv = filtre.kapsam === 'arsiv', silinen = filtre.kapsam === 'silinen';
+    return sirala((silinen ? (veri.silinenler || []) : veri.isler).filter(function (i) {
+      if (!silinen && (arsiv ? i.acik : !i.acik)) return false;
       if (filtre.kapsam === 'A') { if (i.kategoriKod !== 'A' && i.kategoriKod !== 'KN') return false; }
       else if (['B', 'C', 'D', 'Y'].indexOf(filtre.kapsam) !== -1) { if (i.kategoriKod !== filtre.kapsam) return false; }
       if (filtre.acil && i.aciliyet !== 'acil') return false;
@@ -652,6 +658,7 @@ window.HAP = { secenekler: null };
     var metin, m;
     if (!veri.isler.length) { m = 'm-defter'; metin = 'Henüz iş yok. “+ Yeni İş” ile ilk işi ekleyin.'; }
     else if (filtre.kapsam === 'arsiv' && !filtre.metin) { m = 'm-kutu'; metin = 'Arşiv boş. Yapılan işler burada birikir.'; }
+    else if (filtre.kapsam === 'silinen' && !filtre.metin) { m = 'm-kutu'; metin = 'Silinen iş yok.'; }
     else if (filtre.metin) { m = 'm-bitki'; metin = 'Aramaya uyan iş yok.'; }
     else if (filtre.acil) { m = 'm-cay'; metin = 'Acil iş yok. Ne güzel.'; }
     else { m = 'm-cay'; metin = 'Burada iş yok. Keyfinize bakın.'; }
@@ -663,8 +670,10 @@ window.HAP = { secenekler: null };
     var liste = filtrelenmis();
     var acik = veri.isler.filter(function (i) { return i.acik; });
     var acilSay = acik.filter(function (i) { return i.aciliyet === 'acil'; }).length;
-    $('acikSayi').textContent = acik.length; $('acikSayi').hidden = false;
-    $('acikSayi').title = acik.length + ' açık iş';
+    // Başlıktaki sayaç: Silinenler'de silinen iş sayısı, diğer görünümlerde açık iş sayısı (000055).
+    var silinenGorunum = filtre.kapsam === 'silinen', sayacSayi = silinenGorunum ? (veri.silinenler || []).length : acik.length;
+    $('acikSayi').textContent = sayacSayi; $('acikSayi').hidden = false;
+    $('acikSayi').title = sayacSayi + (silinenGorunum ? ' silinen iş' : ' açık iş');
     $('acilSayi').textContent = acilSay ? '· ' + acilSay : '';
     var sayfaSayisi = Math.max(1, Math.ceil(liste.length / SAYFA_BOYU));
     if (sayfa > sayfaSayisi) sayfa = sayfaSayisi;
@@ -685,7 +694,7 @@ window.HAP = { secenekler: null };
       ic.appendChild(m); h.appendChild(ic); tr.appendChild(h);
       var mk = el('td', 'mk'); mk.appendChild(el('div', null, i.musteri)); mk.appendChild(el('div', 'kucuk', i.kaynak)); tr.appendChild(mk);
       var d = el('td'); d.appendChild(rozet(i));
-      d.appendChild(el('div', 'kucuk', yerMetni(i))); tr.appendChild(d);
+      d.appendChild(el('div', 'kucuk', i.silindi ? 'Silindi' + (i.silinmeTarihi ? ' · ' + saatTR(i.silinmeTarihi) : '') : yerMetni(i))); tr.appendChild(d);
       tr.appendChild(el('td', i.termin && i.acik && i.termin < veri.bugun ? 'gecti' : null, tarihTR(i.termin)));
       tr.appendChild(el('td', 'ok', '›'));
       tr.addEventListener('click', function () { detayAc(i.isId); });
@@ -697,6 +706,8 @@ window.HAP = { secenekler: null };
   function hepsiniCiz() {
     if (!veri) return;
     ustuCiz();
+    // "Silinenler" yalnızca silinen iş varken (ya da o listedeyken) görünür (000055).
+    $('silinenCip').hidden = !((veri.silinenler && veri.silinenler.length) || filtre.kapsam === 'silinen');
     gundemCiz(veri.gundem.bugun, 'bugunListe', 'bugunSayi', 'bugunDaha', { motif: 'm-cay', metin: 'Bugün sakin. Bir çay koyun.' },
       function (g) { return g.etiket; }, 'Bugün');
     gundemCiz(veri.gundem.yaklasiyor, 'yakinListe', 'yakinSayi', 'yakinDaha', { motif: 'm-bitki', metin: 'Önümüzdeki 7 gün boş görünüyor.' },
@@ -981,6 +992,30 @@ window.HAP = { secenekler: null };
     ust.appendChild(satir);
   }
 
+  // İş silme (000055, basit sürüm): iki tıklama; neden isteğe bağlı. Kayıt silinmez,
+  // "Silinenler"e geçer ve oradan geri alınır. İş no tekrar kullanılmaz.
+  function silCiz(ust, d) {
+    var k = el('div', 'islem-kutu sil');
+    var b = el('button', 'dugme sil-dugme', '🗑 İşi sil'); b.type = 'button'; b.id = 'silBtn';
+    k.appendChild(b);
+    var ne = el('input'); ne.type = 'text'; ne.maxLength = 500; ne.placeholder = 'Neden? (isteğe bağlı) ör. yanlışlıkla açıldı, mükerrer'; ne.hidden = true;
+    k.appendChild(ne);
+    var vz = el('button', 'dugme ikincil', 'Vazgeç'); vz.type = 'button'; vz.hidden = true; k.appendChild(vz);
+    var sm = el('div', 'mesaj'); sm.id = 'silMesaj'; sm.setAttribute('role', 'status'); sm.style.flexBasis = '100%'; k.appendChild(sm);
+    var onay = false;
+    b.addEventListener('click', function () {
+      if (!onay) {
+        onay = true; b.textContent = 'Evet, sil'; ne.hidden = false; vz.hidden = false; ne.focus();
+        mesaj('silMesaj', '', 'İş listeden, tempodan ve YZ\'nin okuduğundan çıkar; "Silinenler"den geri alabilirsin.');
+        return;
+      }
+      b.disabled = true; mesaj('silMesaj', 'bilgi', 'Siliniyor…');
+      gonder({ tip: 'isiSil', isId: d.isId, neden: ne.value.trim() });
+    });
+    vz.addEventListener('click', function () { onay = false; b.textContent = '🗑 İşi sil'; ne.hidden = true; vz.hidden = true; mesaj('silMesaj', '', ''); });
+    ust.appendChild(k);
+  }
+
   function detayiCiz(d) {
     sonDetay = d;
     var ic = $('detayIcerik'); ic.innerHTML = '';
@@ -991,6 +1026,18 @@ window.HAP = { secenekler: null };
     ic.appendChild(ust);
     ic.appendChild(el('div', 'detay-baslik', d.baslik));
     paylasCiz(ic, d);
+
+    // Silinen iş (000055): yalnızca bilgi ve "Geri al".
+    if (d.silinme) {
+      var sk = el('div', 'islem-kutu silindi');
+      sk.appendChild(el('div', null, 'Bu iş silindi' + (d.silinme.tarih ? ' (' + saatTR(d.silinme.tarih) + (d.silinme.kim ? ', ' + d.silinme.kim : '') + ')' : '') + '. Listede, tempoda ve YZ\'nin okuduğu yerlerde görünmüyor.'));
+      if (d.silinme.neden) sk.appendChild(el('div', 'kucuk', 'Neden: ' + d.silinme.neden));
+      var ga = el('button', 'dugme', '↺ Geri al'); ga.type = 'button'; ga.id = 'geriAlBtn'; ga.style.marginTop = '8px';
+      ga.addEventListener('click', function () { ga.disabled = true; mesaj('silMesaj', 'bilgi', 'Geri alınıyor…'); gonder({ tip: 'isiGeriAl', isId: d.isId }); });
+      sk.appendChild(ga);
+      var sm0 = el('div', 'mesaj'); sm0.id = 'silMesaj'; sm0.setAttribute('role', 'status'); sk.appendChild(sm0);
+      ic.appendChild(sk);
+    }
 
     if (d.islemler.indexOf('yapildi') !== -1) {
       var cozumTa = null;
@@ -1143,6 +1190,7 @@ window.HAP = { secenekler: null };
       });
       gb.appendChild(ul);
     }
+    if (d.islemler.indexOf('sil') !== -1) silCiz(ic, d);
     $('detayIcerik').scrollTop = 0;
     setTimeout(solmaGuncelle, 0);
   }
@@ -1205,13 +1253,15 @@ window.HAP = { secenekler: null };
         $('gbMesaj').textContent = m.hata || 'Kaydedilemedi.';
       }
     } else if (m.tip === 'islemSonuc') {
-      ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet', 'yzTekrarBtn'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
+      ['yzsizBtn', 'yapildiBtn', 'duzenleKaydet', 'yzTekrarBtn', 'silBtn', 'geriAlBtn'].forEach(function (id) { if ($(id)) $(id).disabled = false; });
       [].forEach.call(document.querySelectorAll('.durak-btn'), function (b) { b.disabled = false; });
       if (m.basarili) {
         mesaj('genelMesaj', 'tamam', m.mesaj || 'İşlem tamamlandı.');
         clearTimeout(window._mesajZamani);
         window._mesajZamani = setTimeout(function () { if ($('genelMesaj').className.indexOf('tamam') !== -1) mesaj('genelMesaj', '', ''); }, 6000);
         if (acikDetay) { sonIslem = { isId: acikDetay, metin: m.mesaj || 'İşlem tamamlandı.' }; gonder({ tip: 'isDetayi', isId: acikDetay }); }
+      } else if ($('silMesaj') && $('silMesaj').className.indexOf('bilgi') !== -1) {
+        mesaj('silMesaj', 'hata', m.hata || 'İşlem yapılamadı.');
       } else if ($('duzenleMesaj') && $('duzenleMesaj').className.indexOf('bilgi') !== -1) {
         mesaj('duzenleMesaj', 'hata', m.hata || 'Kaydedilemedi.');
       } else if ($('durakMesaj') && $('durakMesaj').className.indexOf('bilgi') !== -1) {
