@@ -185,7 +185,7 @@ export async function durumMetni(sayfa, simdi = new Date()) {
       : `İçerik ritmi: haftalık ritim henüz belirlenmedi (İçerik sayfasındaki şeritten seçilir). Haftada kaç içerik olması gerektiğini sen söyleme; ritmi kullanıcıya sor ya da belirlemesini öner. Bu hafta ${doluGunler.size} gün planlı içerik var.`,
     `Fikir havuzu: ${hafta.fikirler.map((f) => f.baslik).slice(0, 15).join(' | ') || '(boş)'}`,
     '',
-    'İğnelenenler (kullanıcının "önümde dursun" dediği notlar, yeniden eskiye):',
+    'Mantar pano (iğnelenenler; kullanıcının "önümde dursun" dediği notlar, yeniden eskiye):',
     ...(igneler.length ? igneler.slice(0, 8).map((i) => `- ${String(i.metin || '').replace(/\s+/g, ' ').slice(0, 160)} (${i.hedefEtiketi || i.hedef}${i.tarih ? `, ${String(i.tarih).slice(0, 10)}` : ''})`) : ['- (yok)']),
     '',
     'Haftalık istatistik (yeniden eskiye):',

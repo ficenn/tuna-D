@@ -44,7 +44,7 @@ const IS = 'IsKayitlari';
 
 export const KARAR_DURUMLARI = { oneri: 'Onay bekliyor', gecerli: 'Geçerli', reddedildi: 'Reddedildi', arsiv: 'Arşivde' };
 export const GEREKEN_ONAY = { masa: 1, yonetim: 2 };
-export const IGNE_HEDEFLERI = { karar: 'Karar önerisi', fikir: 'Fikir havuzu', pano: 'Pano' };
+export const IGNE_HEDEFLERI = { karar: 'Karar önerisi', fikir: 'Fikir havuzu', pano: 'Mantar pano' };
 export const ICERIK_DURUMLARI = { fikir: 'Fikir', planlandi: 'Planlandı', yayinda: 'Yayında' };
 export const KANAL_ADLARI = ['Instagram', 'LinkedIn', 'Facebook', 'Diğer'];
 export const KANAL_DURUMLARI = { guncel: 'Güncel', bekliyor: 'Düzeltme bekliyor', kontrol: 'Kontrol edilmedi' };
